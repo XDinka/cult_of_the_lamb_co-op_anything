@@ -42,6 +42,8 @@ namespace COTLMP.Game
             public SkeletonAnimation Spine;
             public UnitObject[] Units;
             public Vector3? Target;
+            /* The model's own height above the unit (spawn drops, flyers), from the owner */
+            public float? SpineZ;
             public float ScaleX = 1f;
             public string Animation;
             public bool Loop;
@@ -346,14 +348,16 @@ namespace COTLMP.Game
             for (int Index = 0; Index < Count; Index++)
             {
                 int Id = Reader.ReadInt32();
-                float X = Reader.ReadSingle(), Y = Reader.ReadSingle(), ScaleX = Reader.ReadSingle();
+                float X = Reader.ReadSingle(), Y = Reader.ReadSingle(), Z = Reader.ReadSingle(), SpineZ = Reader.ReadSingle(), ScaleX = Reader.ReadSingle();
                 string Animation = Reader.ReadString();
                 bool Loop = Reader.ReadBoolean();
 
                 if (!Use || !FollowedByHash.TryGetValue(Id, out Followed Entry) || Entry.Enemy == null)
                     continue;
 
-                Entry.Target = new Vector3(X, Y, Entry.Enemy.transform.position.z);
+                /* Height too: enemies that drop in from above would otherwise stay up there */
+                Entry.Target = new Vector3(X, Y, Z);
+                Entry.SpineZ = SpineZ;
                 Entry.ScaleX = ScaleX;
                 Entry.LastSeen = Now;
                 Entry.SeenOnce = true;
@@ -426,6 +430,14 @@ namespace COTLMP.Game
                                 Entry.Body.position = Next;
                                 Entry.Body.MovePosition(Next);
                             }
+                        }
+
+                        if (Entry.Spine != null && Entry.SpineZ.HasValue && Entry.Spine.transform != Entry.Enemy.transform)
+                        {
+                            Transform Model = Entry.Spine.transform;
+                            Vector3 Local = Model.localPosition;
+                            Local.z = Mathf.Lerp(Local.z, Entry.SpineZ.Value, 1f - Mathf.Exp(-FollowRate * Time.deltaTime));
+                            Model.localPosition = Local;
                         }
 
                         if (Entry.Spine != null && Entry.Spine.Skeleton != null)
@@ -502,6 +514,8 @@ namespace COTLMP.Game
                                 Writer.Write(Id);
                                 Writer.Write(Position.x);
                                 Writer.Write(Position.y);
+                                Writer.Write(Position.z);
+                                Writer.Write(Spine != null && Spine.transform != Enemy.transform ? Spine.transform.localPosition.z : 0f);
                                 Writer.Write(Spine != null && Spine.Skeleton != null ? Spine.Skeleton.ScaleX : 1f);
                                 Writer.Write(Track?.Animation?.Name ?? "");
                                 Writer.Write(Track?.Loop ?? true);
