@@ -1,0 +1,290 @@
+﻿/*
+ * PROJECT:     Cult of the Lamb Multiplayer Mod
+ * LICENSE:     MIT (https://spdx.org/licenses/MIT)
+ * PURPOSE:     Main plugin startup code file
+ * COPYRIGHT:	Copyright 2025-2026 GeoB99 <geobman1999@gmail.com>
+ */
+
+/* IMPORTS ********************************************************************/
+
+using BepInEx;
+using BepInEx.Configuration;
+using BepInEx.Logging;
+using COTLMP.Api;
+using COTLMP.Data;
+using COTLMP.Ui;
+using HarmonyLib;
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using UnityEngine;
+using static COTLMPServer.Data.GameModes;
+
+/* NAMESPACES *****************************************************************/
+
+/* Main COTL MP plugin startup namespace */
+namespace COTLMP;
+
+/* CLASSES & CODE *************************************************************/
+
+/* Initialize the base BepInEx attributes of the mod plug-in */
+[BepInPlugin(COTLMP.Data.Version.CotlMpGuid, COTLMP.Data.Version.CotlMpName, COTLMP.Data.Version.CotlMpVer)]
+
+/* COTL API is mandatorily required for the mod to run */
+[BepInDependency("io.github.xhayper.COTL_API", BepInDependency.DependencyFlags.HardDependency)]
+
+/// <summary>
+/// Creates the COTL MP plug-in instance and initializes the critical COTL MP data.
+/// </summary>
+public class Plugin : BaseUnityPlugin
+{
+    internal static string CotlmpPathLocation;
+    internal static new ManualLogSource Logger;
+    internal static new ConfigFile Config;
+    internal static ModDataGlobals Globals;
+    internal static InternalData GlobalsInternal;
+    internal static AssetBundle ModScenesBundle;
+    internal static AssetBundle ModPrefabsBundle;
+    internal static MonoBehaviour MonoInstance;
+    private Harmony HarmonyInstance;
+
+    /// <summary>
+    /// Executes initialization code as the mod is being loaded by BepInEx.
+    /// </summary>
+    private void Awake()
+    {
+        System.Object SettingData;
+        int MaxPlayers;
+        string ServerName, PlayerName, ServerPassowrd;
+        bool ToggleMod, VoiceChat, ProtectServer;
+        bool Success;
+        GameMode Mode;
+
+        /*
+         * Start patching the game assembly with our code
+         * and cache a harmony instance of this mod.
+         */
+        HarmonyInstance = Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
+
+        /* Cache the path location of the COTLMP mod */
+        CotlmpPathLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+        /*
+         * Cache the plugin class methods and the Mono instance so that the
+         * COTL MP mod can use them across different modules.
+         */
+        Logger = base.Logger;
+        Config = base.Config;
+        MonoInstance = this;
+
+        /* Fetch the flags and switches of the mod, reserved for internal use */
+        GlobalsInternal = new InternalData();
+
+        /* Load the localizations of the mod */
+        COTLMP.Api.Localization.LoadLocale("English");
+
+        /*
+         * Initialize the settings of the mod to defaults in following
+         * order, first the "Toggle Mod" setting. If the user configuration
+         * file has already been created the function will simply load
+         * the configuration entry of each setting.
+         */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ModSettings,
+                                                             "Toggle Mod",
+                                                             "Enables or Disables the Multiplayer mod. This setting has to be changed manually here!",
+                                                             true);
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Mod Toggle\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        ToggleMod = COTLMP.Api.Configuration.GetSettingData<bool>(SettingData, false);
+
+        /* Initialize the "Player Name" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ModSettings,
+                                                             "Player Name",
+                                                             "The name of the player in-game",
+                                                             "The Player");
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Player Name\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        PlayerName = COTLMP.Api.Configuration.GetSettingData<string>(SettingData, false);
+
+        /* Initialize the "Game Mode" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
+                                                             "Game Mode",
+                                                             "The game mode for the multiplayer server. Possible values are: 0 = Standard, 1 = Deathmatch, 2 = Boss Fight, 3 = Zombies",
+                                                             (int)GameMode.Standard);
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Game Mode\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        Mode = COTLMP.Api.Configuration.GetSettingData<GameMode>(SettingData, true);
+
+        /* Initialize the "Server Name" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
+                                                             "Server Name",
+                                                             "The name of the server",
+                                                             "Cult of the Lamb Server");
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Server Name\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        ServerName = COTLMP.Api.Configuration.GetSettingData<string>(SettingData, false);
+
+        /* Initialize the "Max Players In Server" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
+                                                             "Max Players",
+                                                             "The maximum count of players that can join a server",
+                                                             12);
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Max Players\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        MaxPlayers = COTLMP.Api.Configuration.GetSettingData<int>(SettingData, false);
+
+        /* Initialize the "Enable Voice Chat" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
+                                                             "Toggle Voice Chat",
+                                                             "Enables or Disables voice chat in a server",
+                                                             false);
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Toggle Voice Chat\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        VoiceChat = COTLMP.Api.Configuration.GetSettingData<bool>(SettingData, false);
+
+        /* Initialize the "Server Password" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
+                                                             "Server Password",
+                                                             "Ask the player for a password to be submitted when joining the server",
+                                                             "MyPassword");
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Server Password\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        ServerPassowrd = COTLMP.Api.Configuration.GetSettingData<string>(SettingData, false);
+
+        /* Initialize the "Protect Server" setting */
+        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
+                                                             "Protect Server",
+                                                             "Should the server be protected with a password when players join the server",
+                                                             false);
+        if (SettingData == null)
+        {
+            Logger.LogFatal("Failed to set default or load the \"Protect Server\" setting!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Retrieve the setting data from the setting object */
+        ProtectServer = COTLMP.Api.Configuration.GetSettingData<bool>(SettingData, false);
+
+        /* Now store all the cached settings into the globals data store */
+        Globals = new ModDataGlobals(ToggleMod,
+                                     Mode,
+                                     PlayerName,
+                                     ServerName,
+                                     MaxPlayers,
+                                     VoiceChat,
+                                     ServerPassowrd,
+                                     ProtectServer);
+
+        /* Initialize the Settings UI */
+        Success = COTLMP.Ui.Settings.InitializeUI();
+        if (!Success)
+        {
+            Logger.LogFatal("Failed to initialize the Settings UI!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Load all the COTLMP scene assets bundle in memory */
+        ModScenesBundle = COTLMP.Api.Assets.OpenAssetBundleFile("cotlmpscenes");
+        if (ModScenesBundle == null)
+        {
+            Logger.LogFatal("Failed to open the COTLMP scenes bundle file!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Load all the COTLMP prefabs in memory */
+        ModPrefabsBundle = COTLMP.Api.Assets.OpenAssetBundleFile("cotlmpprefabs");
+        if (ModPrefabsBundle == null)
+        {
+            Logger.LogFatal("Failed to open the COTLMP prefabs bundle file!");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        /* Initialize the network features */
+        COTLMP.Game.MainThread.Initialize();
+        COTLMP.Network.Network.Initialize();
+        COTLMP.Network.SteamBridge.Initialize();
+        COTLMP.Game.CoopSync.Initialize();
+        COTLMP.Debug.TestHarness.Initialize();
+
+        /* Log to the debugger that our mod is loaded */
+        Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
+    }
+
+    /// <summary>
+    /// Performs additional tasks after the successful initialization of the mod.
+    /// </summary>
+    private void OnEnable()
+    {
+        /*
+         * The user wants the mod to be disabled so stop the execution
+         * of all the patches that have been loaded previously.
+         */
+        if (!Globals.EnableMod)
+        {
+            Logger.LogWarning("The user disabled the mod, stopping execution of the mod...");
+            HarmonyInstance.UnpatchSelf();
+            return;
+        }
+
+        Logger.LogMessage($"{HarmonyInstance.GetPatchedMethods().Count()} patches have been applied!");
+    }
+
+    /// <summary>
+    /// Unloads all the patches hooked into game on quit event of the game.
+    /// </summary>
+    private void OnDisable()
+    {
+        Logger.LogMessage($"Unloading {MyPluginInfo.PLUGIN_GUID}");
+        HarmonyInstance.UnpatchSelf();
+        Logger.LogMessage("Mod has been unloaded!");
+    }
+}
+
+/* EOF */

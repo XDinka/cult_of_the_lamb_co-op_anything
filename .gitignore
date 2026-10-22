@@ -1,0 +1,19 @@
+# build outputs
+**/bin/
+**/obj/
+
+# visual studio folder
+**/.vs/
+
+# Unity project
+**/AssetBundles/
+**/Library/
+**/UserSettings
+**/Logs
+Assets/UI/UI.sln
+Assets/UI/Assembly-CSharp-Editor.csproj
+Assets/UI/.vsconfig
+
+
+# local build and test output
+out/

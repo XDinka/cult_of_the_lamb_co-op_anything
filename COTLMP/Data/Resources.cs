@@ -1,0 +1,301 @@
+﻿/*
+ * PROJECT:     Cult of the Lamb Multiplayer Mod
+ * LICENSE:     MIT (https://spdx.org/licenses/MIT)
+ * PURPOSE:     Main file containing global resource localization strings
+ * COPYRIGHT:	Copyright 2025-2026 GeoB99 <geobman1999@gmail.com>
+ */
+
+/* IMPORTS ********************************************************************/
+
+using COTLMP;
+using I2.Loc;
+using System;
+
+/* CLASSES & CODE *************************************************************/
+
+namespace I2.Loc
+{
+    public static class MultiplayerModLocalization
+    {
+        public static class UI
+        {
+            public static string Multiplayer_Banner
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("UI/Banner");
+                }
+            }
+
+            public static string Multiplayer_Title
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/TitleDialog");
+                }
+            }
+
+            public static string StartServer
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/StartServer");
+                }
+            }
+
+            public static string ServerStarted
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/ServerStarted");
+                }
+            }
+
+            public static string LeaveServer
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/LeaveServer");
+                }
+            }
+
+            public static string LeaveConfirm
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/LeaveConfirm");
+                }
+            }
+
+            public static string Disconnected
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/Disconnected");
+                }
+            }
+
+            public static string DisconnectedError
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/DisconnectedError");
+                }
+            }
+
+            public static string ServerStopConfirm
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/ServerConfirm");
+                }
+            }
+
+            public static string SteamInviteHint
+            {
+                get
+                {
+                    return LocalizationManager.GetTranslation("Multiplayer/UI/SteamInviteHint");
+                }
+            }
+
+            public static class Settings
+            {
+                public static string MultiplayerSettings_Title
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings");
+                    }
+                }
+
+                public static string MultiplayerSettings_DisableMod
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/DisableMod");
+                    }
+                }
+
+                public static string MultiplayerSettings_PlayerName
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/PlayerName");
+                    }
+                }
+
+                public static string MultiplayerSettings_ServerName
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/ServerName");
+                    }
+                }
+
+                public static string MultiplayerSettings_GameMode
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/GameMode");
+                    }
+                }
+
+                public static string MultiplayerSettings_PlayerCount
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/PlayerCount");
+                    }
+                }
+
+                public static string MultiplayerSettings_VoiceChat
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/VoiceChat");
+                    }
+                }
+
+                public static string MultiplayerSettings_ProtectServer
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/ProtectServer");
+                    }
+                }
+            }
+
+            public static class ServerList
+            {
+                public static string ServerList_BackButton
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/BackButton");
+                    }
+                }
+
+                public static string ServerList_EnterPlayerNameDescription
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/PlayerNameDescription");
+                    }
+                }
+
+                public static string ServerList_EnterServerNameDescription
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/ServerNameDescription");
+                    }
+                }
+
+                public static string ServerList_MainDescription
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/MainDescription");
+                    }
+                }
+
+                public static string ServerList_NoneFound
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/NoneFound");
+                    }
+                }
+
+                public static string ServerList_MasterFail
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/MasterFail");
+                    }
+                }
+
+                public static string ServerList_ScanProgress
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/ScanProgress");
+                    }
+                }
+
+                public static string ServerList_ConnectButton
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/ConnectButton");
+                    }
+                }
+            }
+
+            public static class PasswordPrompt
+            {
+                public static string PasswordPrompt_OkButton
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/OkButton");
+                    }
+                }
+
+                public static string PasswordPrompt_CancelButton
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/CancelButton");
+                    }
+                }
+
+                public static string PasswordPrompt_Description
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/PromptDescription");
+                    }
+                }
+
+                public static string PasswordPrompt_InvalidPassword
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/InvalidPassword");
+                    }
+                }
+            }
+
+            public static class ConnectByIp
+            {
+                public static string ConnectByIp_ConnectButton
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/JoinByIP/Connect");
+                    }
+                }
+
+                public static string ConnectByIp_CancelButton
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/JoinByIP/Cancel");
+                    }
+                }
+
+                public static string ConnectByIp_Description
+                {
+                    get
+                    {
+                        return LocalizationManager.GetTranslation("Multiplayer/UI/JoinByIP/Description");
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* EOF */
