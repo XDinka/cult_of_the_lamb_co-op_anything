@@ -32,6 +32,8 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Game over only when both are down | works in the automated test |
 | Rooms one player cleared are cleared for the other (no second fight), wounds and kills carry over | works in the automated test |
 | The partner's conversations show at the bottom of your screen, camera on them, you keep control | works in the automated test |
+| Enemy shots of the room owner show for the other player | works in the automated test (forced shots) |
+| Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
 | Followers, base, rituals | not synced, each player has their own |
 | Leaving / host stopping keeps you in your own game | works |
 
@@ -86,6 +88,12 @@ paths from environment variables (see the top of each).
   reward. Remote kills drop no loot, since the killer's loot is shared. See `ClearedRooms.cs`.
 - **Conversations.** Lines go as localization terms; the partner sees them and their camera
   follows the speaker. See `Dialogs.cs`.
+- **Shots.** The owner sends each new enemy projectile (prefab name, position, angle, speed); the
+  follower fires the same prefab, found on its own copy of the enemy or copied from its pool, for
+  show only. See `ProjectileSync.cs`.
+- **Same rolls.** Before each chest, podium, tarot or interaction roll, Unity's random state is set
+  from the room seed, the run and what is rolled. Chest drops stay with whoever opened that chest.
+  See `RoomRandom.cs`.
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 

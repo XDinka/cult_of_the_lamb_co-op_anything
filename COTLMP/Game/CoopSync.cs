@@ -56,7 +56,9 @@ namespace COTLMP.Game
             /* ClearedRooms */
             RoomCleared = 9,
             /* Dialogs */
-            Dialog = 10
+            Dialog = 10,
+            /* ProjectileSync */
+            Projectile = 11
         }
 
         /// <summary>
@@ -219,6 +221,10 @@ namespace COTLMP.Game
 
                 case Kind.Dialog:
                     Dialogs.OnRelay(Reader);
+                    break;
+
+                case Kind.Projectile:
+                    ProjectileSync.OnRelay(Reader);
                     break;
 
                 case Kind.Life:

@@ -156,6 +156,9 @@ namespace COTLMP.Game
                         {
                             BiomeGenerator.Instance.CurrentRoom.Completed = true;
                             RoomLockController.RoomCompleted(false, true);
+
+                            /* The fight's chest is ours too: the same one the partner got (RoomRandom) */
+                            Interaction_Chest.Instance?.Reveal();
                         }
                         finally
                         {

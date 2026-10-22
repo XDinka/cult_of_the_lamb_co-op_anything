@@ -37,6 +37,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-autodie=N</c>: N seconds after entering a dungeon, die once (knockout test); the other copy walks over to revive</item>
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
+    /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
     /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
     /// </list>
@@ -50,6 +51,7 @@ namespace COTLMP.Debug
         private static float AutoDie;
         private static bool Solo;
         private static float AutoTalk;
+        private static bool AutoShoot;
 
         private static string Tag => $"[QA {(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}]";
 
@@ -70,6 +72,8 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-autodungeon=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDungeon);
                 else if (Arg.StartsWith("-cotlmp-autotalk=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autotalk=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoTalk);
+                else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
+                    AutoShoot = true;
                 else if (Arg.Equals("-cotlmp-solo", StringComparison.OrdinalIgnoreCase))
                     Solo = true;
                 else if (Arg.StartsWith("-cotlmp-autodie=", StringComparison.OrdinalIgnoreCase))
@@ -119,6 +123,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(DieOnce());
             if (AutoTalk > 0)
                 Plugin.MonoInstance.StartCoroutine(TalkOnce());
+            if (AutoShoot)
+                Plugin.MonoInstance.StartCoroutine(Shoot());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(Rescue());
         }
@@ -227,6 +233,8 @@ namespace COTLMP.Debug
                 Line.Append($" knockouts={COTLMP.Game.CoopLife.KnockOuts} revives={COTLMP.Game.CoopLife.Revives} down={COTLMP.Game.CoopLife.WeAreDown} partnerdown={COTLMP.Game.CoopLife.PartnerDown}");
                 Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
                 Line.Append($" dialog={COTLMP.Game.Dialogs.LinesSent}/{COTLMP.Game.Dialogs.LinesShown} camtargets={GameManager.GetInstance()?.CamFollowTarget?.targets.Count}:{(GameManager.GetInstance()?.CamFollowTarget?.targets.Count > 0 ? GameManager.GetInstance().CamFollowTarget.targets[0].gameObject?.name : "-")}");
+                Line.Append($" shots={COTLMP.Game.ProjectileSync.Sent}/{COTLMP.Game.ProjectileSync.Shown}/{COTLMP.Game.ProjectileSync.Missing} shotsseen={COTLMP.Game.ProjectileSync.Seen} live={Projectile.Projectiles.Count}");
+                Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
                 if (PlayerFarming.Instance != null)
@@ -429,6 +437,35 @@ namespace COTLMP.Debug
                 string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{++Count}.png");
                 ScreenCapture.CaptureScreenshot(File);
                 Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}");
+            }
+        }
+
+        private static IEnumerator Shoot()
+        {
+            var Wait = new WaitForSecondsRealtime(3f);
+            while (true)
+            {
+                yield return Wait;
+                if (!COTLMP.Game.RoomSync.Owning)
+                    continue;
+                GameObject Prefab = COTLMP.Game.ProjectileSync.AnyPrefab();
+                Vector3? Partner = COTLMP.Game.PlayerManager.GetAnyPuppetPosition();
+                if (Prefab == null || !Partner.HasValue)
+                    continue;
+                try
+                {
+                    Vector3 From = Partner.Value + new Vector3(4f, 0f, 0f);
+                    Projectile Shot = ObjectPool.Spawn(Prefab, MMRoomGeneration.GenerateRoom.Instance?.transform).GetComponent<Projectile>();
+                    Shot.transform.position = From;
+                    Shot.Angle = 180f;
+                    Shot.Speed = 6f;
+                    Shot.team = Health.Team.Team2;
+                    Plugin.Logger?.LogWarning($"{Tag} Fired {Prefab.name} at the partner");
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Firing failed: {e.Message}");
+                }
             }
         }
 

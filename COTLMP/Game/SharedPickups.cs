@@ -1,4 +1,4 @@
-/*
+﻿/*
  * PROJECT:     Cult of the Lamb Multiplayer Mod
  * LICENSE:     MIT (https://spdx.org/licenses/MIT)
  * PURPOSE:     Pickups count for both players, like the inventory in local co-op
@@ -42,6 +42,10 @@ namespace COTLMP.Game
         private static void OnPickedUp(PickUp Item)
         {
             if (ApplyingRemote || !CoopSync.InSession || Item == null || !Item.AddToInventory || Item.Quantity <= 0)
+                return;
+
+            /* Both players open their own copy of a chest, with the same contents */
+            if (RoomRandom.IsChestDrop(Item))
                 return;
 
             /* Only what our own lamb collected; the partner reports theirs */
@@ -100,7 +104,7 @@ namespace COTLMP.Game
 
             foreach (PickUp Item in PickUp.PickUps)
             {
-                if (Item == null || Item.type != Type || !Item.gameObject.activeInHierarchy || (bool)CollectedField.GetValue(Item))
+                if (Item == null || Item.type != Type || !Item.gameObject.activeInHierarchy || (bool)CollectedField.GetValue(Item) || RoomRandom.IsChestDrop(Item))
                     continue;
                 Vector3 Gap = Item.transform.position - Position;
                 Gap.z = 0f;
