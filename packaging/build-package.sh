@@ -16,7 +16,7 @@ DL=${COTL_DL:?set COTL_DL}
 REL=${OUT_DIR:-$SRC/out}
 MANAGED=${COTL_MANAGED:?set COTL_MANAGED}
 CFG=${COTL_BEPINEX_CFG:?set COTL_BEPINEX_CFG}
-NAME=cult-together-$(date +%Y%m%d)
+NAME=cotl-coop-anything-$(date +%Y%m%d)
 OUT=$REL/$NAME
 DOTNET=${DOTNET:-dotnet}
 
@@ -47,7 +47,7 @@ grep -q "Type = TwitchManager" "$OUT/game/BepInEx/config/BepInEx.cfg"
 cp "$SRC"/packaging/{install.ps1,uninstall.ps1,README.txt} "$OUT/"
 printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0install.ps1"\r\npause\r\n' > "$OUT/install.cmd"
 printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0uninstall.ps1"\r\npause\r\n' > "$OUT/uninstall.cmd"
-cp "$SRC/LICENSE" "$OUT/LICENSES/cult-together-MIT.txt"
+cp "$SRC/LICENSE" "$OUT/LICENSES/cotl-coop-anything-MIT.txt"
 cp "$SRC"/packaging/LICENSES/* "$OUT/LICENSES/"
 
 # README.txt in Windows line endings with a BOM, so Notepad shows it right everywhere
