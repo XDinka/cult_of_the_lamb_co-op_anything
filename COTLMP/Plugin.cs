@@ -254,6 +254,8 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.RoomSync.Initialize();
         COTLMP.Game.Appearance.Initialize();
         COTLMP.Game.CoopLife.Initialize();
+        COTLMP.Game.ClearedRooms.Initialize();
+        COTLMP.Game.Dialogs.Initialize();
         COTLMP.Debug.TestHarness.Initialize();
 
         /* Log to the debugger that our mod is loaded */

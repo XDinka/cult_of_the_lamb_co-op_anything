@@ -52,7 +52,11 @@ namespace COTLMP.Game
             PickedUp = 6,
             /* CoopLife */
             Life = 7,
-            Revive = 8
+            Revive = 8,
+            /* ClearedRooms */
+            RoomCleared = 9,
+            /* Dialogs */
+            Dialog = 10
         }
 
         /// <summary>
@@ -76,12 +80,35 @@ namespace COTLMP.Game
         private static readonly Dictionary<string, Health> EnemiesById = new();
         private static readonly Dictionary<string, int> Counters = new();
         private static readonly Dictionary<string, float> SentFraction = new();
-        private static readonly Dictionary<string, float> RemoteFraction = new();
+        /*
+         * What the partner did to enemies, per run. The partner may hit or kill enemies before we
+         * even start the run (we follow them in later), so it is kept by run id, not reset when
+         * our run starts, and an old run's data never leaks into a new one.
+         */
+        private static readonly Dictionary<int, Dictionary<string, float>> FractionsByRun = new();
+        private static Dictionary<string, float> RemoteFraction => ForRun(RunId);
+
+        private static Dictionary<string, float> ForRun(int Run)
+        {
+            if (!FractionsByRun.TryGetValue(Run, out var Fractions))
+            {
+                /* Two runs back is the most a partner can still be in */
+                if (FractionsByRun.Count > 4)
+                    FractionsByRun.Clear();
+                FractionsByRun[Run] = Fractions = new();
+            }
+            return Fractions;
+        }
+
+        /// <summary>
+        /// The run both players share (0 before the first run of the session)
+        /// </summary>
+        internal static int CurrentRun => RunId;
         private static readonly Dictionary<string, float> Outgoing = new();
         private static bool ApplyingRemote;
 
         /* Counters for the test harness report */
-        internal static int EnemiesSeen, HitsSent, HitsApplied, KillsApplied;
+        internal static int EnemiesSeen, HitsSent, HitsApplied, KillsApplied, HealthReceived;
         internal static int LastSeed;
 
         /// <summary>
@@ -157,15 +184,20 @@ namespace COTLMP.Game
 
                 case Kind.EnemyHealth:
                 {
+                    int Run = Reader.ReadInt32();
+                    var Fractions = ForRun(Run);
+                    ++HealthReceived;
+                    if (HealthReceived <= 3)
+                        Plugin.Logger?.LogInfo($"[COOP] Enemy health for run {Run} (ours {RunId})");
                     int Count = Reader.ReadByte();
                     for (int Index = 0; Index < Count; Index++)
                     {
                         string Id = Reader.ReadString();
                         float Fraction = Reader.ReadSingle();
 
-                        if (!RemoteFraction.TryGetValue(Id, out float Known) || Fraction < Known)
-                            RemoteFraction[Id] = Fraction;
-                        if (EnemiesById.TryGetValue(Id, out Health Enemy) && Enemy != null)
+                        if (!Fractions.TryGetValue(Id, out float Known) || Fraction < Known)
+                            Fractions[Id] = Fraction;
+                        if (Run == RunId && EnemiesById.TryGetValue(Id, out Health Enemy) && Enemy != null)
                             ApplyFraction(Id, Enemy);
                     }
                     break;
@@ -179,6 +211,14 @@ namespace COTLMP.Game
 
                 case Kind.PickedUp:
                     SharedPickups.OnRelay(From, Reader);
+                    break;
+
+                case Kind.RoomCleared:
+                    ClearedRooms.OnRelay(Reader);
+                    break;
+
+                case Kind.Dialog:
+                    Dialogs.OnRelay(Reader);
                     break;
 
                 case Kind.Life:
@@ -223,7 +263,6 @@ namespace COTLMP.Game
             if (!InSession)
                 return;
 
-            RemoteFraction.Clear();
             if (PartnerRunLocation == (int)Location && Time.realtimeSinceStartup - PartnerRunTime < AdoptWindow)
             {
                 RunId = PartnerRunId;
@@ -372,6 +411,15 @@ namespace COTLMP.Game
                     ApplyingRemote = true;
                     try
                     {
+                        /*
+                         * The enemy really died in the partner's game and dropped its loot there; the
+                         * partner's pickups reach us anyway, so ours drops nothing.
+                         */
+                        foreach (DropLootOnDeath Drop in Enemy.GetComponentsInChildren<DropLootOnDeath>())
+                            Drop.enabled = false;
+                        foreach (DropMultipleLootOnDeath Drop in Enemy.GetComponentsInChildren<DropMultipleLootOnDeath>())
+                            Drop.enabled = false;
+
                         /* The way the game kills an enemy itself (tarot damage): the enemy hits itself with ForceKill */
                         Enemy.invincible = false;
                         Enemy.HP = Mathf.Min(Enemy.HP, 0.01f);
@@ -455,6 +503,7 @@ namespace COTLMP.Game
                     {
                         Send(Kind.EnemyHealth, Writer =>
                         {
+                            Writer.Write(RunId);
                             Writer.Write((byte)(End - Start));
                             for (int Index = Start; Index < End; Index++)
                             {

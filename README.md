@@ -30,6 +30,8 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Shared pickups: what one picks up, both get | works in the automated test |
 | Knocked out instead of dead while the partner fights on; stand next to them for 3 s to revive, or clear the room | works in the automated test |
 | Game over only when both are down | works in the automated test |
+| Rooms one player cleared are cleared for the other (no second fight), wounds and kills carry over | works in the automated test |
+| The partner's conversations show at the bottom of your screen, camera on them, you keep control | works in the automated test |
 | Followers, base, rituals | not synced, each player has their own |
 | Leaving / host stopping keeps you in your own game | works |
 
@@ -79,6 +81,11 @@ paths from environment variables (see the top of each).
   have. See `COTLMP/Game/RoomSync.cs`.
 - **Knockout.** Uses the game's own co-op knockout (`CoopManager.KnockOutPlayer`, woken on room
   clear), plus a 3 second stand-next-to-revive bar. See `COTLMP/Game/CoopLife.cs`.
+- **Cleared rooms.** A completed room is sent to the partner (per run); when they walk in, their
+  copy is completed the way the game marks a finished room, without a second fight or a second
+  reward. Remote kills drop no loot, since the killer's loot is shared. See `ClearedRooms.cs`.
+- **Conversations.** Lines go as localization terms; the partner sees them and their camera
+  follows the speaker. See `Dialogs.cs`.
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 

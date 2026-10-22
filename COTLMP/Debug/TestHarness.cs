@@ -35,6 +35,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-autodungeon=N</c>: N seconds after the session starts, start a run and enter the first dungeon</item>
     /// <item><c>-cotlmp-autokill</c>: in a dungeon, hit the nearest enemy every second (shared enemy health test)</item>
     /// <item><c>-cotlmp-autodie=N</c>: N seconds after entering a dungeon, die once (knockout test); the other copy walks over to revive</item>
+    /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
+    /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
     /// </list>
@@ -46,6 +48,8 @@ namespace COTLMP.Debug
         private static ulong RejoinHost;
         private static string ShotsDir;
         private static float AutoDie;
+        private static bool Solo;
+        private static float AutoTalk;
 
         private static string Tag => $"[QA {(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}]";
 
@@ -64,6 +68,10 @@ namespace COTLMP.Debug
                     ulong.TryParse(Arg.Substring("-cotlmp-rejoin=".Length), out RejoinHost);
                 else if (Arg.StartsWith("-cotlmp-autodungeon=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autodungeon=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDungeon);
+                else if (Arg.StartsWith("-cotlmp-autotalk=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-autotalk=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoTalk);
+                else if (Arg.Equals("-cotlmp-solo", StringComparison.OrdinalIgnoreCase))
+                    Solo = true;
                 else if (Arg.StartsWith("-cotlmp-autodie=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autodie=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDie);
                 else if (Arg.StartsWith("-cotlmp-shots=", StringComparison.OrdinalIgnoreCase))
@@ -91,6 +99,8 @@ namespace COTLMP.Debug
 
             if (AutoHost || AutoEnter)
                 Plugin.MonoInstance.StartCoroutine(EnterCult(AutoHost));
+            if (AutoHost || AutoEnter)
+                Plugin.MonoInstance.StartCoroutine(AdvanceConversations());
             if (AutoWalk)
                 Plugin.MonoInstance.StartCoroutine(Walk());
             if (Report)
@@ -107,6 +117,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(Shots());
             if (AutoDie > 0)
                 Plugin.MonoInstance.StartCoroutine(DieOnce());
+            if (AutoTalk > 0)
+                Plugin.MonoInstance.StartCoroutine(TalkOnce());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(Rescue());
         }
@@ -133,6 +145,13 @@ namespace COTLMP.Debug
             MMTransition.CanResume = true;
             MMTransition.ResumePlay();
             Plugin.MonoInstance.StartCoroutine(KeepTimeRunning());
+
+            /*
+             * A fresh save shows the dodge tutorial on the first hits and refuses the damage while
+             * it does. Real saves are past it; mark the test copies the same way.
+             */
+            DataManager.Instance.ShownDodgeTutorial = true;
+            DataManager.Instance.ShownDodgeTutorialCount = 3;
             yield return new WaitForSecondsRealtime(1f);
 
             if (Host)
@@ -156,6 +175,7 @@ namespace COTLMP.Debug
             while (true)
             {
                 /* Leave the pause menu its pause, so it opens in the test copies too */
+            /* (conversations are advanced by AdvanceConversations, nobody presses a button here) */
                 if (Time.timeScale == 0f && !Lamb.UI.UIMenuBase.ActiveMenus.Exists(Menu => Menu is Lamb.UI.PauseMenu.UIPauseMenuController))
                     Time.timeScale = 1f;
                 yield return null;
@@ -205,6 +225,8 @@ namespace COTLMP.Debug
                 Line.Append($"{Tag} place={COTLMP.Game.CoopSync.CurrentPlace()} seed={COTLMP.Game.CoopSync.LastSeed} enemies={Health.team2.Count} seen={COTLMP.Game.CoopSync.EnemiesSeen} hpsent={COTLMP.Game.CoopSync.HitsSent} hpapplied={COTLMP.Game.CoopSync.HitsApplied} killsapplied={COTLMP.Game.CoopSync.KillsApplied}");
                 Line.Append($" own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} snapsent={COTLMP.Game.RoomSync.SnapshotsSent} snapapplied={COTLMP.Game.RoomSync.SnapshotsApplied} puppethits={COTLMP.Game.RoomSync.PuppetHitsSent} hitstaken={COTLMP.Game.RoomSync.HitsTaken} removed={COTLMP.Game.RoomSync.EnemiesRemoved} followed={COTLMP.Game.RoomSync.FollowedCount} visible={CountVisibleEnemies()} pickups={COTLMP.Game.SharedPickups.Sent}/{COTLMP.Game.SharedPickups.Received}/{COTLMP.Game.SharedPickups.Removed}");
                 Line.Append($" knockouts={COTLMP.Game.CoopLife.KnockOuts} revives={COTLMP.Game.CoopLife.Revives} down={COTLMP.Game.CoopLife.WeAreDown} partnerdown={COTLMP.Game.CoopLife.PartnerDown}");
+                Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
+                Line.Append($" dialog={COTLMP.Game.Dialogs.LinesSent}/{COTLMP.Game.Dialogs.LinesShown} camtargets={GameManager.GetInstance()?.CamFollowTarget?.targets.Count}:{(GameManager.GetInstance()?.CamFollowTarget?.targets.Count > 0 ? GameManager.GetInstance().CamFollowTarget.targets[0].gameObject?.name : "-")}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
                 if (PlayerFarming.Instance != null)
@@ -281,15 +303,21 @@ namespace COTLMP.Debug
                 /* The joining copy just follows the host into the next room */
                 if (!Plugin.GlobalsInternal.IsServerCreator)
                 {
-                    string Partner = COTLMP.Game.RoomSync.PartnerPlace;
                     string Mine = COTLMP.Game.CoopSync.CurrentPlace();
+                    string Partner = COTLMP.Game.RoomSync.PartnerLastPlace;
+
+                    /* In the test apart, linger so the host is rooms ahead */
+                    if (Solo && Partner != Mine)
+                        yield return new WaitForSecondsRealtime(6f);
+
                     if (Partner == null || Mine == null || Partner == Mine || !Partner.Contains("@") || !Mine.Contains("@") ||
                         Partner.Substring(0, Partner.IndexOf('@')) != Mine.Substring(0, Mine.IndexOf('@')))
                         continue;
                     string[] P = Partner.Substring(Partner.IndexOf('@') + 1).Split(',');
-                    Vector2Int Gap = new(int.Parse(P[0]) - Room.x, int.Parse(P[1]) - Room.y);
-                    if (Mathf.Abs(Gap.x) + Mathf.Abs(Gap.y) != 1)
+                    Vector2Int? Step = NextStep(Room, new Vector2Int(int.Parse(P[0]), int.Parse(P[1])));
+                    if (!Step.HasValue)
                         continue;
+                    Vector2Int Gap = Step.Value;
                     Plugin.Logger?.LogWarning($"{Tag} Following the host {Gap} from {Room.x},{Room.y}");
                     MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Gap));
                     continue;
@@ -297,7 +325,7 @@ namespace COTLMP.Debug
 
                 /* The host waits for the partner in this room, then for the fight to end (or 40 s) */
                 float Waited = 0f;
-                while (Waited < 90f && !AnyRemotePlayer())
+                while (!Solo && Waited < 90f && !AnyRemotePlayer())
                 {
                     yield return new WaitForSecondsRealtime(1f);
                     Waited += 1f;
@@ -350,8 +378,8 @@ namespace COTLMP.Debug
                     }
                 }
 
-                /* Fight only with the partner in the room, like players would */
-                if (Health.team2.Count == 0 || !AnyRemotePlayer())
+                /* Fight only with the partner in the room, like players would (unless testing apart) */
+                if (Health.team2.Count == 0 || (!Solo && !AnyRemotePlayer()))
                     continue;
 
                 Health Nearest = null;
@@ -364,7 +392,19 @@ namespace COTLMP.Debug
                 if (Nearest == null)
                     continue;
 
-                bool Hit = Nearest.DealDamage(Mathf.Max(1f, Nearest.totalHP * 0.4f), PlayerFarming.Instance.gameObject, Nearest.transform.position, false, Health.AttackTypes.Melee, true);
+                /*
+                 * The test copies' lamb has no weapon, and the game's player-hit path reads it, so hit the
+                 * way tarot damage does (the enemy as its own attacker). The HP change is what gets synced.
+                 */
+                bool Hit = false;
+                try
+                {
+                    Hit = Nearest.DealDamage(Mathf.Max(1f, Nearest.totalHP * 0.4f), Nearest.gameObject, Nearest.transform.position, false, Health.AttackTypes.Melee, true);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Hitting {Nearest.name} threw: {e.Message}");
+                }
                 Plugin.Logger?.LogWarning($"{Tag} Hit {Nearest.name} -> {Hit}, hp {Nearest.HP:F1}/{Nearest.totalHP:F1}");
             }
         }
@@ -390,6 +430,23 @@ namespace COTLMP.Debug
                 ScreenCapture.CaptureScreenshot(File);
                 Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}");
             }
+        }
+
+        private static IEnumerator TalkOnce()
+        {
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            yield return new WaitForSecondsRealtime(AutoTalk);
+
+            GameObject Me = PlayerFarming.Instance.gameObject;
+            var Entries = new System.Collections.Generic.List<MMTools.ConversationEntry>
+            {
+                new(Me, "Co-op test line one", "talk", "", null, "Lamb"),
+                new(Me, "Co-op test line two", "talk", "", null, "Lamb"),
+                new(Me, "Co-op test line three", "talk", "", null, "Lamb")
+            };
+            Plugin.Logger?.LogWarning($"{Tag} Starting a test conversation");
+            MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, null, null));
         }
 
         private static IEnumerator DieOnce()
@@ -425,6 +482,64 @@ namespace COTLMP.Debug
                 PlayerFarming.Instance.transform.position = Downed.Value + new Vector3(0.6f, 0f, 0f);
                 if (Time.frameCount % 60 == 0)
                     Plugin.Logger?.LogWarning($"{Tag} Reviving the partner, bar {COTLMP.Game.CoopLife.ReviveProgress:F2}");
+            }
+        }
+
+        /// <summary>
+        /// The first door on the shortest way through the floor's rooms to a target room
+        /// </summary>
+        private static Vector2Int? NextStep(MMBiomeGeneration.BiomeRoom From, Vector2Int To)
+        {
+            var Seen = new System.Collections.Generic.HashSet<MMBiomeGeneration.BiomeRoom> { From };
+            var Queue = new System.Collections.Generic.Queue<(MMBiomeGeneration.BiomeRoom, Vector2Int)>();
+            Queue.Enqueue((From, Vector2Int.zero));
+
+            while (Queue.Count > 0)
+            {
+                var (Room, First) = Queue.Dequeue();
+                if (Room.x == To.x && Room.y == To.y)
+                    return First;
+
+                foreach (var (Link, Dir) in new[] { (Room.N_Room, new Vector2Int(0, 1)), (Room.E_Room, new Vector2Int(1, 0)), (Room.S_Room, new Vector2Int(0, -1)), (Room.W_Room, new Vector2Int(-1, 0)) })
+                {
+                    if (Link == null || !Link.Connected || Link.Room == null || !Seen.Add(Link.Room))
+                        continue;
+                    Queue.Enqueue((Link.Room, Room == From ? Dir : First));
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Nobody presses a button in the test copies: move conversations on as a player would,
+        /// picking the first answer when there is a choice
+        /// </summary>
+        private static IEnumerator AdvanceConversations()
+        {
+            var Next = HarmonyLib.AccessTools.Method(typeof(MMTools.MMConversation), "ShowNextLine");
+            var Answer = HarmonyLib.AccessTools.Method(typeof(MMTools.MMConversation), "OnGiveAnswer");
+            var Wait = new WaitForSecondsRealtime(2f);
+
+            while (true)
+            {
+                yield return Wait;
+                var Conversation = MMTools.MMConversation.mmConversation;
+                if (!MMTools.MMConversation.isPlaying || Conversation == null || MMTools.MMConversation.isBark)
+                    continue;
+                try
+                {
+                    var Current = MMTools.MMConversation.CURRENT_CONVERSATION;
+                    bool Last = Current?.Entries != null && MMTools.MMConversation.Position >= Current.Entries.Count - 1;
+                    if (Last && Current.Responses != null && Current.Responses.Count > 0)
+                        Answer.Invoke(Conversation, new object[] { 0 });
+                    else
+                        Next.Invoke(Conversation, new object[] { true });
+                    Plugin.Logger?.LogWarning($"{Tag} Advanced a conversation to line {MMTools.MMConversation.Position}");
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Advancing a conversation failed: {e.Message}");
+                }
             }
         }
 

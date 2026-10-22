@@ -118,6 +118,19 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// What the camera follows on the (first) other player's puppet, if there is one
+        /// </summary>
+        internal static GameObject GetAnyPuppetObject()
+        {
+            foreach (PlayerFarming farming in players)
+            {
+                if (farming != null)
+                    return farming.CameraBone != null ? farming.CameraBone : farming.gameObject;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Where the (first) other player's puppet stands, if there is one
         /// </summary>
         internal static Vector3? GetAnyPuppetPosition()
