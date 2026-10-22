@@ -1,3 +1,7 @@
+<p align="center">
+  <img alt="Cult of the Lamb" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1313140/19f32bb477a6e9d058e05193b4e282149bd70644/header.jpg?t=1786554901">
+</p>
+
 # Cult of the Lamb Co-op Anything
 
 Online co-op for **Cult of the Lamb** over Steam. You invite a friend through the Steam overlay.
@@ -76,7 +80,7 @@ copies of the game on one PC host, join, walk, enter a dungeon and fight unatten
 ## License
 
 MIT, see [LICENSE](LICENSE). Original COTLMP credits are in [CREDITS](CREDITS). Cult of the Lamb is
-© Massive Monster / Devolver Digital. This project is not affiliated with them and ships no game files.
+© Massive Monster / Devolver Digital. This project is not affiliated with them and ships no game files. The header image is the game's Steam store art.
 
 ---
 

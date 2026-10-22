@@ -308,13 +308,15 @@ namespace COTLMP.Game
 
             for (int Try = 0; Try < 50 && Enemy != null && Enemy.HP > 0f; Try++)
             {
-                if (Enemy.enabled && Enemy.gameObject.activeInHierarchy && PlayerFarming.Instance != null)
+                if (Enemy.enabled && Enemy.gameObject.activeInHierarchy)
                 {
                     ApplyingRemote = true;
                     try
                     {
+                        /* The way the game kills an enemy itself (tarot damage): the enemy hits itself with ForceKill */
+                        Enemy.invincible = false;
                         Enemy.HP = Mathf.Min(Enemy.HP, 0.01f);
-                        if (Enemy.DealDamage(Enemy.totalHP + 1f, PlayerFarming.Instance.gameObject, Enemy.transform.position, false, Health.AttackTypes.Melee, true))
+                        if (Enemy.DealDamage(Enemy.HP, Enemy.gameObject, Enemy.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill))
                         {
                             ++KillsApplied;
                             yield break;
@@ -322,7 +324,7 @@ namespace COTLMP.Game
                     }
                     catch (Exception e)
                     {
-                        PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Killing a synced enemy failed: {e.Message}");
+                        PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Killing a synced enemy failed: {e}");
                     }
                     finally
                     {

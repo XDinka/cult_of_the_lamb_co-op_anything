@@ -167,41 +167,69 @@ namespace COTLMP.Network
         public static IEnumerator SendUpdates()
         {
             var wait = new WaitForSecondsRealtime(InternalData.updateFrequencySec);
-            Vector3 lastPosition = new();
             while (!cancelToken.IsCancellationRequested && online != 0)
             {
-                if (localPlayer == null && !MMTransition.IsPlaying)
+                /* One bad frame (a player destroyed by a scene change) must not end the updates for good */
+                try
                 {
-                    localPlayer = PlayerFarming.Instance;
-                    localPlayer?.state.OnStateChange += OnStateChanged;
+                    SendUpdateOnce();
                 }
-
-                /*
-                 * Tell the server where we are whenever that changes. In a dungeon every room
-                 * shares one scene, so the room is part of the place, otherwise players in
-                 * different rooms would see each other at the same coordinates.
-                 */
-                if (localPlayer != null && !MMTransition.IsPlaying)
+                catch (Exception e)
                 {
-                    string place = CoopSync.CurrentPlace();
-                    if (place != null && (transitionHappened || place != lastPlace))
-                    {
-                        lastPlace = place;
-                        transitionHappened = false;
-                        _ = Send(new Message(MessageType.Transition, 0, Encoding.UTF8.GetBytes(place)));
-                        Plugin.Logger?.LogInfo($"[COOP] Now in {place}");
-                        lastPosition = new();
-                    }
-                }
-
-                if ((lastPosition - (localPlayer?.transform.position ?? new())).sqrMagnitude > 0.0001f)
-                {
-                    lastPosition = localPlayer?.transform.position ?? new();
-                    Message msg = new(MessageType.PositionUpdate, 0, lastPosition.ToNetwork().Serialize());
-                    _ = Send(msg);
-                    ++SentPositions;
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sending an update failed: {e.Message}");
+                    localPlayer = null;
                 }
                 yield return wait;
+            }
+        }
+
+        private static Vector3 lastPosition;
+        private static float lastPositionSentAt;
+
+        /// <summary>
+        /// Sends where we are (place and position) if it changed, and the position at least once a second
+        /// </summary>
+        private static void SendUpdateOnce()
+        {
+            /*
+             * Unity objects are compared with ==, which knows about destroyed objects. The ?. operator
+             * doesn't, and the static PlayerFarming.Instance can point at a destroyed player during a load.
+             */
+            if (localPlayer == null)
+            {
+                localPlayer = null;
+                if (MMTransition.IsPlaying || PlayerFarming.Instance == null)
+                    return;
+                localPlayer = PlayerFarming.Instance;
+                if (localPlayer.state != null)
+                    localPlayer.state.OnStateChange += OnStateChanged;
+            }
+
+            if (MMTransition.IsPlaying)
+                return;
+
+            /*
+             * Tell the server where we are whenever that changes. In a dungeon every room
+             * shares one scene, so the room is part of the place, otherwise players in
+             * different rooms would see each other at the same coordinates.
+             */
+            string place = CoopSync.CurrentPlace();
+            if (place != null && (transitionHappened || place != lastPlace))
+            {
+                lastPlace = place;
+                transitionHappened = false;
+                _ = Send(new Message(MessageType.Transition, 0, Encoding.UTF8.GetBytes(place)));
+                Plugin.Logger?.LogInfo($"[COOP] Now in {place}");
+                lastPositionSentAt = 0f;
+            }
+
+            Vector3 position = localPlayer.transform.position;
+            if ((lastPosition - position).sqrMagnitude > 0.0001f || Time.realtimeSinceStartup - lastPositionSentAt > 1f)
+            {
+                lastPosition = position;
+                lastPositionSentAt = Time.realtimeSinceStartup;
+                _ = Send(new Message(MessageType.PositionUpdate, 0, position.ToNetwork().Serialize()));
+                ++SentPositions;
             }
         }
 
@@ -244,12 +272,6 @@ namespace COTLMP.Network
                         continue;
                     if (msg.Sequence >= recvSequence)
                         recvSequence = msg.Sequence + 1;
-                }
-
-                if (localPlayer == null) // try to get the localplayer again if its null
-                {
-                    localPlayer = PlayerFarming.Instance;
-                    localPlayer?.state.OnStateChange += OnStateChanged;
                 }
 
                 try
@@ -400,6 +422,8 @@ namespace COTLMP.Network
             messageQueue = new();
             transitionHappened = false;
             lastPlace = null;
+            localPlayer = null;
+            lastPositionSentAt = 0f;
             client.Connect(server);
 
             registration = cancelToken.Register(client.Dispose);
@@ -509,7 +533,8 @@ namespace COTLMP.Network
                 return;
             }
 
-            localPlayer?.state.OnStateChange -= OnStateChanged;
+            if (localPlayer != null && localPlayer.state != null)
+                localPlayer.state.OnStateChange -= OnStateChanged;
             localPlayer = null;
         }
 
