@@ -57,8 +57,13 @@ namespace COTLMP.Game
             RoomCleared = 9,
             /* Dialogs */
             Dialog = 10,
-            /* ProjectileSync */
-            Projectile = 11
+            /* HazardSync */
+            HazardSpawn = 11,
+            /* HostPools */
+            HostPools = 12,
+            /* HazardSync */
+            HazardMove = 13,
+            HazardGone = 14
         }
 
         /// <summary>
@@ -223,8 +228,14 @@ namespace COTLMP.Game
                     Dialogs.OnRelay(Reader);
                     break;
 
-                case Kind.Projectile:
-                    ProjectileSync.OnRelay(Reader);
+                case Kind.HazardSpawn:
+                case Kind.HazardMove:
+                case Kind.HazardGone:
+                    HazardSync.OnRelay((Kind)Data[0], Reader);
+                    break;
+
+                case Kind.HostPools:
+                    HostPools.OnRelay(Reader);
                     break;
 
                 case Kind.Life:

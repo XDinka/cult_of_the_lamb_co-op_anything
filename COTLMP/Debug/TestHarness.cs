@@ -38,6 +38,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
+    /// <item><c>-cotlmp-drawtest</c>: in each shared dungeon room draw 3 tarot cards the way a chest would and log them (host pools test); the host also gets extra unlocks in memory so the two saves differ</item>
     /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
     /// </list>
@@ -52,6 +53,7 @@ namespace COTLMP.Debug
         private static bool Solo;
         private static float AutoTalk;
         private static bool AutoShoot;
+        private static bool DrawTest;
 
         private static string Tag => $"[QA {(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}]";
 
@@ -72,6 +74,8 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-autodungeon=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDungeon);
                 else if (Arg.StartsWith("-cotlmp-autotalk=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autotalk=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoTalk);
+                else if (Arg.Equals("-cotlmp-drawtest", StringComparison.OrdinalIgnoreCase))
+                    DrawTest = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
                     AutoShoot = true;
                 else if (Arg.Equals("-cotlmp-solo", StringComparison.OrdinalIgnoreCase))
@@ -125,6 +129,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(TalkOnce());
             if (AutoShoot)
                 Plugin.MonoInstance.StartCoroutine(Shoot());
+            if (DrawTest)
+                Plugin.MonoInstance.StartCoroutine(Draw());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(Rescue());
         }
@@ -233,7 +239,7 @@ namespace COTLMP.Debug
                 Line.Append($" knockouts={COTLMP.Game.CoopLife.KnockOuts} revives={COTLMP.Game.CoopLife.Revives} down={COTLMP.Game.CoopLife.WeAreDown} partnerdown={COTLMP.Game.CoopLife.PartnerDown}");
                 Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
                 Line.Append($" dialog={COTLMP.Game.Dialogs.LinesSent}/{COTLMP.Game.Dialogs.LinesShown} camtargets={GameManager.GetInstance()?.CamFollowTarget?.targets.Count}:{(GameManager.GetInstance()?.CamFollowTarget?.targets.Count > 0 ? GameManager.GetInstance().CamFollowTarget.targets[0].gameObject?.name : "-")}");
-                Line.Append($" shots={COTLMP.Game.ProjectileSync.Sent}/{COTLMP.Game.ProjectileSync.Shown}/{COTLMP.Game.ProjectileSync.Missing} shotsseen={COTLMP.Game.ProjectileSync.Seen} live={Projectile.Projectiles.Count}");
+                Line.Append($" hazards={COTLMP.Game.HazardSync.Sent}/{COTLMP.Game.HazardSync.Shown}/{COTLMP.Game.HazardSync.Missing} moved={COTLMP.Game.HazardSync.Moved} pools={COTLMP.Game.HostPools.Received}/{COTLMP.Game.HostPools.Scopes}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
@@ -440,6 +446,50 @@ namespace COTLMP.Debug
             }
         }
 
+        private static IEnumerator Draw()
+        {
+            string Last = null;
+            bool Unlocked = false;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                if (PlayerFarming.Instance == null || DataManager.Instance == null)
+                    continue;
+
+                /* Make the host's save differ from the joining one (in memory only, test copies) */
+                if (!Unlocked && Plugin.GlobalsInternal.IsServerCreator && Plugin.GlobalsInternal.InGameSession)
+                {
+                    Unlocked = true;
+                    foreach (TarotCards.Card Card in DataManager.AllTrinkets)
+                    {
+                        if (!DataManager.Instance.PlayerFoundTrinkets.Contains(Card))
+                            DataManager.Instance.PlayerFoundTrinkets.Add(Card);
+                    }
+                    Plugin.Logger?.LogWarning($"{Tag} Host now has {DataManager.Instance.PlayerFoundTrinkets.Count} tarot cards");
+                }
+
+                string Place = COTLMP.Game.CoopSync.CurrentPlace();
+                if (Place == null || Place == Last || !Place.Contains("#") || !AnyRemotePlayer())
+                    continue;
+                Last = Place;
+                yield return new WaitForSecondsRealtime(3f);
+
+                var Cards = new System.Collections.Generic.List<string>();
+                for (int Index = 0; Index < 3; Index++)
+                {
+                    try
+                    {
+                        Cards.Add(TarotCards.DrawRandomCard(PlayerFarming.Instance)?.CardType.ToString() ?? "none");
+                    }
+                    catch (Exception e)
+                    {
+                        Cards.Add("error " + e.Message);
+                    }
+                }
+                Plugin.Logger?.LogWarning($"{Tag} Drew in {Place}: {string.Join(", ", Cards)} (own pool {DataManager.Instance.PlayerFoundTrinkets.Count})");
+            }
+        }
+
         private static IEnumerator Shoot()
         {
             var Wait = new WaitForSecondsRealtime(3f);
@@ -448,7 +498,7 @@ namespace COTLMP.Debug
                 yield return Wait;
                 if (!COTLMP.Game.RoomSync.Owning)
                     continue;
-                GameObject Prefab = COTLMP.Game.ProjectileSync.AnyPrefab();
+                GameObject Prefab = COTLMP.Game.HazardSync.AnyProjectilePrefab();
                 Vector3? Partner = COTLMP.Game.PlayerManager.GetAnyPuppetPosition();
                 if (Prefab == null || !Partner.HasValue)
                     continue;

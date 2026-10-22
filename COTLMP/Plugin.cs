@@ -256,7 +256,8 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.CoopLife.Initialize();
         COTLMP.Game.ClearedRooms.Initialize();
         COTLMP.Game.Dialogs.Initialize();
-        COTLMP.Game.ProjectileSync.Initialize();
+        COTLMP.Game.HazardSync.Initialize();
+        COTLMP.Game.HostPools.Initialize();
         COTLMP.Game.RoomRandom.Initialize();
         COTLMP.Debug.TestHarness.Initialize();
 
