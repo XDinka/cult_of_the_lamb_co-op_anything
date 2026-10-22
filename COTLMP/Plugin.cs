@@ -251,6 +251,9 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Network.Network.Initialize();
         COTLMP.Network.SteamBridge.Initialize();
         COTLMP.Game.CoopSync.Initialize();
+        COTLMP.Game.RoomSync.Initialize();
+        COTLMP.Game.Appearance.Initialize();
+        COTLMP.Game.CoopLife.Initialize();
         COTLMP.Debug.TestHarness.Initialize();
 
         /* Log to the debugger that our mod is loaded */

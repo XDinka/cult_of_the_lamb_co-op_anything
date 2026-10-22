@@ -309,6 +309,8 @@ namespace COTLMP.Network
                             }
                             else
                             {
+                                /* A puppet first seen through a position update has the default skin */
+                                PlayerManager.SetPlayerSkin(plrinfo.ID, plrinfo.Skin);
                                 PlayerManager.MovePlayer(plrinfo.ID, plrinfo.State.Position.ToUnity(), 0);
                                 PlayerManager.SetPlayerState(plrinfo.ID, plrinfo.State.ToUnity());
                             }
@@ -428,7 +430,7 @@ namespace COTLMP.Network
 
             registration = cancelToken.Register(client.Dispose);
 
-            byte[] handshakeBytes = new Message(MessageType.Handshake, 1, new HandshakeClient(Plugin.Globals.PlayerName, Application.version).Serialize()).Serialize();
+            byte[] handshakeBytes = new Message(MessageType.Handshake, 1, new HandshakeClient(Plugin.Globals.PlayerName, Application.version, Appearance.LocalSkin()).Serialize()).Serialize();
 
             try
             {

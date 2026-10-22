@@ -1,6 +1,8 @@
 <p align="center">
-  <img alt="Cult of the Lamb" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1313140/19f32bb477a6e9d058e05193b4e282149bd70644/header.jpg?t=1786554901">
+  <img alt="Cult of the Lamb × Co-op Anything" src="Media/cover.png">
 </p>
+
+<p align="center"><sub>Fan-made mod, not affiliated with or endorsed by Massive Monster or Devolver Digital.</sub></p>
 
 # Cult of the Lamb Co-op Anything
 
@@ -19,15 +21,17 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Feature | State |
 |---|---|
 | Join through Steam (invite, "Join game", `+connect_lobby`) | works on loopback, real Steam: lobby and messaging checked, two accounts untested |
-| See the other lamb: walking, animations, scene changes | works |
-| Same place grouping: cult, buildings, each dungeon room | works |
+| See the other player: walking, animations, scene changes | works |
+| Lamb and Goat, like local co-op (setting "Character": Auto / Lamb / Goat), with the co-op 1/2 indicators | works |
 | Shared dungeon layout (same seed for both players' run) | works in the automated test |
-| Shared enemy health (hit on one side lowers it on the other, kills sync) | in progress |
-| Enemies chasing / hitting the other player, shared loot, followers, base | not synced, each player has their own |
+| Room owner: whoever enters a room first runs its enemies, the other player's enemies follow them | works in the automated test |
+| Enemies attack both players, hits on your lamb come from the owner's game | works in the automated test |
+| Shared enemy health and kills | works in the automated test |
+| Shared pickups: what one picks up, both get | works in the automated test |
+| Knocked out instead of dead while the partner fights on; stand next to them for 3 s to revive, or clear the room | works in the automated test |
+| Game over only when both are down | works in the automated test |
+| Followers, base, rituals | not synced, each player has their own |
 | Leaving / host stopping keeps you in your own game | works |
-
-The friend's lamb is a "ghost" on your screen: your enemies can't hurt it, and it doesn't open
-doors or pick up loot for you.
 
 ## Requirements
 
@@ -69,7 +73,14 @@ paths from environment variables (see the top of each).
   in the same dungeon soon after. Each floor seed is derived from that id, and `UnityEngine.Random` is
   reset from the room seed when a room is generated or entered. See `COTLMP/Game/CoopSync.cs`.
 - **Enemies.** Enemies are matched by place, name and spawn order. Health changes go over as a
-  fraction of max health, so different difficulty multipliers still line up.
+  fraction of max health, so different difficulty multipliers still line up. The first player in a
+  room owns it: their game runs the AI (targeting both lambs) and streams positions and animations;
+  the other game stops its copies' AI once they have spawned in and removes any the owner doesn't
+  have. See `COTLMP/Game/RoomSync.cs`.
+- **Knockout.** Uses the game's own co-op knockout (`CoopManager.KnockOutPlayer`, woken on room
+  clear), plus a 3 second stand-next-to-revive bar. See `COTLMP/Game/CoopLife.cs`.
+- **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
+  1003 is the Goat as in the game).
 
 ## Testing
 
@@ -80,13 +91,14 @@ copies of the game on one PC host, join, walk, enter a dungeon and fight unatten
 ## License
 
 MIT, see [LICENSE](LICENSE). Original COTLMP credits are in [CREDITS](CREDITS). Cult of the Lamb is
-© Massive Monster / Devolver Digital. This project is not affiliated with them and ships no game files. The header image is the game's Steam store art.
+© Massive Monster / Devolver Digital. This project is not affiliated with them and ships no game files. The cover uses the game's key art.
 
 ---
 
 ## По-русски коротко
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
-друг друга в культе и в забегах. Раскладка подземелья общая, урон по врагам синхронизируется
-(в работе). Установка: `install.cmd` из релизного архива у обоих игроков. Хост: Esc, затем «Open to
+друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
+получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
+Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: `install.cmd` из релизного архива у обоих игроков. Хост: Esc, затем «Open to
 friends», затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.

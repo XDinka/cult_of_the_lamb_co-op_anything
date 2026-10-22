@@ -40,10 +40,19 @@ namespace COTLMP.Game
     /// </remarks>
     internal static class CoopSync
     {
-        private enum Kind : byte
+        internal enum Kind : byte
         {
             RunStart = 1,
-            EnemyHealth = 2
+            EnemyHealth = 2,
+            /* RoomSync */
+            Place = 3,
+            EnemySnapshot = 4,
+            PlayerHit = 5,
+            /* Shared pickups */
+            PickedUp = 6,
+            /* CoopLife */
+            Life = 7,
+            Revive = 8
         }
 
         /// <summary>
@@ -58,6 +67,11 @@ namespace COTLMP.Game
         private static float PartnerRunTime;
 
         /* Enemy matching, reset on every scene load */
+        /// <summary>
+        /// Raised when an enemy gets its sync id, so RoomSync can take over its copy.
+        /// </summary>
+        internal static event Action<Health, string> EnemyRegistered;
+
         private static readonly Dictionary<Health, string> EnemyIds = new();
         private static readonly Dictionary<string, Health> EnemiesById = new();
         private static readonly Dictionary<string, int> Counters = new();
@@ -73,7 +87,7 @@ namespace COTLMP.Game
         /// <summary>
         /// True while connected to a session, the only time any of this runs.
         /// </summary>
-        private static bool InSession => Plugin.GlobalsInternal.InGameSession && COTLMP.Network.Network.IsConnected;
+        internal static bool InSession => Plugin.GlobalsInternal.InGameSession && COTLMP.Network.Network.IsConnected;
 
         /// <summary>
         /// Starts the coroutines and hooks.
@@ -103,7 +117,7 @@ namespace COTLMP.Game
 
         /* RELAY **************************************************************/
 
-        private static void Send(Kind Type, Action<BinaryWriter> Body)
+        internal static void Send(Kind Type, Action<BinaryWriter> Body)
         {
             using MemoryStream Stream = new();
             using BinaryWriter Writer = new(Stream);
@@ -156,7 +170,46 @@ namespace COTLMP.Game
                     }
                     break;
                 }
+
+                case Kind.Place:
+                case Kind.EnemySnapshot:
+                case Kind.PlayerHit:
+                    RoomSync.OnRelay((Kind)Data[0], From, Reader);
+                    break;
+
+                case Kind.PickedUp:
+                    SharedPickups.OnRelay(From, Reader);
+                    break;
+
+                case Kind.Life:
+                case Kind.Revive:
+                    CoopLife.OnRelay((Kind)Data[0], Reader);
+                    break;
             }
+        }
+
+        /// <summary>
+        /// The sync id of an enemy, if it has one.
+        /// </summary>
+        internal static bool TryGetId(Health Enemy, out string Id) => EnemyIds.TryGetValue(Enemy, out Id);
+
+        /// <summary>
+        /// Our copy of the enemy with a sync id, if it is still around.
+        /// </summary>
+        internal static bool TryGetEnemy(string Id, out Health Enemy) => EnemiesById.TryGetValue(Id, out Enemy) && Enemy != null;
+
+        /// <summary>
+        /// Every registered enemy with its id.
+        /// </summary>
+        internal static IEnumerable<KeyValuePair<Health, string>> Enemies => EnemyIds;
+
+        /// <summary>
+        /// Kills our copy of an enemy the way a kill from the other player does.
+        /// </summary>
+        internal static void KillLocal(Health Enemy)
+        {
+            if (Enemy != null && Enemy.HP > 0f)
+                Plugin.MonoInstance.StartCoroutine(Kill(Enemy));
         }
 
         /* RUNS ***************************************************************/
@@ -238,6 +291,10 @@ namespace COTLMP.Game
             if (!InSession || Enemy == null || EnemyIds.ContainsKey(Enemy))
                 return;
 
+            /* Projectiles have health too (so they can be hit back), but each side fires its own */
+            if (Enemy.GetComponent<Projectile>() != null || Enemy.GetComponent<ProjectileGhost>() != null)
+                return;
+
             string Place = CurrentPlace();
             if (Place == null || !Place.Contains("#"))
                 return;
@@ -255,6 +312,8 @@ namespace COTLMP.Game
 
             if (RemoteFraction.ContainsKey(Id))
                 Plugin.MonoInstance.StartCoroutine(ApplyLater(Id, Enemy));
+
+            EnemyRegistered?.Invoke(Enemy, Id);
         }
 
         private static IEnumerator ApplyLater(string Id, Health Enemy)

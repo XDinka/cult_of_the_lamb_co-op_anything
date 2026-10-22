@@ -40,7 +40,113 @@ namespace COTLMP.Game
         private const float StopDistance = 0.05f;
 
         private readonly static PlayerFarming[] players;
+        private static bool puppetsTargetable;
+
+        /// <summary>
+        /// Whether our enemies may go for the other players' puppets. RoomSync turns it on while
+        /// we run the enemies of a room the partner is in; a hit on a puppet is sent to its player.
+        /// </summary>
+        internal static bool PuppetsTargetable
+        {
+            get => puppetsTargetable;
+            set
+            {
+                puppetsTargetable = value;
+                foreach (PlayerFarming farming in players)
+                {
+                    if (farming != null && farming.health != null)
+                        farming.health.invincible = !value || puppetsDown;
+                }
+            }
+        }
+
+        private static bool puppetsDown;
+
+        /// <summary>
+        /// Shows the other player knocked out (or up again): the game's downed animations, and
+        /// our enemies leave them alone.
+        /// </summary>
+        internal static void SetPuppetsDown(bool down)
+        {
+            puppetsDown = down;
+            for (uint i = 0; i < players.Length; ++i)
+            {
+                PlayerFarming farming = players[i];
+                if (farming == null)
+                    continue;
+                try
+                {
+                    ShowDowned(farming, skins[i] == Appearance.GoatSkin, down);
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Showing player {i} downed failed: {e.Message}");
+                }
+            }
+        }
+
+        private static void ShowDowned(PlayerFarming farming, bool goat, bool down)
+        {
+            if (farming.health != null)
+                farming.health.invincible = down || !puppetsTargetable;
+            farming.IsKnockedOut = down;
+
+            if (!down)
+            {
+                farming.playerController?.ResetSpecificMovementAnimations();
+                farming.state.LockStateChanges = false;
+                farming.state.CURRENT_STATE = StateMachine.State.Idle;
+                return;
+            }
+
+            /* The same animations CoopManager.KnockOutPlayer uses */
+            string prefix = goat ? "Downed/Goat/" : "Downed/";
+            string suffix = goat ? "-goat" : "";
+            farming.state.CURRENT_STATE = StateMachine.State.CustomAnimation;
+            farming.CustomAnimation(prefix + "knockback-to-downed" + suffix, false);
+            Plugin.MonoInstance.StartCoroutine(DownedLater(farming, prefix, suffix));
+        }
+
+        private static IEnumerator DownedLater(PlayerFarming farming, string prefix, string suffix)
+        {
+            yield return new WaitForSeconds(1f);
+            if (farming == null || !farming.IsKnockedOut)
+                yield break;
+            farming.state.CURRENT_STATE = StateMachine.State.Idle;
+            farming.playerController?.SetSpecificMovementAnimations(prefix + "idle" + suffix, prefix + "walk-up" + suffix, prefix + "walk-down" + suffix,
+                                                                    prefix + "walk" + suffix, prefix + "walk-up-diagonal" + suffix, prefix + "walk-horizontal" + suffix);
+        }
+
+        /// <summary>
+        /// Where the (first) other player's puppet stands, if there is one
+        /// </summary>
+        internal static Vector3? GetAnyPuppetPosition()
+        {
+            foreach (PlayerFarming farming in players)
+            {
+                if (farming != null)
+                    return farming.transform.position;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// True if the health belongs to the puppet of another player
+        /// </summary>
+        internal static bool IsPuppet(Health health)
+        {
+            if (health == null)
+                return false;
+            foreach (PlayerFarming farming in players)
+            {
+                if (farming != null && farming.health == health)
+                    return true;
+            }
+            return false;
+        }
         private readonly static Vector3?[] targets;
+        private readonly static int[] skins;
+        private readonly static Vector3?[] spineBase;
 
         /// <summary>
         /// Static constructor. Initializes the arrays and starts the move player coroutine.
@@ -49,6 +155,8 @@ namespace COTLMP.Game
         {
             players = new PlayerFarming[InternalData.MaxPlayersPerServerInternal];
             targets = new Vector3?[InternalData.MaxPlayersPerServerInternal];
+            skins = new int[InternalData.MaxPlayersPerServerInternal];
+            spineBase = new Vector3?[InternalData.MaxPlayersPerServerInternal];
             Plugin.MonoInstance.StartCoroutine(MovePlayers());
         }
 
@@ -69,6 +177,7 @@ namespace COTLMP.Game
                     try
                     {
                         FollowTarget(i);
+                        SortAgainstLocal(i);
                     }
                     catch (Exception e)
                     {
@@ -78,6 +187,37 @@ namespace COTLMP.Game
                 }
                 yield return null;
             }
+        }
+
+        /// <summary>
+        /// Keeps a puppet clearly in front of or behind our lamb.
+        /// </summary>
+        /// <remarks>
+        /// Both are transparent Spine meshes; standing on the same spot (both players are put at
+        /// the door of a new room) they sort part by part and mix into one creature. The one lower
+        /// on screen is nearer, so the puppet is nudged a little along the camera's view to match.
+        /// The materials write depth and each attachment has its own z step, so the nudge must be
+        /// larger than a whole skeleton's spread. Checked with in-game captures: 0.05 still mixed the
+        /// two, 0.35 draws each one whole; a negative step along the camera's forward puts it behind.
+        /// </remarks>
+        private static void SortAgainstLocal(uint plr)
+        {
+            PlayerFarming farming = players[plr];
+            PlayerFarming local = PlayerFarming.Instance;
+            Camera camera = Camera.main;
+            if (farming == null || farming.Spine == null || local == null || camera == null)
+                return;
+
+            Transform spine = farming.Spine.transform;
+            if (!spineBase[plr].HasValue)
+                spineBase[plr] = spine.localPosition;
+
+            float gap = farming.transform.position.y - local.transform.position.y;
+            Vector3 offset = Vector3.zero;
+            if (Mathf.Abs(farming.transform.position.x - local.transform.position.x) < 2f && Mathf.Abs(gap) < 2f)
+                offset = camera.transform.forward * (gap >= 0f ? -0.35f : 0.35f);
+
+            spine.localPosition = spineBase[plr].Value + (spine.parent != null ? spine.parent.InverseTransformVector(offset) : offset);
         }
 
         private static void FollowTarget(uint plr)
@@ -244,7 +384,7 @@ namespace COTLMP.Game
                  * mustn't move or reward us.
                  */
                 if (farming.health != null)
-                    farming.health.invincible = true;
+                    farming.health.invincible = !puppetsTargetable || puppetsDown;
                 foreach (Transform part in plr.GetComponentsInChildren<Transform>(true))
                 {
                     if (part.CompareTag("Player"))
@@ -259,10 +399,51 @@ namespace COTLMP.Game
             }
 
             players[id] = farming;
+            skins[id] = skin;
+            spineBase[id] = null;
+            ApplySkin(farming, skin);
+
+            /* Met again (room change, scene load) while they are down */
+            if (puppetsDown)
+                ShowDowned(farming, skin == Appearance.GoatSkin, true);
+        }
+
+        /// <summary>
+        /// The skin number a puppet's player sent, see Appearance
+        /// </summary>
+        internal static bool TryGetPuppetSkin(PlayerFarming farming, out int skin)
+        {
+            for (int i = 0; i < players.Length; ++i)
+            {
+                if (players[i] != null && players[i] == farming)
+                {
+                    skin = skins[i];
+                    return true;
+                }
+            }
+            skin = 0;
+            return false;
+        }
+
+        /// <summary>
+        /// The skin number of a puppet, or -1 if there is no such puppet
+        /// </summary>
+        internal static int GetSkin(uint plr) => plr < players.Length && players[plr] != null ? skins[plr] : -1;
+
+        /// <summary>
+        /// Dresses a puppet as the Lamb in a fleece or as the Goat
+        /// </summary>
+        internal static Spine.Skin ApplySkin(PlayerFarming farming, int skin)
+        {
+            var data = farming.Spine.Skeleton.Data;
             var playerskin = farming.PlayerSkin = new Spine.Skin("Player Skin");
-            playerskin.AddSkin(farming.Spine.Skeleton.Data.FindSkin($"Lamb_{skin}"));
+            playerskin.AddSkin(Appearance.FindSkin(data, skin));
+            var weapon = data.FindSkin("Weapons/Normal");
+            if (weapon != null)
+                playerskin.AddSkin(weapon);
             farming.Spine.Skeleton.SetSkin(playerskin);
-            farming.Spine.Skeleton.SetToSetupPose();
+            farming.Spine.Skeleton.SetSlotsToSetupPose();
+            return playerskin;
         }
 
         /// <summary>
@@ -275,11 +456,10 @@ namespace COTLMP.Game
             if (plr > players.Length - 1 || players[plr] == null)
                 return;
 
-            PlayerFarming farming = players[plr];
-            var plrskin = farming.PlayerSkin = new Spine.Skin("Player Skin");
-            plrskin.AddSkin(farming.Spine.Skeleton.Data.FindSkin($"Lamb_{skin}"));
-            farming.Spine.skeleton.SetSkin(plrskin);
-            farming.Spine.skeleton.SetToSetupPose();
+            if (skins[plr] == skin)
+                return;
+            skins[plr] = skin;
+            ApplySkin(players[plr], skin);
         }
 
         /// <summary>
@@ -372,8 +552,38 @@ namespace COTLMP.Game
             [HarmonyPostfix]
             private static void Update(PlayerFarming __instance)
             {
-                if (players.Contains(__instance))
+                int puppet = Array.IndexOf(players, __instance);
+                if (puppet >= 0)
                     __instance.rewiredPlayer = null;
+
+                /*
+                 * Local co-op marks the Lamb and the Goat with coloured indicators (an accessibility
+                 * setting the game only applies in local co-op). Show them in a session too.
+                 */
+                if (!Plugin.GlobalsInternal.InGameSession || CoopManager.CoopActive)
+                    return;
+                if (puppet < 0 && __instance != PlayerFarming.Instance)
+                    return;
+                try
+                {
+                    bool goat = puppet >= 0 ? skins[puppet] == Appearance.GoatSkin : Appearance.WeAreGoat;
+                    bool show = SettingsManager.Settings.Accessibility.CoopVisualIndicators && AnyPuppet();
+                    __instance.CoopIndicatorLamb?.gameObject.SetActive(show && !goat);
+                    __instance.CoopIndicatorGoat?.gameObject.SetActive(show && goat);
+                }
+                catch
+                {
+                }
+            }
+
+            private static bool AnyPuppet()
+            {
+                foreach (PlayerFarming farming in players)
+                {
+                    if (farming != null)
+                        return true;
+                }
+                return false;
             }
 
             /// <summary>

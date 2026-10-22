@@ -412,6 +412,7 @@ namespace COTLMP.Network
             Plugin.GlobalsInternal.InGameSession = true;
             COTLMP.Ui.SayChat.StartSayChat();
             Network.AnnounceCurrentScene();
+            COTLMP.Game.Appearance.Refresh();
             Notify("Multiplayer/Steam/Joined");
             Plugin.Logger?.LogInfo($"[STEAM] Joined host {Host} in scene {SceneManager.GetActiveScene().name}");
         }

@@ -34,6 +34,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-rejoin=HOST</c>: with -cotlmp-endafter, join the loopback host again after leaving</item>
     /// <item><c>-cotlmp-autodungeon=N</c>: N seconds after the session starts, start a run and enter the first dungeon</item>
     /// <item><c>-cotlmp-autokill</c>: in a dungeon, hit the nearest enemy every second (shared enemy health test)</item>
+    /// <item><c>-cotlmp-autodie=N</c>: N seconds after entering a dungeon, die once (knockout test); the other copy walks over to revive</item>
+    /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
     /// </list>
     /// </summary>
@@ -42,6 +44,8 @@ namespace COTLMP.Debug
         private static bool AutoHost, AutoEnter, AutoWalk, Report, SteamSelfTest, AutoKill;
         private static float QuitAfter, EndAfter, AutoDungeon;
         private static ulong RejoinHost;
+        private static string ShotsDir;
+        private static float AutoDie;
 
         private static string Tag => $"[QA {(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}]";
 
@@ -60,6 +64,10 @@ namespace COTLMP.Debug
                     ulong.TryParse(Arg.Substring("-cotlmp-rejoin=".Length), out RejoinHost);
                 else if (Arg.StartsWith("-cotlmp-autodungeon=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autodungeon=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDungeon);
+                else if (Arg.StartsWith("-cotlmp-autodie=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-autodie=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDie);
+                else if (Arg.StartsWith("-cotlmp-shots=", StringComparison.OrdinalIgnoreCase))
+                    ShotsDir = Arg.Substring("-cotlmp-shots=".Length);
                 else if (Arg.Equals("-cotlmp-autokill", StringComparison.OrdinalIgnoreCase))
                     AutoKill = true;
                 else if (Arg.Equals("-cotlmp-steamselftest", StringComparison.OrdinalIgnoreCase))
@@ -95,6 +103,12 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(EnterDungeon());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(HitEnemies());
+            if (!string.IsNullOrEmpty(ShotsDir))
+                Plugin.MonoInstance.StartCoroutine(Shots());
+            if (AutoDie > 0)
+                Plugin.MonoInstance.StartCoroutine(DieOnce());
+            if (AutoKill)
+                Plugin.MonoInstance.StartCoroutine(Rescue());
         }
 
         private static IEnumerator EnterCult(bool Host)
@@ -189,6 +203,9 @@ namespace COTLMP.Debug
 
                 Line.Clear();
                 Line.Append($"{Tag} place={COTLMP.Game.CoopSync.CurrentPlace()} seed={COTLMP.Game.CoopSync.LastSeed} enemies={Health.team2.Count} seen={COTLMP.Game.CoopSync.EnemiesSeen} hpsent={COTLMP.Game.CoopSync.HitsSent} hpapplied={COTLMP.Game.CoopSync.HitsApplied} killsapplied={COTLMP.Game.CoopSync.KillsApplied}");
+                Line.Append($" own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} snapsent={COTLMP.Game.RoomSync.SnapshotsSent} snapapplied={COTLMP.Game.RoomSync.SnapshotsApplied} puppethits={COTLMP.Game.RoomSync.PuppetHitsSent} hitstaken={COTLMP.Game.RoomSync.HitsTaken} removed={COTLMP.Game.RoomSync.EnemiesRemoved} followed={COTLMP.Game.RoomSync.FollowedCount} visible={CountVisibleEnemies()} pickups={COTLMP.Game.SharedPickups.Sent}/{COTLMP.Game.SharedPickups.Received}/{COTLMP.Game.SharedPickups.Removed}");
+                Line.Append($" knockouts={COTLMP.Game.CoopLife.KnockOuts} revives={COTLMP.Game.CoopLife.Revives} down={COTLMP.Game.CoopLife.WeAreDown} partnerdown={COTLMP.Game.CoopLife.PartnerDown}");
+                Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
                 if (PlayerFarming.Instance != null)
                     Line.Append($" local={Format(PlayerFarming.Instance.transform.position)}");
@@ -256,18 +273,36 @@ namespace COTLMP.Debug
             /* Walk the same way through the rooms on both sides: the first unvisited door, N, E, S, W */
             while (SceneManager.GetActiveScene().name == "Dungeon1")
             {
-                yield return new WaitForSecondsRealtime(5f);
+                yield return new WaitForSecondsRealtime(Plugin.GlobalsInternal.IsServerCreator ? 5f : 1f);
                 MMBiomeGeneration.BiomeRoom Room = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
                 if (Room == null || MMTransition.IsPlaying)
                     continue;
 
-                /* Move on together: wait for the partner in this room, then for the fight to end (or 40 s) */
+                /* The joining copy just follows the host into the next room */
+                if (!Plugin.GlobalsInternal.IsServerCreator)
+                {
+                    string Partner = COTLMP.Game.RoomSync.PartnerPlace;
+                    string Mine = COTLMP.Game.CoopSync.CurrentPlace();
+                    if (Partner == null || Mine == null || Partner == Mine || !Partner.Contains("@") || !Mine.Contains("@") ||
+                        Partner.Substring(0, Partner.IndexOf('@')) != Mine.Substring(0, Mine.IndexOf('@')))
+                        continue;
+                    string[] P = Partner.Substring(Partner.IndexOf('@') + 1).Split(',');
+                    Vector2Int Gap = new(int.Parse(P[0]) - Room.x, int.Parse(P[1]) - Room.y);
+                    if (Mathf.Abs(Gap.x) + Mathf.Abs(Gap.y) != 1)
+                        continue;
+                    Plugin.Logger?.LogWarning($"{Tag} Following the host {Gap} from {Room.x},{Room.y}");
+                    MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Gap));
+                    continue;
+                }
+
+                /* The host waits for the partner in this room, then for the fight to end (or 40 s) */
                 float Waited = 0f;
                 while (Waited < 90f && !AnyRemotePlayer())
                 {
                     yield return new WaitForSecondsRealtime(1f);
                     Waited += 1f;
                 }
+                yield return new WaitForSecondsRealtime(8f);
                 Waited = 0f;
                 while (Waited < 40f && Health.team2.Exists(Enemy => Enemy != null && Enemy.HP > 0f))
                 {
@@ -300,8 +335,23 @@ namespace COTLMP.Debug
             while (true)
             {
                 yield return Wait;
+                if (PlayerFarming.Instance == null || MMTransition.IsPlaying || PlayerFarming.Instance.IsKnockedOut)
+                    continue;
+
+                /* Collect what the fight dropped, as walking over it would */
+                foreach (PickUp Item in new System.Collections.Generic.List<PickUp>(PickUp.PickUps))
+                {
+                    if (Item != null && Item.gameObject.activeInHierarchy && Item.CanBePickedUp && Item.AddToInventory)
+                    {
+                        Item.Player = PlayerFarming.Instance.gameObject;
+                        Plugin.Logger?.LogWarning($"{Tag} Picking up {Item.type} x{Item.Quantity}");
+                        Item.PickMeUp();
+                        break;
+                    }
+                }
+
                 /* Fight only with the partner in the room, like players would */
-                if (PlayerFarming.Instance == null || MMTransition.IsPlaying || Health.team2.Count == 0 || !AnyRemotePlayer())
+                if (Health.team2.Count == 0 || !AnyRemotePlayer())
                     continue;
 
                 Health Nearest = null;
@@ -317,6 +367,80 @@ namespace COTLMP.Debug
                 bool Hit = Nearest.DealDamage(Mathf.Max(1f, Nearest.totalHP * 0.4f), PlayerFarming.Instance.gameObject, Nearest.transform.position, false, Health.AttackTypes.Melee, true);
                 Plugin.Logger?.LogWarning($"{Tag} Hit {Nearest.name} -> {Hit}, hp {Nearest.HP:F1}/{Nearest.totalHP:F1}");
             }
+        }
+
+        /// <summary>
+        /// Captures only this game's frame (Unity's ScreenCapture), never the desktop
+        /// </summary>
+        private static IEnumerator Shots()
+        {
+            string Last = null;
+            int Count = 0;
+
+            while (Count < 6)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                string Place = COTLMP.Game.CoopSync.CurrentPlace();
+                if (Place == null || Place == Last || !Place.Contains("#") || !AnyRemotePlayer())
+                    continue;
+
+                Last = Place;
+                yield return new WaitForSecondsRealtime(5f);
+                string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{++Count}.png");
+                ScreenCapture.CaptureScreenshot(File);
+                Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}");
+            }
+        }
+
+        private static IEnumerator DieOnce()
+        {
+            /* Counted from the first moment both stand in one dungeon room */
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            yield return new WaitForSecondsRealtime(AutoDie);
+
+            PlayerFarming Player = PlayerFarming.Instance;
+            Plugin.Logger?.LogWarning($"{Tag} Dying on purpose, hp {Player.health.HP}");
+            Player.health.invincible = false;
+            Player.health.untouchable = false;
+            Player.health.HP = 0.5f;
+            Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+            yield return new WaitForSecondsRealtime(2f);
+            Plugin.Logger?.LogWarning($"{Tag} After dying: knocked out {Player.IsKnockedOut}, state {Player.state.CURRENT_STATE}, down {COTLMP.Game.CoopLife.WeAreDown}");
+        }
+
+        /// <summary>
+        /// Stands next to the downed partner until the bar fills, as a player would
+        /// </summary>
+        private static IEnumerator Rescue()
+        {
+            while (true)
+            {
+                yield return null;
+                if (!COTLMP.Game.CoopLife.PartnerDown || PlayerFarming.Instance == null || MMTransition.IsPlaying)
+                    continue;
+                Vector3? Downed = COTLMP.Game.PlayerManager.GetAnyPuppetPosition();
+                if (!Downed.HasValue)
+                    continue;
+                PlayerFarming.Instance.transform.position = Downed.Value + new Vector3(0.6f, 0f, 0f);
+                if (Time.frameCount % 60 == 0)
+                    Plugin.Logger?.LogWarning($"{Tag} Reviving the partner, bar {COTLMP.Game.CoopLife.ReviveProgress:F2}");
+            }
+        }
+
+        private static int CountVisibleEnemies()
+        {
+            int Count = 0;
+            foreach (Health Enemy in Health.team2)
+            {
+                if (Enemy == null || Enemy.HP <= 0f || !Enemy.gameObject.activeInHierarchy || Enemy.GetComponent<UnitObject>() == null)
+                    continue;
+                var Spine = Enemy.GetComponentInChildren<Spine.Unity.SkeletonAnimation>();
+                var Renderer = Spine != null ? Spine.GetComponent<MeshRenderer>() : null;
+                if (Renderer == null || Renderer.enabled)
+                    ++Count;
+            }
+            return Count;
         }
 
         private static bool AnyRemotePlayer()

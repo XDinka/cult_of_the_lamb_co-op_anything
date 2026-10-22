@@ -244,6 +244,7 @@ namespace COTLMP.Ui
 
             /* Let Steam friends join without an IP address */
             COTLMP.Network.SteamBridge.StartHost(Server.Port);
+            COTLMP.Game.Appearance.Refresh();
             return true;
         }
 
@@ -334,6 +335,7 @@ namespace COTLMP.Ui
 
             Plugin.GlobalsInternal.InGameSession = false;
             Plugin.GlobalsInternal.IsServerCreator = false;
+            COTLMP.Game.Appearance.Refresh();
 
             if (NotificationKey != null)
                 NotificationCentre.Instance?.PlayGenericNotification(NotificationKey);
