@@ -13,6 +13,7 @@ using COTLMP.Ui;
 using MMTools;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using UnityEngine;
@@ -38,6 +39,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
+    /// <item><c>-cotlmp-netshots</c>: with -cotlmp-shots, save a frame the first time each kind of bad connection icon shows</item>
+    /// <item><c>-cotlmp-netflood</c>: every 3 s send the partner a 20 KB packet and a burst of 300 small ones of a kind they ignore (network stress test; pair it with -cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE for a bad connection)</item>
     /// <item><c>-cotlmp-drawtest</c>: in each shared dungeon room draw 3 tarot cards the way a chest would and log them (host pools test); the host also gets extra unlocks in memory so the two saves differ</item>
     /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
@@ -54,6 +57,8 @@ namespace COTLMP.Debug
         private static float AutoTalk;
         private static bool AutoShoot;
         private static bool DrawTest;
+        private static bool NetFlood, NetShots;
+        private static int FloodSent;
 
         private static string Tag => $"[QA {(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}]";
 
@@ -74,6 +79,10 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-autodungeon=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDungeon);
                 else if (Arg.StartsWith("-cotlmp-autotalk=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autotalk=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoTalk);
+                else if (Arg.Equals("-cotlmp-netflood", StringComparison.OrdinalIgnoreCase))
+                    NetFlood = true;
+                else if (Arg.Equals("-cotlmp-netshots", StringComparison.OrdinalIgnoreCase))
+                    NetShots = true;
                 else if (Arg.Equals("-cotlmp-drawtest", StringComparison.OrdinalIgnoreCase))
                     DrawTest = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
@@ -121,7 +130,9 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(EnterDungeon());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(HitEnemies());
-            if (!string.IsNullOrEmpty(ShotsDir))
+            if (!string.IsNullOrEmpty(ShotsDir) && NetShots)
+                Plugin.MonoInstance.StartCoroutine(NetIconShots());
+            else if (!string.IsNullOrEmpty(ShotsDir))
                 Plugin.MonoInstance.StartCoroutine(Shots());
             if (AutoDie > 0)
                 Plugin.MonoInstance.StartCoroutine(DieOnce());
@@ -131,6 +142,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(Shoot());
             if (DrawTest)
                 Plugin.MonoInstance.StartCoroutine(Draw());
+            if (NetFlood)
+                Plugin.MonoInstance.StartCoroutine(Flood());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(Rescue());
         }
@@ -224,6 +237,28 @@ namespace COTLMP.Debug
             }
         }
 
+        /// <summary>
+        /// Floods the partner with data they don't use: one big packet and a burst of small ones.
+        /// </summary>
+        private static IEnumerator Flood()
+        {
+            var Wait = new WaitForSecondsRealtime(3f);
+            byte[] Big = new byte[20000];
+            new System.Random(5).NextBytes(Big);
+
+            while (true)
+            {
+                yield return Wait;
+                if (!COTLMP.Game.CoopSync.InSession)
+                    continue;
+
+                COTLMP.Game.CoopSync.Send((COTLMP.Game.CoopSync.Kind)250, Writer => Writer.Write(Big));
+                for (int Index = 0; Index < 300; Index++)
+                    COTLMP.Game.CoopSync.Send((COTLMP.Game.CoopSync.Kind)251, Writer => Writer.Write(Index));
+                FloodSent += 301;
+            }
+        }
+
         private static IEnumerator ReportLoop()
         {
             var Wait = new WaitForSecondsRealtime(2f);
@@ -240,6 +275,7 @@ namespace COTLMP.Debug
                 Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
                 Line.Append($" dialog={COTLMP.Game.Dialogs.LinesSent}/{COTLMP.Game.Dialogs.LinesShown} camtargets={GameManager.GetInstance()?.CamFollowTarget?.targets.Count}:{(GameManager.GetInstance()?.CamFollowTarget?.targets.Count > 0 ? GameManager.GetInstance().CamFollowTarget.targets[0].gameObject?.name : "-")}");
                 Line.Append($" hazards={COTLMP.Game.HazardSync.Sent}/{COTLMP.Game.HazardSync.Shown}/{COTLMP.Game.HazardSync.Missing} moved={COTLMP.Game.HazardSync.Moved} pools={COTLMP.Game.HostPools.Received}/{COTLMP.Game.HostPools.Scopes}");
+                Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
@@ -443,6 +479,38 @@ namespace COTLMP.Debug
                 string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{++Count}.png");
                 ScreenCapture.CaptureScreenshot(File);
                 Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}");
+            }
+        }
+
+        /// <summary>
+        /// One frame for each kind of connection icon, once it has been up for a second.
+        /// </summary>
+        private static IEnumerator NetIconShots()
+        {
+            HashSet<string> Taken = new();
+            string Seen = null;
+            float Since = 0f;
+
+            while (Taken.Count < 6)
+            {
+                yield return new WaitForSecondsRealtime(0.25f);
+                float Ping = COTLMP.Game.ConnectionQuality.PingMs, Loss = COTLMP.Game.ConnectionQuality.Loss;
+                string State = COTLMP.Game.ConnectionQuality.Broken ? "broken" :
+                               (Ping >= COTLMP.Game.ConnectionQuality.RedPing ? "pingred" : Ping >= COTLMP.Game.ConnectionQuality.YellowPing ? "pingyellow" : "pingok") +
+                               (Loss >= COTLMP.Game.ConnectionQuality.RedLoss ? "-lossred" : Loss >= COTLMP.Game.ConnectionQuality.YellowLoss ? "-lossyellow" : "");
+                if (State != Seen)
+                {
+                    Seen = State;
+                    Since = Time.realtimeSinceStartup;
+                    continue;
+                }
+                if (Taken.Contains(State) || Time.realtimeSinceStartup - Since < 1f || !COTLMP.Game.CoopSync.InSession)
+                    continue;
+
+                Taken.Add(State);
+                string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-net-{State}.png");
+                ScreenCapture.CaptureScreenshot(File);
+                Plugin.Logger?.LogWarning($"{Tag} Saved {File} (ping {Ping:F0} ms, loss {Loss:P0})");
             }
         }
 

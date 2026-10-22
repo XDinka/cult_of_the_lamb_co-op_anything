@@ -10,6 +10,9 @@
 using Steamworks;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -38,7 +41,8 @@ namespace COTLMP.Network
         /// </summary>
         /// <param name = "Peer">The id of the peer.</param>
         /// <param name = "Data">The packet bytes.</param>
-        void Send(ulong Peer, byte[] Data);
+        /// <param name = "Reliable">False for a packet that may be lost (the latest position of something).</param>
+        void Send(ulong Peer, byte[] Data, bool Reliable = true);
 
         /// <summary>
         /// Fetches one received packet, if there is one.
@@ -73,6 +77,13 @@ namespace COTLMP.Network
         private readonly ConcurrentQueue<(ulong, byte[])> Pending = new();
         private Callback<SteamNetworkingMessagesSessionRequest_t> SessionRequest;
         private Callback<SteamNetworkingMessagesSessionFailed_t> SessionFailed;
+        private int SendFailures;
+
+        /// <summary>
+        /// How much Steam may hold for a peer that can't keep up before it refuses to queue more.
+        /// The default (512 KB) fills up within seconds of a Wi-Fi drop-out at co-op traffic rates.
+        /// </summary>
+        private const int SendBufferSize = 8 << 20;
 
         public ulong LocalId { get; }
         public Func<ulong, bool> AllowPeer { get; set; } = _ => false;
@@ -86,6 +97,30 @@ namespace COTLMP.Network
 
             SessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(OnSessionRequest);
             SessionFailed = Callback<SteamNetworkingMessagesSessionFailed_t>.Create(OnSessionFailed);
+            SetSendBuffer();
+        }
+
+        private static void SetSendBuffer()
+        {
+            IntPtr Value = Marshal.AllocHGlobal(sizeof(int));
+            try
+            {
+                Marshal.WriteInt32(Value, SendBufferSize);
+                if (!SteamNetworkingUtils.SetConfigValue(ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_SendBufferSize,
+                                                         ESteamNetworkingConfigScope.k_ESteamNetworkingConfig_Global,
+                                                         IntPtr.Zero,
+                                                         ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
+                                                         Value))
+                    Plugin.Logger?.LogWarning("[STEAM] Can't raise the send buffer, keeping Steam's default");
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[STEAM] Can't raise the send buffer: {e.Message}");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(Value);
+            }
         }
 
         /// <summary>
@@ -109,7 +144,7 @@ namespace COTLMP.Network
             Plugin.Logger?.LogWarning($"[STEAM] Session with {Failed.m_info.m_identityRemote.GetSteamID64()} failed: {Failed.m_info.m_eEndReason} {Failed.m_info.m_szEndDebug}");
         }
 
-        public void Send(ulong Peer, byte[] Data)
+        public void Send(ulong Peer, byte[] Data, bool Reliable = true)
         {
             SteamNetworkingIdentity Identity = new();
             GCHandle Pin;
@@ -120,14 +155,15 @@ namespace COTLMP.Network
             try
             {
                 /*
-                 * COTLMP drops any message older than the newest one it has seen,
-                 * so reliable ordered delivery is what keeps the handshake and
-                 * the disconnect from getting lost on a bad connection.
+                 * Events (handshake, kills, pickups, disconnect) go reliable and in order. The latest
+                 * positions go unreliable: a lost one is replaced by the next a tenth of a second later,
+                 * and it doesn't hold up the events behind it while Steam resends it.
                  */
                 Result = SteamNetworkingMessages.SendMessageToUser(ref Identity,
                                                                    Pin.AddrOfPinnedObject(),
                                                                    (uint)Data.Length,
-                                                                   Constants.k_nSteamNetworkingSend_ReliableNoNagle | Constants.k_nSteamNetworkingSend_AutoRestartBrokenSession,
+                                                                   (Reliable ? Constants.k_nSteamNetworkingSend_ReliableNoNagle : Constants.k_nSteamNetworkingSend_UnreliableNoNagle) |
+                                                                   Constants.k_nSteamNetworkingSend_AutoRestartBrokenSession,
                                                                    Channel);
             }
             finally
@@ -135,8 +171,9 @@ namespace COTLMP.Network
                 Pin.Free();
             }
 
-            if (Result != EResult.k_EResultOK)
-                Plugin.Logger?.LogWarning($"[STEAM] SendMessageToUser({Peer}) returned {Result}");
+            /* A peer that can't keep up fails every send for a while, log the first few */
+            if (Result != EResult.k_EResultOK && (++SendFailures <= 10 || SendFailures % 500 == 0))
+                Plugin.Logger?.LogWarning($"[STEAM] SendMessageToUser({Peer}) returned {Result} ({SendFailures} failed sends so far)");
         }
 
         public bool TryReceive(out ulong Peer, out byte[] Data)
@@ -196,6 +233,7 @@ namespace COTLMP.Network
     {
         internal const int BasePort = 47110;
         private readonly UdpClient Socket;
+        private readonly Chaos Faults;
         private readonly ConcurrentQueue<(ulong, byte[])> Received = new();
         private volatile bool Running = true;
 
@@ -208,7 +246,10 @@ namespace COTLMP.Network
             Socket = new UdpClient(new IPEndPoint(IPAddress.Loopback, BasePort + (int)Id));
             /* Don't let an ICMP "port unreachable" from a closed peer kill the receive loop */
             Socket.Client.IOControl(-1744830452, new byte[] { 0 }, null);
+            Socket.Client.ReceiveBufferSize = SteamBridge.LocalBufferSize;
             _ = System.Threading.Tasks.Task.Run(ReceiveLoop);
+
+            Faults = Chaos.FromCommandLine(this);
         }
 
         private async System.Threading.Tasks.Task ReceiveLoop()
@@ -234,10 +275,144 @@ namespace COTLMP.Network
             }
         }
 
-        public void Send(ulong Peer, byte[] Data)
+        public void Send(ulong Peer, byte[] Data, bool Reliable = true)
         {
-            Socket.Send(Data, Data.Length, new IPEndPoint(IPAddress.Loopback, BasePort + (int)Peer));
+            if (Faults != null)
+                Faults.Send(Peer, Data, Reliable);
+            else
+                SendNow(Peer, Data);
         }
+
+        private void SendNow(ulong Peer, byte[] Data)
+        {
+            try
+            {
+                Socket.Send(Data, Data.Length, new IPEndPoint(IPAddress.Loopback, BasePort + (int)Peer));
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        /// <summary>
+        /// A bad connection for tests: -cotlmp-netchaos=LOSS,DELAY,JITTER[,EVERY,OUTAGE]
+        /// (lost packets in percent, delay and jitter in milliseconds, and a drop-out
+        /// of OUTAGE seconds every EVERY seconds).
+        /// </summary>
+        /// <remarks>
+        /// It behaves the way the Steam link does: reliable packets are never lost and keep their
+        /// order, but wait for resends (and for the end of a drop-out); unreliable ones may be lost
+        /// or overtake each other.
+        /// </remarks>
+        private sealed class Chaos
+        {
+            private readonly LoopbackPeerLink Link;
+            private readonly double Loss, Delay, Jitter, Every, Outage;
+            private readonly Stopwatch Clock = Stopwatch.StartNew();
+            private readonly System.Random Dice = new(7);
+            private readonly List<(double At, long Order, ulong Peer, byte[] Data)> Queue = new();
+            private readonly Dictionary<ulong, double> LastReliable = new();
+            private long Order;
+
+            /* Counters for the test harness report */
+            internal static int Lost, Resent;
+
+            private Chaos(LoopbackPeerLink Owner, double LossPercent, double DelayMs, double JitterMs, double EverySec, double OutageSec)
+            {
+                Link = Owner;
+                Loss = LossPercent / 100.0;
+                Delay = DelayMs;
+                Jitter = JitterMs;
+                Every = EverySec * 1000.0;
+                Outage = OutageSec * 1000.0;
+                new System.Threading.Thread(Deliver) { IsBackground = true, Name = "COTLMP net chaos" }.Start();
+                Plugin.Logger?.LogWarning($"[STEAM] Bad connection on: loss {LossPercent}% delay {DelayMs} ms jitter {JitterMs} ms, {OutageSec} s drop-out every {EverySec} s");
+            }
+
+            public static Chaos FromCommandLine(LoopbackPeerLink Owner)
+            {
+                foreach (string Arg in Environment.GetCommandLineArgs())
+                {
+                    if (!Arg.StartsWith("-cotlmp-netchaos=", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    string[] Parts = Arg.Substring("-cotlmp-netchaos=".Length).Split(',');
+                    double Get(int Index) => Index < Parts.Length && double.TryParse(Parts[Index], NumberStyles.Float, CultureInfo.InvariantCulture, out double Value) ? Value : 0.0;
+                    return new Chaos(Owner, Get(0), Get(1), Get(2), Get(3), Get(4));
+                }
+                return null;
+            }
+
+            public void Send(ulong Peer, byte[] Data, bool Reliable)
+            {
+                lock (Queue)
+                {
+                    double Now = Clock.Elapsed.TotalMilliseconds;
+                    double At = Now + Delay + Dice.NextDouble() * Jitter;
+
+                    /* Inside a drop-out nothing gets through until it ends */
+                    if (Every > 0 && Now % Every < Outage)
+                    {
+                        if (!Reliable)
+                        {
+                            ++Lost;
+                            return;
+                        }
+                        At = Math.Max(At, Now - Now % Every + Outage + Delay);
+                    }
+
+                    if (Reliable)
+                    {
+                        /* A lost reliable packet comes after a resend, and holds up the ones behind it */
+                        if (Dice.NextDouble() < Loss)
+                        {
+                            At += 2 * Delay + 100;
+                            ++Resent;
+                        }
+                        if (LastReliable.TryGetValue(Peer, out double Last) && At < Last)
+                            At = Last;
+                        LastReliable[Peer] = At;
+                    }
+                    else if (Dice.NextDouble() < Loss)
+                    {
+                        ++Lost;
+                        return;
+                    }
+
+                    Queue.Add((At, Order++, Peer, Data));
+                }
+            }
+
+            private void Deliver()
+            {
+                List<(double At, long Order, ulong Peer, byte[] Data)> Due = new();
+                while (Link.Running)
+                {
+                    lock (Queue)
+                    {
+                        double Now = Clock.Elapsed.TotalMilliseconds;
+                        for (int Index = Queue.Count - 1; Index >= 0; Index--)
+                        {
+                            if (Queue[Index].At <= Now)
+                            {
+                                Due.Add(Queue[Index]);
+                                Queue.RemoveAt(Index);
+                            }
+                        }
+                    }
+
+                    Due.Sort((A, B) => A.At != B.At ? A.At.CompareTo(B.At) : A.Order.CompareTo(B.Order));
+                    foreach (var Item in Due)
+                        Link.SendNow(Item.Peer, Item.Data);
+                    Due.Clear();
+                    System.Threading.Thread.Sleep(1);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Packets the bad connection lost and reliable ones it held back for a resend, for the test report.
+        /// </summary>
+        internal static string ChaosStats => $"{Chaos.Lost}/{Chaos.Resent}";
 
         public bool TryReceive(out ulong Peer, out byte[] Data)
         {

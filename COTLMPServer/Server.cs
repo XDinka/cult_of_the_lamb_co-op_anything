@@ -46,6 +46,7 @@ namespace COTLMPServer
         private readonly SemaphoreSlim sendLock;
         private readonly bool[] ids;
         private readonly object idLock;
+        private int handlerErrors;
 
         private static readonly IPAddress MulticastIp = IPAddress.Parse("239.15.7.11");
         private static readonly IPEndPoint MulticastEndPoint = new IPEndPoint(MulticastIp, 1175);
@@ -60,6 +61,8 @@ namespace COTLMPServer
             client = new UdpClient(endPoint);
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 client.Client.IOControl(-1744830452, new byte[] { 0 }, null);
+            /* Bursts from a player who just got their connection back must not overflow it */
+            client.Client.ReceiveBufferSize = 4 << 20;
 
             logger = log;
             running = 0;
@@ -268,10 +271,9 @@ namespace COTLMPServer
 
                     UdpReceiveResult result = await client.ReceiveAsync();
 
-                    if (result.Buffer.Length > 2500)
-                    {
-                        await DisconnectPlayer(result.RemoteEndPoint);
-                    }
+                    /* Nothing we send is this big, it is junk */
+                    if (result.Buffer.Length > Message.MaxSize)
+                        continue;
 
                     try
                     {
@@ -279,14 +281,15 @@ namespace COTLMPServer
 
                         if (players.TryGetValue(result.RemoteEndPoint, out var plr))
                         {
-                            if (message.Sequence < plr.RecvSequence && message.Type != MessageType.Disconnect)
+                            /* A late position is worthless next to a newer one, but a late event still happened */
+                            if (message.Sequence < plr.RecvSequence && Message.IsStream(message.Type, message.Data, 0))
                                 continue;
-                            if (message.Sequence >= plr.RecvSequence)
-                                lock (plr.Lock)
-                                {
+                            lock (plr.Lock)
+                            {
+                                if (message.Sequence >= plr.RecvSequence)
                                     plr.RecvSequence = message.Sequence + 1;
-                                    plr.Lag = false;
-                                }
+                                plr.Lag = false;
+                            }
                         }
                         else if (message.Type != MessageType.Ping && message.Type != MessageType.Handshake && message.Type != MessageType.ServerInfo)
                             continue;
@@ -497,6 +500,12 @@ namespace COTLMPServer
                                 ids[removed.ID] = false;
                             logger?.LogInfo($"{result.RemoteEndPoint} ({removed.Username}) disconnected: {e.Message}");
                         }
+                    }
+                    catch (Exception e) when (!(e is OperationCanceledException) && !token.IsCancellationRequested)
+                    {
+                        /* One bad message must not stop the server for everyone */
+                        if (++handlerErrors <= 20)
+                            logger?.LogError($"Handling a message from {result.RemoteEndPoint} failed: {e}");
                     }
                 }
             }

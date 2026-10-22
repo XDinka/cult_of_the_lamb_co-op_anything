@@ -30,6 +30,35 @@ namespace COTLMPServer.Messages
         /// </summary>
         public const int MagicNumber = 0x173495;
         public const int SerializedSize = sizeof(int) * 3;
+        /// <summary>
+        /// The biggest message accepted. Co-op sync data (a room full of enemies) can be larger than
+        /// one network frame; Steam and UDP split it up, and a dropped player is far worse than a big packet.
+        /// </summary>
+        public const int MaxSize = 60000;
+        /// <summary>
+        /// Co-op sync kinds that only carry the latest state (enemy and attack positions) or measure
+        /// the connection (pings, which must be lost the way positions are), see CoopSync.Kind
+        /// </summary>
+        private const byte EnemySnapshotKind = 4, HazardMoveKind = 13, PingKind = 15, PongKind = 16;
+
+        /// <summary>
+        /// Whether a message only carries the latest state of something, so a newer one makes it worthless.
+        /// </summary>
+        /// <param name="type">The message type</param>
+        /// <param name="data">The message data</param>
+        /// <param name="kindOffset">Where the co-op sync kind lies in the data of a relay message</param>
+        /// <remarks>
+        /// Only these may be dropped when they arrive late or get lost; everything else is an event
+        /// (a kill, a pickup, a cleared room) that must arrive even if it comes after a newer message.
+        /// </remarks>
+        public static bool IsStream(MessageType type, byte[] data, int kindOffset)
+        {
+            if (type == MessageType.PositionUpdate)
+                return true;
+            return type == MessageType.Relay && data != null && data.Length > kindOffset &&
+                   (data[kindOffset] == EnemySnapshotKind || data[kindOffset] == HazardMoveKind ||
+                    data[kindOffset] == PingKind || data[kindOffset] == PongKind);
+        }
 
         /// <summary>
         /// Serialize the message into a byte array
@@ -92,7 +121,7 @@ namespace COTLMPServer.Messages
                 throw new ArgumentNullException(nameof(data));
             if (data.Length < SerializedSize)
                 throw new InvalidDataException("data is too small!");
-            if (data.Length > 1500)
+            if (data.Length > MaxSize)
                 throw new InvalidDataException("data is too big!");
 
             using (MemoryStream stream = new MemoryStream(data, false))

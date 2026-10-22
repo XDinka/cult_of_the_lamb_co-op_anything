@@ -42,7 +42,7 @@ namespace COTLMPServer
                 throw new InvalidDataException("stream is too small!");
 
             int size = reader.ReadInt32();
-            if (size > 0 && size < 1500)
+            if (size > 0 && size <= Messages.Message.MaxSize)
             {
                 if (size > reader.BaseStream.Length - reader.BaseStream.Position)
                     throw new InvalidDataException($"Expected {size} bytes, got {reader.BaseStream.Length - reader.BaseStream.Position}");

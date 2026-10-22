@@ -39,13 +39,12 @@ namespace COTLMP.Network
         public static bool IsConnected => online != 0;
 
         /* Counters for the test harness report */
-        internal static int SentPositions, ReceivedPositions;
+        internal static int SentPositions, ReceivedPositions, PacketsIn, PacketsOut;
         internal static bool HasLocalPlayer => localPlayer != null;
 
         private static UdpClient client;
         private static PlayerFarming localPlayer;
         private static CancellationToken cancelToken;
-        private static SemaphoreSlim sendLock;
         /// <summary>
         /// Whether the game is online or not
         /// </summary>
@@ -62,6 +61,10 @@ namespace COTLMP.Network
         private static uint recvSequence;
         private static bool transitionHappened;
         /// <summary>
+        /// How many messages failed to be handled, the first few are logged
+        /// </summary>
+        private static int handlerErrors;
+        /// <summary>
         /// The last place sent to the server, see CoopSync.CurrentPlace
         /// </summary>
         private static string lastPlace;
@@ -77,25 +80,34 @@ namespace COTLMP.Network
         /// The message to send
         /// </param>
         /// <remarks>
-        /// The sequence number in msg is ignored and is overwritten
+        /// The sequence number in msg is ignored and is overwritten.
+        /// The send is done before this returns. An awaited send called from the game would go on
+        /// on Unity's main thread, one step per frame, which caps the rate at about one message
+        /// per frame and lets a fight's traffic pile up into seconds of lag. The socket only goes
+        /// to localhost (the bridge or the integrated server), so a plain send never waits.
         /// </remarks>
-        private static async System.Threading.Tasks.Task Send(Message msg)
+        private static System.Threading.Tasks.Task Send(Message msg)
         {
             if (online == 0)
-                return;
+                return System.Threading.Tasks.Task.CompletedTask;
 
-            await sendLock.WaitAsync(cancelToken);
             try
             {
                 lock (seqLock)
+                {
                     msg.Sequence = sequence++;
-                byte[] bytes = msg.Serialize();
-                await client.SendAsync(bytes, bytes.Length);
+                    byte[] bytes = msg.Serialize();
+                    client.Send(bytes, bytes.Length);
+                }
+                Interlocked.Increment(ref PacketsOut);
             }
-            finally
+            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException || e is SocketException)
             {
-                sendLock.Release();
+                /* Leaving: the client is gone or going */
+                if (online != 0 && !cancelToken.IsCancellationRequested && ++handlerErrors <= 20)
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sending a {msg.Type} message failed: {e.Message}");
             }
+            return System.Threading.Tasks.Task.CompletedTask;
         }
 
         /// <summary>
@@ -106,6 +118,13 @@ namespace COTLMP.Network
         {
             if (online == 0 || data == null || data.Length == 0)
                 return;
+            /* Room for the header and the sender ID the server puts in front */
+            if (data.Length > Message.MaxSize - 64)
+            {
+                if (++handlerErrors <= 20)
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Co-op data of kind {data[0]} is too big to send ({data.Length} bytes), dropped");
+                return;
+            }
             _ = Send(new Message(MessageType.Relay, 0, data));
         }
 
@@ -146,7 +165,20 @@ namespace COTLMP.Network
 
                     var result = await recv;
 
-                    messageQueue.Enqueue(Message.Deserialize(result.Buffer));
+                    /* A packet that isn't ours (or got mangled) is skipped, not a reason to disconnect */
+                    Message message;
+                    try
+                    {
+                        message = Message.Deserialize(result.Buffer);
+                    }
+                    catch (InvalidDataException e)
+                    {
+                        if (++handlerErrors <= 20)
+                            PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Skipped a bad packet of {result.Buffer.Length} bytes: {e.Message}");
+                        continue;
+                    }
+                    messageQueue.Enqueue(message);
+                    Interlocked.Increment(ref PacketsIn);
                 }
             }
             catch (OperationCanceledException)
@@ -268,7 +300,8 @@ namespace COTLMP.Network
 
                 lock (seqLock)
                 {
-                    if (msg.Sequence < recvSequence && msg.Type != MessageType.Disconnect)
+                    /* A late position is worthless next to a newer one, but a late event still happened */
+                    if (msg.Sequence < recvSequence && Message.IsStream(msg.Type, msg.Data, sizeof(uint)))
                         continue;
                     if (msg.Sequence >= recvSequence)
                         recvSequence = msg.Sequence + 1;
@@ -355,7 +388,16 @@ namespace COTLMP.Network
 
                             byte[] payload = new byte[msg.Data.Length - sizeof(uint)];
                             Array.Copy(msg.Data, sizeof(uint), payload, 0, payload.Length);
-                            CoopSync.OnRelay(id, payload);
+                            /* Co-op data that can't be read is skipped, the session goes on */
+                            try
+                            {
+                                CoopSync.OnRelay(id, payload);
+                            }
+                            catch (Exception e)
+                            {
+                                if (++handlerErrors <= 20)
+                                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Co-op data of kind {payload[0]} from player {id} failed: {e}");
+                            }
                             break;
                         }
 
@@ -380,9 +422,9 @@ namespace COTLMP.Network
                 }
                 catch (Exception e)
                 {
-                    PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Unknown error {e.GetType().Name} {e}");
-                    PauseMenuPatches.Message = e.Message;
-                    break;
+                    /* A puppet that went away mid-message and the like, not a reason to leave */
+                    if (++handlerErrors <= 20)
+                        PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Handling a {msg.Type} message failed: {e}");
                 }
             }
 
@@ -418,11 +460,12 @@ namespace COTLMP.Network
             cancelToken = token;
             sequence = 3;
             recvSequence = 3;
-            sendLock = new(1, 1);
             client = new();
+            client.Client.ReceiveBufferSize = SteamBridge.LocalBufferSize;
             seqLock = new();
             messageQueue = new();
             transitionHappened = false;
+            handlerErrors = 0;
             lastPlace = null;
             localPlayer = null;
             lastPositionSentAt = 0f;
@@ -439,7 +482,7 @@ namespace COTLMP.Network
                 Task<UdpReceiveResult> resultTask = client.ReceiveAsync();
 
                 UdpReceiveResult result = await resultTask;
-                if (result.Buffer.Length > 1500)
+                if (result.Buffer.Length > Message.MaxSize)
                     throw new Exception();
 
                 Message msg = Message.Deserialize(result.Buffer);

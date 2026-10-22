@@ -16,7 +16,8 @@ DL=${COTL_DL:?set COTL_DL}
 REL=${OUT_DIR:-$SRC/out}
 MANAGED=${COTL_MANAGED:?set COTL_MANAGED}
 CFG=${COTL_BEPINEX_CFG:?set COTL_BEPINEX_CFG}
-NAME=cotl-coop-anything-$(date +%Y%m%d)
+VERSION=$(grep -o 'CotlMpVer = "[^"]*"' "$SRC/COTLMP/Data/Version.cs" | cut -d'"' -f2)
+NAME=cotl-coop-anything-$VERSION
 OUT=$REL/$NAME
 DOTNET=${DOTNET:-dotnet}
 

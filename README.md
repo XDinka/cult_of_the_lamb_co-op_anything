@@ -6,12 +6,15 @@
 
 # Cult of the Lamb Co-op Anything
 
+**Version 0.1.0, pre-release.**
+
 Online co-op for **Cult of the Lamb** over Steam. You invite a friend through the Steam overlay.
 Each of you keeps playing your own save, and you see each other in the cult and on dungeon runs.
 Dungeon runs are shared: same floors, same rooms, and damage to enemies counts on both sides.
 
-> **Early alpha.** Tested with two copies of the game on one PC and a loopback stand-in for Steam.
-> Real two-account Steam play has not been tested yet. Expect bugs, and back up your saves.
+> **Pre-release 0.1.0.** Tested with two copies of the game on one PC and a loopback stand-in for
+> Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
+> Expect bugs, and back up your saves.
 
 Based on [COTLMP](https://github.com/GeoB99/COTLMP) by GeoB99, Neco-Arc and contributors (MIT),
 which provides the player puppets, the UDP protocol and the integrated server.
@@ -37,6 +40,8 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
 | Followers, base, rituals | not synced, each player has their own |
 | Leaving / host stopping keeps you in your own game | works |
+| Bad connection icon: ping 120+ ms yellow bars, 200+ ms red; packet loss 5 %+ (15 %+ red); unplugged cable when the partner stops answering | works in the automated test (simulated bad connection) |
+| Holds up on a bad connection: 5 % loss, 80±40 ms delay, 4 s drop-outs every 25 s, floods of large and many small messages | works in the automated test (200 s dungeon run, no disconnects, 0 errors) |
 
 ## Requirements
 
@@ -99,6 +104,16 @@ paths from environment variables (see the top of each).
 - **Same rolls.** Before each chest, podium, tarot or interaction roll, Unity's random state is set
   from the room seed, the run and what is rolled. Chest drops stay with whoever opened that chest.
   See `RoomRandom.cs`.
+- **Bad connections.** Events (kills, pickups, cleared rooms, conversations) go reliable and in
+  order; enemy and attack positions and the pings go unreliable, so a lost position doesn't hold up
+  the events behind it and is replaced 0.1 s later. Messages up to 60 KB (a room full of enemies),
+  an 8 MB Steam send buffer for drop-outs, 4 MB buffers on the local sockets, the game keeps running
+  without focus during a session (exclusive full screen would stop the relay), and a message that
+  can't be read is skipped and logged instead of ending the session. Sends don't wait for the next
+  frame, so a fight's traffic can't pile up into lag. See `Network.cs`, `SteamBridge.cs`, `PeerLink.cs`.
+- **Connection icon.** Pings go to the partner twice a second the way the co-op data goes; the round
+  trip is the ping, the ones that don't come back are the loss. The icon only shows while the
+  connection has been bad for 2 s, or at once when the partner stops answering. See `ConnectionQuality.cs`.
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 
@@ -107,6 +122,10 @@ paths from environment variables (see the top of each).
 `COTLMP/Debug/TestHarness.cs` has command line switches (`-cotlmp-fakesteam=N`, `-cotlmp-autohost`,
 `-cotlmp-join=N`, `-cotlmp-autodungeon=N`, `-cotlmp-autokill`, `-cotlmp-report`, ...) that let two
 copies of the game on one PC host, join, walk, enter a dungeon and fight unattended.
+`-cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE` makes the loopback link behave like a bad
+connection (reliable packets delayed for resends and drop-outs, unreliable ones lost),
+`-cotlmp-netflood` floods the partner with large and small messages, and `-cotlmp-netshots` with
+`-cotlmp-shots=DIR` saves a frame of each connection icon.
 
 ## License
 
@@ -117,8 +136,13 @@ MIT, see [LICENSE](LICENSE). Original COTLMP credits are in [CREDITS](CREDITS). 
 
 ## По-русски коротко
 
+Версия 0.1.0, предрелиз.
+
 Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
 друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
 получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
 Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: `install.cmd` из релизного архива у обоих игроков. Хост: Esc, затем «Open to
 friends», затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
+Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
+(пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
+(друг не отвечает).

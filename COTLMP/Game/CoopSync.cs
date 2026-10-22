@@ -63,7 +63,10 @@ namespace COTLMP.Game
             HostPools = 12,
             /* HazardSync */
             HazardMove = 13,
-            HazardGone = 14
+            HazardGone = 14,
+            /* ConnectionQuality */
+            NetPing = 15,
+            NetPong = 16
         }
 
         /// <summary>
@@ -115,7 +118,7 @@ namespace COTLMP.Game
         private static bool ApplyingRemote;
 
         /* Counters for the test harness report */
-        internal static int EnemiesSeen, HitsSent, HitsApplied, KillsApplied, HealthReceived;
+        internal static int EnemiesSeen, HitsSent, HitsApplied, KillsApplied, HealthReceived, UnknownReceived;
         internal static int LastSeed;
 
         /// <summary>
@@ -241,6 +244,16 @@ namespace COTLMP.Game
                 case Kind.Life:
                 case Kind.Revive:
                     CoopLife.OnRelay((Kind)Data[0], Reader);
+                    break;
+
+                case Kind.NetPing:
+                case Kind.NetPong:
+                    ConnectionQuality.OnRelay((Kind)Data[0], Reader);
+                    break;
+
+                /* From a newer version of the mod, or the test harness's flood */
+                default:
+                    ++UnknownReceived;
                     break;
             }
         }

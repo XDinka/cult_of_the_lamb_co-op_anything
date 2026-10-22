@@ -47,6 +47,13 @@ namespace COTLMP.Network
 
         private const int HandshakeTimeoutMs = 15000;
 
+        /// <summary>
+        /// Receive buffer of the local sockets between the game, the bridge and the server.
+        /// A burst (a room full of enemies after a drop-out) overflows the default one, and a full
+        /// UDP buffer drops packets silently, events included.
+        /// </summary>
+        internal const int LocalBufferSize = 4 << 20;
+
         /*
          * Sent between the bridges when a player leaves, so the other side learns at once
          * instead of after the 30 second timeouts. COTLMP messages start with the magic
@@ -264,6 +271,7 @@ namespace COTLMP.Network
 
             Peer = new HostPeer { Socket = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)) };
             Peer.Socket.Client.IOControl(-1744830452, new byte[] { 0 }, null);
+            Peer.Socket.Client.ReceiveBufferSize = LocalBufferSize;
             Peer.Socket.Connect(IPAddress.Loopback, ServerPort);
             Peers[Id] = Peer;
             _ = System.Threading.Tasks.Task.Run(() => HostPeerLoop(Peer));
@@ -279,6 +287,7 @@ namespace COTLMP.Network
                 {
                     UdpReceiveResult Result = await Peer.Socket.ReceiveAsync();
                     Peer.ToRemote.Enqueue(Result.Buffer);
+                    System.Threading.Interlocked.Increment(ref FromLocal);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -384,6 +393,7 @@ namespace COTLMP.Network
             GameClient = null;
             Proxy = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
             Proxy.Client.IOControl(-1744830452, new byte[] { 0 }, null);
+            Proxy.Client.ReceiveBufferSize = LocalBufferSize;
             _ = System.Threading.Tasks.Task.Run(ProxyLoop);
 
             int ProxyPort = ((IPEndPoint)Proxy.Client.LocalEndPoint).Port;
@@ -428,6 +438,7 @@ namespace COTLMP.Network
                     UdpReceiveResult Result = await Socket.ReceiveAsync();
                     GameClient = Result.RemoteEndPoint;
                     ToHost.Enqueue(Result.Buffer);
+                    System.Threading.Interlocked.Increment(ref FromLocal);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -454,6 +465,7 @@ namespace COTLMP.Network
                 try
                 {
                     StartPendingJoin();
+                    KeepRunningInBackground();
                     PumpOnce();
                 }
                 catch (Exception e)
@@ -509,6 +521,7 @@ namespace COTLMP.Network
                     continue;
                 }
 
+                ++FromLink;
                 if (IsHost)
                 {
                     GetPeer(From).Socket.Send(Data, Data.Length);
@@ -519,20 +532,60 @@ namespace COTLMP.Network
                 }
             }
 
+            /* From the server a relayed message has the sender's ID before the co-op data */
             if (IsHost)
             {
                 foreach (var Pair in Peers)
                 {
                     while (Pair.Value.ToRemote.TryDequeue(out byte[] Out))
-                        Link.Send(Pair.Key, Out);
+                        Link.Send(Pair.Key, Out, !IsStream(Out, sizeof(uint)));
                 }
             }
             else
             {
                 while (ToHost.TryDequeue(out byte[] Out))
-                    Link.Send(HostId, Out);
+                    Link.Send(HostId, Out, !IsStream(Out, 0));
             }
         }
+
+        /// <summary>
+        /// Whether a COTLMP packet only carries the latest state of something and may be lost.
+        /// </summary>
+        /// <param name = "Packet">The serialized message.</param>
+        /// <param name = "KindOffset">Where the co-op sync kind lies in the data of a relay message.</param>
+        private static bool IsStream(byte[] Packet, int KindOffset)
+        {
+            /* Big ones stay reliable: Steam would drop all of an unreliable one if any fragment got lost */
+            if (Packet.Length <= Message.SerializedSize || Packet.Length > UnreliableMaxSize ||
+                BitConverter.ToInt32(Packet, 0) != Message.MagicNumber)
+                return false;
+            return Message.IsStream((MessageType)BitConverter.ToInt32(Packet, sizeof(int)), Packet, Message.SerializedSize + sizeof(int) + KindOffset);
+        }
+
+        private const int UnreliableMaxSize = 1100;
+
+        /* Counters for the test harness report: packets from the local sockets and from the link */
+        internal static int FromLocal, FromLink;
+
+        /// <summary>
+        /// Keeps the game running while it has no focus during a session.
+        /// </summary>
+        /// <remarks>
+        /// In exclusive full screen the game stops when it loses focus (SettingsManager), and a stopped
+        /// game stops relaying, so the partner would be dropped 30 s after an Alt+Tab.
+        /// </remarks>
+        private static void KeepRunningInBackground()
+        {
+            if (Link != null && !Application.runInBackground)
+            {
+                if (!ForcedBackground)
+                    Plugin.Logger?.LogInfo("[STEAM] Keeping the game running without focus during the session");
+                ForcedBackground = true;
+                Application.runInBackground = true;
+            }
+        }
+
+        private static bool ForcedBackground;
 
         private static bool IsGoodbye(byte[] Data)
         {
@@ -642,6 +695,13 @@ namespace COTLMP.Network
             Lobby = CSteamID.Nil;
             Link?.Shutdown();
             Link = null;
+
+            /* Back to the game's own choice */
+            if (ForcedBackground)
+            {
+                ForcedBackground = false;
+                Application.runInBackground = ScreenUtilities.GetFullScreenMode() != FullScreenMode.ExclusiveFullScreen;
+            }
             HostId = 0;
             IsHost = false;
             IsJoinedClient = false;
