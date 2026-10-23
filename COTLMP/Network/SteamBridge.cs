@@ -96,6 +96,7 @@ namespace COTLMP.Network
                 PendingFakeHost = Host;
         }
         private static ulong PendingLobby;
+        private static bool ToldToLeave;
         private static bool Joining;
 
         /// <summary>
@@ -497,8 +498,29 @@ namespace COTLMP.Network
 
         private static void StartPendingJoin()
         {
-            if (Joining || Active || (PendingLobby == 0 && PendingFakeHost == 0) || !ReadyToJoin())
+            if (Joining || (PendingLobby == 0 && PendingFakeHost == 0))
                 return;
+
+            /*
+             * The invite came while we had our own game open to friends with nobody in it:
+             * close it and go to the friend. With a partner in it, the player leaves first.
+             */
+            if (IsHost && Plugin.GlobalsInternal.IsServerCreator)
+            {
+                if ((COTLMP.Ui.PauseMenuPatches.Server?.PlayerCount ?? 0) >= 2)
+                {
+                    if (!ToldToLeave)
+                        Notify("Multiplayer/Steam/LeaveFirst");
+                    ToldToLeave = true;
+                    return;
+                }
+                Plugin.Logger?.LogInfo("[STEAM] Invite accepted while hosting alone: closing our own game to join the friend");
+                COTLMP.Ui.PauseMenuPatches.EndSession(null);
+            }
+
+            if (Active || !ReadyToJoin())
+                return;
+            ToldToLeave = false;
 
             Joining = true;
             if (IsFake)

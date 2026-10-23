@@ -60,7 +60,7 @@ namespace COTLMP.Language
             new("Multiplayer/Game/Left", "{0} has left the server", false),
 
             /* General UI resource strings */
-            new("Multiplayer/UI/StartServer", "Open to friends", false),
+            new("Multiplayer/UI/StartServer", "Open Online", false),
             new("Multiplayer/UI/SteamInviteHint", "Steam friends can join with Shift+Tab invites or Join Game", false),
             new("Multiplayer/UI/ServerStarted", "Stop hosting", false),
             new("Multiplayer/UI/ServerConfirm", "Stop hosting? Your friends get disconnected and you keep playing your game.", false),
@@ -76,6 +76,7 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Your friend stopped hosting", false),
             new("Multiplayer/Steam/Left", "You left your friend's game", false),
             new("Multiplayer/Steam/Stopped", "Stopped hosting", false),
+            new("Multiplayer/Steam/LeaveFirst", "Stop hosting to join your friend", false),
 
             /* The map between floors */
             new("Multiplayer/Map/WaitingForHost", "Waiting for the host to choose the way", false),

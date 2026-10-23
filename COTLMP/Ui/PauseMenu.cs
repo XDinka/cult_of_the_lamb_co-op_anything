@@ -159,6 +159,42 @@ namespace COTLMP.Ui
         }
 
         /// <summary>
+        /// When the pause menu last came up (unscaled time)
+        /// </summary>
+        private static float PauseShownAt = -10f;
+
+        /// <summary>
+        /// Notes when the pause menu comes up
+        /// </summary>
+        [HarmonyPatch(typeof(UIManager), nameof(UIManager.ShowPauseMenu))]
+        [HarmonyPrefix]
+        private static void ShowPauseMenu()
+        {
+            PauseShownAt = Time.realtimeSinceStartup;
+        }
+
+        /// <summary>
+        /// The press that opened the pause menu (or a second one right after it, from a key
+        /// bounce or a second device) doesn't close it again at once
+        /// </summary>
+        [HarmonyPatch(typeof(UIPauseMenuController), nameof(UIPauseMenuController.OnCancelButtonInput))]
+        [HarmonyPrefix]
+        private static bool OnCancelButtonInput(UIPauseMenuController __instance)
+        {
+            float Open = Time.realtimeSinceStartup - PauseShownAt;
+            if (Open >= 0.3f)
+                return true;
+
+            /* The menu's own pause-button watch ends when it calls this, so start it again */
+            if (AccessTools.Method(typeof(UIPauseMenuController), "UpdateLoop")?.Invoke(__instance, null) is System.Collections.IEnumerator Loop)
+                __instance.StartCoroutine(Loop);
+
+            PlayerFarming Who = MonoSingleton<UINavigatorNew>.Instance?.AllowInputOnlyFromPlayer;
+            Plugin.Logger?.LogWarning($"[COOP] Pause menu close {Open:F2} s after opening ignored (input from {(Who == null ? "anyone" : "player #" + PlayerFarming.players.IndexOf(Who))}, focus {Application.isFocused})");
+            return false;
+        }
+
+        /// <summary>
         /// On pause menu open
         /// </summary>
         /// <param name="__instance">
@@ -199,7 +235,7 @@ namespace COTLMP.Ui
                     return false;
                 }
 
-                __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure("Started server!", $"Port: {Server.Port}\nServer Name: {Server.serverName}\nGamemode: {TranslateGameModeToString(Server.gameMode)}\n{MultiplayerModLocalization.UI.SteamInviteHint}", true);
+                __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure("Started server!", $"Port: {Server.Port}\nServer Name: {Server.serverName}\nGamemode: {TranslateGameModeToString(Server.gameMode)}", true);
             }
 
             return false;

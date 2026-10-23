@@ -41,6 +41,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
     /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
+    /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu, log whether it is still open 2 s later and what closed it</item>
     /// <item><c>-cotlmp-nomapclick</c>: with -cotlmp-nextfloor, never click on the map, only wait for the partner's pick</item>
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
@@ -65,6 +66,7 @@ namespace COTLMP.Debug
         private static bool NextFloor;
         private static bool NoMapClick;
         private static bool AnimTest;
+        private static bool PauseTest, PauseWatch;
         private static bool TarotTest;
         private static bool AutoCut;
         private static int[] WindowRect;
@@ -115,6 +117,10 @@ namespace COTLMP.Debug
                     NoMapClick = true;
                 else if (Arg.Equals("-cotlmp-animtest", StringComparison.OrdinalIgnoreCase))
                     AnimTest = true;
+                else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
+                    PauseTest = true;
+                else if (Arg.Equals("-cotlmp-pausewatch", StringComparison.OrdinalIgnoreCase))
+                    PauseWatch = true;
                 else if (Arg.Equals("-cotlmp-tarottest", StringComparison.OrdinalIgnoreCase))
                     TarotTest = true;
                 else if (Arg.Equals("-cotlmp-autocut", StringComparison.OrdinalIgnoreCase))
@@ -154,6 +160,10 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(KeepWindow());
             if (AnimTest)
                 Plugin.MonoInstance.StartCoroutine(PlayAttacks());
+            if (PauseTest || PauseWatch)
+                WatchPauseMenu();
+            if (PauseTest)
+                Plugin.MonoInstance.StartCoroutine(OpenPauseMenus());
             if (NextFloor && AutoEnter && !NoMapClick)
                 Plugin.MonoInstance.StartCoroutine(ClickMaps());
             if (TarotTest)
@@ -948,6 +958,75 @@ namespace COTLMP.Debug
         /// <summary>
         /// Plays the lamb's attack animations one after another, for the partner's puppet to repeat
         /// </summary>
+        /// <summary>
+        /// Opens the pause menu over and over and logs what closes it
+        /// </summary>
+        private static void WatchPauseMenu()
+        {
+            var Patcher = new HarmonyLib.Harmony("cotlmp.qa.pause");
+            Patcher.Patch(HarmonyLib.AccessTools.Method(typeof(Lamb.UI.UIMenuBase), "Hide"),
+                prefix: new HarmonyLib.HarmonyMethod(typeof(TestHarness), nameof(PauseHiding)));
+            Patcher.Patch(HarmonyLib.AccessTools.Method(typeof(Lamb.UI.UIManager), nameof(Lamb.UI.UIManager.ShowPauseMenu)),
+                prefix: new HarmonyLib.HarmonyMethod(typeof(TestHarness), nameof(PauseShowing)));
+        }
+
+        private static void PauseShowing(PlayerFarming playerFarming)
+        {
+            PauseOpened = Time.realtimeSinceStartup;
+            Plugin.Logger?.LogWarning($"{Tag} Pause menu shown, frame {Time.frameCount}, for {(playerFarming == null ? "anyone" : playerFarming.name + " #" + PlayerFarming.players.IndexOf(playerFarming))}, players {PlayerFarming.playersCount}");
+        }
+
+        private static IEnumerator OpenPauseMenus()
+        {
+            int Count = 0;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(8f);
+                Lamb.UI.UIManager UI = MonoSingleton<Lamb.UI.UIManager>.Instance;
+                if (PlayerFarming.Instance == null || MMTransition.IsPlaying || UI == null || UI.IsPaused || UI.MenusBlocked)
+                    continue;
+                ++Count;
+                UI.ShowPauseMenu(PlayerFarming.Instance);
+                PauseOpened = Time.realtimeSinceStartup;
+                /* A second press right away (key bounce) must not close it */
+                yield return null;
+                yield return null;
+                Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController)?.OnCancelButtonInput();
+                Plugin.Logger?.LogWarning($"{Tag} Pause {Count} opened (players {PlayerFarming.playersCount}, session {Plugin.GlobalsInternal.InGameSession})");
+                yield return new WaitForSecondsRealtime(2f);
+                var Menu = Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController);
+                Plugin.Logger?.LogWarning($"{Tag} Pause {Count} after 2 s: {(Menu != null && !Menu.IsHiding ? "open" : "CLOSED")}, timeScale {Time.timeScale}");
+                Shot($"pause-{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{Count}");
+                if (Menu != null && !Menu.IsHiding)
+                {
+                    ClosingOnPurpose = true;
+                    Menu.OnCancelButtonInput();
+                    ClosingOnPurpose = false;
+                    yield return new WaitForSecondsRealtime(1f);
+                    Plugin.Logger?.LogWarning($"{Tag} Pause {Count} closed by cancel: {!Lamb.UI.UIMenuBase.ActiveMenus.Exists(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController && !Item.IsHiding)}");
+                }
+            }
+        }
+
+        private static bool ClosingOnPurpose;
+        private static float PauseOpened;
+
+        private static void PauseHiding(Lamb.UI.UIMenuBase __instance)
+        {
+            if (__instance is Lamb.UI.PauseMenu.UIPauseMenuController && !ClosingOnPurpose)
+            {
+                PlayerFarming Who = MonoSingleton<src.UINavigator.UINavigatorNew>.Instance?.AllowInputOnlyFromPlayer;
+                StringBuilder Players = new StringBuilder();
+                for (int Index = 0; Index < 4; Index++)
+                {
+                    Rewired.Player Player = Rewired.ReInput.players.GetPlayer(Index);
+                    if (Player != null)
+                        Players.Append($" p{Index}: pause={Player.GetButtonDown(17)} last={Player.controllers.GetLastActiveController()?.name}");
+                }
+                Plugin.Logger?.LogWarning($"{Tag} Pause menu hidden {Time.realtimeSinceStartup - PauseOpened:F2} s after opening, frame {Time.frameCount}, input from {(Who == null ? "anyone" : Who.name + " #" + PlayerFarming.players.IndexOf(Who))} (rewired {Who?.rewiredPlayer?.id}, puppet {(Who != null && Who.health != null && COTLMP.Game.PlayerManager.IsPuppet(Who.health))}),{Players} focus={Application.isFocused}: {Environment.StackTrace}");
+            }
+        }
+
         private static IEnumerator PlayAttacks()
         {
             int Next = 0;

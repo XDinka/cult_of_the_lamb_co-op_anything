@@ -184,6 +184,12 @@ namespace COTLMP.Api
                     break;
                 }
 
+                case "Russian":
+                {
+                    StringsTable = COTLMP.Language.Russian.StringsTable;
+                    break;
+                }
+
                 default:
                 {
                     StringsTable = null;
@@ -242,6 +248,20 @@ namespace COTLMP.Api
                 {
                     __result = Translation;
                     return false;
+                }
+
+                /*
+                 * The mod's own terms aren't in the game's tables at all, so a language the mod
+                 * has no strings for gets the English ones instead of the bare term.
+                 */
+                if (Term != null && Term.StartsWith("Multiplayer/"))
+                {
+                    Translation = Localization.TryGetTranslation("English", Term);
+                    if (!string.IsNullOrEmpty(Translation))
+                    {
+                        __result = Translation;
+                        return false;
+                    }
                 }
 
                 return true;

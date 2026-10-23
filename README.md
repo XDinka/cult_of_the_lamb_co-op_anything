@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.0, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.1, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,13 +15,13 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.0, pre-release.**
+**Version 0.2.1, pre-release.**
 
 You invite a friend through the Steam overlay. Each of you keeps playing your own save, and you see
 each other in the cult and on dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.0.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.1.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -37,7 +37,7 @@ which provides the player puppets, the UDP protocol and the integrated server.
 <table>
 <tr>
 <td width="96" align="center"><img alt="Lamb" src="Media/readme/lamb.png" width="72"><br><sub><b>Host</b></sub></td>
-<td>Load a save, press <b>Esc</b>, then <b>Open to friends</b>, and invite your friend in the Steam overlay.
+<td>Load a save, press <b>Esc</b>, then <b>Open Online</b>, and invite your friend in the Steam overlay.
 You play as the Lamb.</td>
 </tr>
 <tr>
@@ -51,7 +51,8 @@ You play as the Goat, as in the game's own co-op.</td>
    It finds the game in Steam, backs up what it replaces, and **Remove mod** puts it back. Windows may
    warn about an unknown publisher: "More info", then "Run anyway". Without the installer:
    `install.cmd` from the [release zip](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest).
-2. The host opens the game to friends and invites, the friend joins (see above).
+2. The host opens the game online and invites, the friend joins (see above). Accepting an invite
+   while your own game is open online with nobody in it closes yours and takes you to the friend.
 3. Dungeons: the **host enters the dungeon first** and the friend follows within 10 minutes, through
    the same door. Then you both get the same run. Each of you walks the floor freely; enemies are
    shared in a room you are both in.
@@ -108,13 +109,13 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.0, предрелиз.
+Версия 0.2.1, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
 друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
 получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
-Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Open to
-friends», затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
+Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Онлайн игра»
+(«Open Online» в английской версии), затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
 Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
 (друг не отвечает).

@@ -83,6 +83,7 @@ public class Plugin : BaseUnityPlugin
 
         /* Load the localizations of the mod */
         COTLMP.Api.Localization.LoadLocale("English");
+        COTLMP.Api.Localization.LoadLocale("Russian");
 
         /*
          * Initialize the settings of the mod to defaults in following
