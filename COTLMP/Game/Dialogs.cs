@@ -7,9 +7,11 @@
 
 /* IMPORTS ********************************************************************/
 
+using COTLMP.Data;
 using COTLMP.Debug;
 using HarmonyLib;
 using I2.Loc;
+using Lamb.UI;
 using MMTools;
 using System;
 using System.Collections;
@@ -17,6 +19,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UI;
 
 /* CLASSES & CODE *************************************************************/
 
@@ -31,12 +34,13 @@ namespace COTLMP.Game
     /// the camera comes back when they are done. Lines go as localization terms with the partner's
     /// text as a fallback, so each player reads them in their own language.
     ///
-    /// Choices are voted on, as in co-op RPGs, and the host has the last word. When the answers
-    /// come up, the partner sees them too (above the line) and can vote with the mouse or the 1-4
-    /// keys; their mark shows next to the answer they picked. In the host's own conversation the
-    /// host answers as usual. In the joining player's conversation their answer is a vote, and the
-    /// host's pick (made in the same panel) is what their game answers. If the host isn't in the
-    /// room, or doesn't decide within 30 s, the joining player answers alone.
+    /// Answers are the host's to pick. When the answers come up, both players see them: the one
+    /// talking in the game's own answer wheel, the other above the partner's line. Each player's
+    /// icon (the Lamb or the Goat, as the game's co-op shows over their heads) stands by the answer
+    /// they are on. The joining player can only point at the answer they would like; a click on
+    /// their own wheel points too. The host's pick is the answer, in either player's conversation.
+    /// Only when the host isn't in the room (and can't see the answers) does the joining player
+    /// answer alone.
     /// </remarks>
     internal static class Dialogs
     {
@@ -46,33 +50,26 @@ namespace COTLMP.Game
             End = 2,
             /* The answers came up in the sender's conversation */
             Choice = 3,
-            /* The sender's vote, an answer's index */
-            Vote = 4,
-            /* The host's decision for the joining player's conversation */
+            /* The answer the sender is on (an index) */
+            Highlight = 4,
+            /* The host's pick in the joining player's conversation */
             Decide = 5
         }
 
-        /// <summary>
-        /// How long the joining player's answer waits for the host before it counts on its own
-        /// </summary>
-        private const float HostDecidesWithin = 30f;
-        private const int NoVote = -1;
+        private const int None = -1;
 
         private static readonly AccessTools.FieldRef<DialogueWheel, DialogueWheel.DialogueOption[]> WheelOptions =
             AccessTools.FieldRefAccess<DialogueWheel, DialogueWheel.DialogueOption[]>("_options");
 
         /* Our own answers on screen */
         private static DialogueWheel LocalWheel;
-        private static float LocalChoiceAt;
-        private static int OurLocalVote = NoVote;
         private static bool ApplyingDecision;
 
         /* The partner's answers, shown in the overlay */
         private static List<string> RemoteOptions;
-        private static int OurRemoteVote = NoVote;
 
-        /* The partner's vote, on whichever answers are up */
-        private static int PartnerVote = NoVote;
+        /* Which answer each player is on, of whichever answers are up */
+        private static int OurPick = None, PartnerPick = None;
 
         private static bool IsHost => Plugin.GlobalsInternal.IsServerCreator;
 
@@ -91,13 +88,13 @@ namespace COTLMP.Game
         private static List<CameraFollowTarget.Target> SavedTargets;
 
         /* Counters for the test harness report */
-        internal static int LinesSent, LinesShown, VotesSent, VotesSeen, Decisions;
+        internal static int LinesSent, LinesShown, HighlightsSent, HighlightsSeen, Decisions;
 
         /// <summary>
         /// The answers of the partner's conversation on our screen, for the test harness
         /// </summary>
         internal static int RemoteChoiceCount => RemoteOptions?.Count ?? 0;
-        internal static int PartnerVoteNow => PartnerVote;
+        internal static int PartnerPickNow => PartnerPick;
         internal static DialogueWheel OpenWheel => LocalWheel != null && LocalWheel.isActiveAndEnabled ? LocalWheel : null;
 
         public static void Initialize()
@@ -149,7 +146,8 @@ namespace COTLMP.Game
         private static void OnLocalEnd(bool SetPlayerToIdle, bool ShowHUD)
         {
             LocalWheel = null;
-            OurLocalVote = PartnerVote = NoVote;
+            OurPick = PartnerPick = None;
+            PickIcons.Hide();
             try
             {
                 Send(Step.End, null);
@@ -169,53 +167,51 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Handles the partner's conversation lines and its end.
+        /// Handles the partner's conversation: lines, answers, what they point at, the host's pick, the end.
         /// </summary>
         public static void OnRelay(BinaryReader Reader)
         {
             Step Type = (Step)Reader.ReadByte();
             string Place = Reader.ReadString();
 
-            if (Type == Step.End)
+            switch (Type)
             {
-                Stop();
-                return;
-            }
-
-            if (Type == Step.Choice)
-            {
-                int Count = Reader.ReadByte();
-                List<string> Options = new(Count);
-                for (int Index = 0; Index < Count; Index++)
-                {
-                    string OptionTerm = Reader.ReadString(), Theirs = Reader.ReadString();
-                    string Translated = string.IsNullOrEmpty(OptionTerm) ? null : LocalizationManager.GetTranslation(OptionTerm);
-                    Options.Add(string.IsNullOrEmpty(Translated) ? Theirs : Translated);
-                }
-                if (Place != CoopSync.CurrentPlace() || MMConversation.isPlaying)
+                case Step.End:
+                    Stop();
                     return;
-                RemoteOptions = Options;
-                OurRemoteVote = PartnerVote = NoVote;
-                ShownAt = Time.unscaledTime;
-                Text ??= "";
-                Watch();
-                return;
-            }
 
-            if (Type == Step.Vote)
-            {
-                PartnerVote = Reader.ReadSByte();
-                ++VotesSeen;
-                Plugin.Logger?.LogInfo($"[COOP] The partner votes for answer {PartnerVote}");
-                return;
-            }
+                case Step.Choice:
+                {
+                    int Count = Reader.ReadByte();
+                    List<string> Options = new(Count);
+                    for (int Index = 0; Index < Count; Index++)
+                    {
+                        string OptionTerm = Reader.ReadString(), Theirs = Reader.ReadString();
+                        string Translated = string.IsNullOrEmpty(OptionTerm) ? null : LocalizationManager.GetTranslation(OptionTerm);
+                        Options.Add(string.IsNullOrEmpty(Translated) ? Theirs : Translated);
+                    }
+                    if (Place != CoopSync.CurrentPlace() || MMConversation.isPlaying)
+                        return;
+                    RemoteOptions = Options;
+                    OurPick = PartnerPick = None;
+                    ShownAt = Time.unscaledTime;
+                    Text ??= "";
+                    Watch();
+                    return;
+                }
 
-            if (Type == Step.Decide)
-            {
-                int Answer = Reader.ReadSByte();
-                Plugin.Logger?.LogInfo($"[COOP] The host decided on answer {Answer}");
-                AnswerLocal(Answer);
-                return;
+                case Step.Highlight:
+                    PartnerPick = Reader.ReadSByte();
+                    ++HighlightsSeen;
+                    return;
+
+                case Step.Decide:
+                {
+                    int Answer = Reader.ReadSByte();
+                    Plugin.Logger?.LogInfo($"[COOP] The host picked answer {Answer}");
+                    AnswerLocal(Answer);
+                    return;
+                }
             }
 
             string NameTerm = Reader.ReadString(), Name = Reader.ReadString();
@@ -235,25 +231,30 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Our pick among the partner's answers: the decision if we host, a vote if we joined.
+        /// Tells the partner which answer we are on.
+        /// </summary>
+        internal static void Point(int Answer)
+        {
+            if (Answer == OurPick)
+                return;
+            OurPick = Answer;
+            ++HighlightsSent;
+            Send(Step.Highlight, Writer => Writer.Write((sbyte)Answer));
+        }
+
+        /// <summary>
+        /// A click on one of the partner's answers: the answer if we host, a pointer if we joined.
         /// </summary>
         internal static void PickRemote(int Answer)
         {
             if (RemoteOptions == null || Answer < 0 || Answer >= RemoteOptions.Count)
                 return;
-            OurRemoteVote = Answer;
-            if (IsHost)
-            {
-                ++Decisions;
-                Plugin.Logger?.LogInfo($"[COOP] Deciding on answer {Answer} of the partner's conversation");
-                Send(Step.Decide, Writer => Writer.Write((sbyte)Answer));
-            }
-            else
-            {
-                ++VotesSent;
-                Plugin.Logger?.LogInfo($"[COOP] Voting for answer {Answer} of the host's conversation");
-                Send(Step.Vote, Writer => Writer.Write((sbyte)Answer));
-            }
+            Point(Answer);
+            if (!IsHost)
+                return;
+            ++Decisions;
+            Plugin.Logger?.LogInfo($"[COOP] Picking answer {Answer} of the partner's conversation");
+            Send(Step.Decide, Writer => Writer.Write((sbyte)Answer));
         }
 
         /// <summary>
@@ -266,8 +267,7 @@ namespace COTLMP.Game
                 return;
 
             LocalWheel = Wheel;
-            LocalChoiceAt = Time.unscaledTime;
-            OurLocalVote = PartnerVote = NoVote;
+            OurPick = PartnerPick = None;
             int Count = Mathf.Min(Responses.Count, WheelOptions(Wheel)?.Length ?? Responses.Count);
             Send(Step.Choice, Writer =>
             {
@@ -283,18 +283,15 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// We picked one of our answers. Returns false if it only counts as a vote for now.
+        /// We clicked one of our answers. Returns false when it only points: the host picks.
         /// </summary>
         private static bool OnLocalPick(int Answer)
         {
-            if (ApplyingDecision || !CoopSync.InSession || IsHost || !PartnerHere ||
-                Time.unscaledTime - LocalChoiceAt > HostDecidesWithin)
+            if (ApplyingDecision || !CoopSync.InSession || IsHost || !PartnerHere)
                 return true;
 
-            OurLocalVote = Answer;
-            ++VotesSent;
-            Plugin.Logger?.LogInfo($"[COOP] Voting for answer {Answer}, the host decides");
-            Send(Step.Vote, Writer => Writer.Write((sbyte)Answer));
+            Point(Answer);
+            Plugin.Logger?.LogInfo($"[COOP] Pointing at answer {Answer}, the host picks");
             return false;
         }
 
@@ -341,9 +338,8 @@ namespace COTLMP.Game
         {
             Speaker = Text = null;
             RemoteOptions = null;
-            OurRemoteVote = NoVote;
             if (LocalWheel == null)
-                PartnerVote = NoVote;
+                OurPick = PartnerPick = None;
             if (!Watching)
                 return;
             Watching = false;
@@ -401,18 +397,171 @@ namespace COTLMP.Game
             }
         }
 
+        /* ICONS **************************************************************/
+
         /// <summary>
-        /// The partner's line at the bottom of the screen
+        /// The players' icons from the game's own co-op: the Lamb's and the Goat's.
+        /// </summary>
+        private static class Icons
+        {
+            private static Sprite Lamb, Goat;
+
+            /// <summary>
+            /// The icon of a player, by the character they look like
+            /// </summary>
+            public static Sprite For(bool Ours)
+            {
+                bool OurGoat = Appearance.LocalSkin() == Appearance.GoatSkin;
+                bool PartnerGoat = PartnerSkin() == Appearance.GoatSkin;
+
+                /* Both dressed alike: tell them apart the way co-op does, the host the Lamb */
+                if (OurGoat == PartnerGoat)
+                {
+                    OurGoat = !IsHost;
+                    PartnerGoat = IsHost;
+                }
+                return Get(Ours ? OurGoat : PartnerGoat);
+            }
+
+            private static int PartnerSkin()
+            {
+                for (uint Id = 0; Id < InternalData.MaxPlayersPerServerInternal; Id++)
+                {
+                    int Skin = PlayerManager.GetSkin(Id);
+                    if (Skin >= 0)
+                        return Skin;
+                }
+                return None;
+            }
+
+            private static Sprite Get(bool IsGoat)
+            {
+                Sprite Known = IsGoat ? Goat : Lamb;
+                if (Known != null)
+                    return Known;
+
+                Sprite Found = FromHead(IsGoat) ?? FromConversation(IsGoat);
+                if (Found == null)
+                    return null;
+                Plugin.Logger?.LogInfo($"[COOP] Using the game's {(IsGoat ? "Goat" : "Lamb")} icon '{Found.name}' for answers");
+                if (IsGoat)
+                    Goat = Found;
+                else
+                    Lamb = Found;
+                return Found;
+            }
+
+            /// <summary>
+            /// The indicator over a player's head (an accessibility option of local co-op)
+            /// </summary>
+            private static Sprite FromHead(bool IsGoat)
+            {
+                PlayerFarming Player = PlayerFarming.Instance;
+                GameObject Indicator = Player == null ? null : IsGoat ? Player.CoopIndicatorGoat : Player.CoopIndicatorLamb;
+                if (Indicator == null)
+                    return null;
+                SpriteRenderer Renderer = Indicator.GetComponentInChildren<SpriteRenderer>(true);
+                if (Renderer != null && Renderer.sprite != null)
+                    return Renderer.sprite;
+                Image Picture = Indicator.GetComponentInChildren<Image>(true);
+                return Picture != null ? Picture.sprite : null;
+            }
+
+            /// <summary>
+            /// The icon local co-op shows by a conversation for whoever answers
+            /// </summary>
+            private static Sprite FromConversation(bool IsGoat)
+            {
+                CoopIndicatorIcon Icon = MMConversation.mmConversation != null ? MMConversation.mmConversation.CoopIndicator : null;
+                Image Picture = Icon == null ? null : IsGoat ? Icon.GoatImage : Icon.LambImage;
+                return Picture != null ? Picture.sprite : null;
+            }
+        }
+
+        /// <summary>
+        /// The icons on the buttons of our own answer wheel, as part of the game's UI.
+        /// </summary>
+        private static class PickIcons
+        {
+            private static Image Ours, Partners;
+
+            public static void Update()
+            {
+                DialogueWheel Wheel = OpenWheel;
+                DialogueWheel.DialogueOption[] Options = Wheel != null ? WheelOptions(Wheel) : null;
+                if (Options == null)
+                {
+                    Hide();
+                    return;
+                }
+
+                /* Above the answer's text, centred; side by side (ours on the left) when both are on one answer */
+                float Shift = PartnerPick == OurPick ? 0.55f : 0f;
+                Place(ref Partners, Options, PartnerPick, Icons.For(false), Shift);
+                Place(ref Ours, Options, OurPick, Icons.For(true), -Shift);
+            }
+
+            public static void Hide()
+            {
+                if (Ours != null)
+                    Ours.gameObject.SetActive(false);
+                if (Partners != null)
+                    Partners.gameObject.SetActive(false);
+            }
+
+            private static void Place(ref Image Icon, DialogueWheel.DialogueOption[] Options, int Answer, Sprite Picture, float Shift)
+            {
+                bool Show = Picture != null && Answer >= 0 && Answer < Options.Length && Options[Answer].Button != null;
+                if (!Show)
+                {
+                    if (Icon != null)
+                        Icon.gameObject.SetActive(false);
+                    return;
+                }
+
+                RectTransform Button = (RectTransform)Options[Answer].Button.transform;
+                if (Icon == null)
+                {
+                    GameObject Holder = new("COTLMP Answer Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+                    Holder.GetComponent<LayoutElement>().ignoreLayout = true;
+                    Icon = Holder.GetComponent<Image>();
+                    Icon.preserveAspect = true;
+                    Icon.raycastTarget = false;
+                }
+                if (Icon.transform.parent != Button)
+                    Icon.transform.SetParent(Button, false);
+
+                float Size = Mathf.Max(32f, Button.rect.height * 0.55f);
+                RectTransform Rect = Icon.rectTransform;
+                Rect.anchorMin = Rect.anchorMax = new Vector2(0.5f, 1f);
+                Rect.pivot = new Vector2(0.5f, 0.5f);
+                Rect.sizeDelta = new Vector2(Size, Size);
+                Rect.anchoredPosition = new Vector2(Shift * Size * 2f, Size * 0.7f);
+                Icon.sprite = Picture;
+                Icon.transform.SetAsLastSibling();
+                Icon.gameObject.SetActive(true);
+            }
+        }
+
+        /// <summary>
+        /// The partner's line at the bottom of the screen, and their answers above it
         /// </summary>
         private sealed class DialogOverlay : MonoBehaviour
         {
-            private GUIStyle NameStyle, TextStyle;
+            private GUIStyle NameStyle, TextStyle, OptionStyle;
             private static Texture2D Pixel;
-
-            private GUIStyle OptionStyle, BadgeStyle;
 
             private void Update()
             {
+                try
+                {
+                    PickIcons.Update();
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Placing the answer icons failed: {e.Message}");
+                }
+
                 /* Number keys pick among the partner's answers (the game's own keys move our lamb) */
                 if (RemoteOptions == null)
                     return;
@@ -425,21 +574,16 @@ namespace COTLMP.Game
 
             private void OnGUI()
             {
+                string Line = Text;
+                if (Line == null)
+                    return;
+
                 if (Pixel == null)
                 {
                     Pixel = new Texture2D(1, 1);
                     Pixel.SetPixel(0, 0, Color.white);
                     Pixel.Apply();
                 }
-                int BadgeSize = Mathf.Max(16, Screen.height / 30);
-                BadgeStyle ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                BadgeStyle.fontSize = Mathf.RoundToInt(BadgeSize * 0.7f);
-
-                DrawLocalBadges(BadgeSize);
-
-                string Line = Text;
-                if (Line == null)
-                    return;
                 int Size = Mathf.Max(14, Screen.height / 40);
                 NameStyle ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, richText = true };
                 TextStyle ??= new GUIStyle(GUI.skin.label) { wordWrap = true, richText = true };
@@ -466,82 +610,47 @@ namespace COTLMP.Game
                 if (Options == null || Options.Count == 0)
                     return;
 
-                /* The partner's answers in a row above the line, ours to vote on (or decide, as host) */
+                /* The partner's answers in a row above the line: the host picks, the joining player points */
                 OptionStyle ??= new GUIStyle(GUI.skin.button) { wordWrap = true };
                 OptionStyle.fontSize = Size;
                 float Gap = Size, OptionWidth = (Box.width - Gap * (Options.Count - 1)) / Options.Count, OptionHeight = Size * 2.6f;
+                float IconSize = OptionHeight * 0.8f;
                 for (int Index = 0; Index < Options.Count; Index++)
                 {
                     Rect Area = new(Box.x + Index * (OptionWidth + Gap), Box.y - OptionHeight - Gap * 0.6f, OptionWidth, OptionHeight);
-                    bool Ours = OurRemoteVote == Index;
-                    GUI.color = Ours ? new Color(0.96f, 0.82f, 0.45f, 1f) : Color.white;
+
+                    /* The mouse over an answer points at it */
+                    if (Event.current.type == EventType.Repaint && Area.Contains(Event.current.mousePosition))
+                        Point(Index);
+
+                    GUI.color = OurPick == Index ? new Color(0.96f, 0.82f, 0.45f, 1f) : Color.white;
                     if (GUI.Button(Area, $"{Index + 1}. {Options[Index]}", OptionStyle))
                         PickRemote(Index);
                     GUI.color = Old;
-                    /* Marks inside the answer's right end: the partner's outermost, ours next to it */
-                    float MarkY = Area.center.y, MarkX = Area.xMax - BadgeSize * 0.9f;
-                    if (PartnerVote == Index)
-                    {
-                        Badge(new Vector2(MarkX, MarkY), BadgeSize, false);
-                        MarkX -= BadgeSize * 1.4f;
-                    }
-                    if (Ours)
-                        Badge(new Vector2(MarkX, MarkY), BadgeSize, true);
+
+                    /* Icons at the answer's top right corner, the partner's outermost */
+                    float X = Area.xMax - IconSize * 0.6f, Y = Area.y - IconSize * 0.35f;
+                    if (PartnerPick == Index && DrawIcon(new Rect(X - IconSize / 2f, Y - IconSize / 2f, IconSize, IconSize), Icons.For(false)))
+                        X -= IconSize * 1.05f;
+                    if (OurPick == Index)
+                        DrawIcon(new Rect(X - IconSize / 2f, Y - IconSize / 2f, IconSize, IconSize), Icons.For(true));
                 }
             }
 
-            /// <summary>
-            /// The partner's mark next to the answer they voted for, on our own answers (and ours, while it waits for the host)
-            /// </summary>
-            private void DrawLocalBadges(int BadgeSize)
+            private static bool DrawIcon(Rect Area, Sprite Picture)
             {
-                DialogueWheel Wheel = OpenWheel;
-                if (Wheel == null || (PartnerVote == NoVote && OurLocalVote == NoVote))
-                    return;
-                DialogueWheel.DialogueOption[] Options = WheelOptions(Wheel);
-                if (Options == null)
-                    return;
+                if (Picture == null || Picture.texture == null)
+                    return false;
+                Rect Source = Picture.textureRect;
+                Texture Atlas = Picture.texture;
+                Rect Uv = new(Source.x / Atlas.width, Source.y / Atlas.height, Source.width / Atlas.width, Source.height / Atlas.height);
 
-                if (PartnerVote >= 0 && PartnerVote < Options.Length && Options[PartnerVote].Button != null)
-                    Badge(ScreenPoint(Options[PartnerVote].Button.transform as RectTransform), BadgeSize, false);
-                if (OurLocalVote >= 0 && OurLocalVote < Options.Length && Options[OurLocalVote].Button != null)
-                {
-                    Vector2 At = ScreenPoint(Options[OurLocalVote].Button.transform as RectTransform);
-                    Badge(new Vector2(At.x - BadgeSize * 1.3f, At.y), BadgeSize, true);
-                }
-            }
-
-            /// <summary>
-            /// The top right corner of a UI element, in GUI coordinates
-            /// </summary>
-            private static Vector2 ScreenPoint(RectTransform Rect)
-            {
-                if (Rect == null)
-                    return Vector2.zero;
-                Vector3[] Corners = new Vector3[4];
-                Rect.GetWorldCorners(Corners);
-                Canvas Canvas = Rect.GetComponentInParent<Canvas>();
-                Camera Camera = Canvas == null || Canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : Canvas.worldCamera;
-                Vector2 Point = RectTransformUtility.WorldToScreenPoint(Camera, Corners[2]);
-                return new Vector2(Point.x, Screen.height - Point.y);
-            }
-
-            /// <summary>
-            /// A square marker with the player's number (1 the host, 2 the joining player, as in the
-            /// game's co-op), in the colour of their character: red for the Lamb, green for the Goat
-            /// </summary>
-            private void Badge(Vector2 Centre, int Size, bool Ours)
-            {
-                bool HostsMark = Ours == IsHost;
-                Color Old = GUI.color;
-                Rect Area = new(Centre.x - Size / 2f, Centre.y - Size / 2f, Size, Size);
-                GUI.color = new Color(0f, 0f, 0f, 0.8f);
-                GUI.DrawTexture(new Rect(Area.x - 2f, Area.y - 2f, Area.width + 4f, Area.height + 4f), Pixel);
-                GUI.color = HostsMark ? new Color(0.85f, 0.2f, 0.2f, 1f) : new Color(0.36f, 0.75f, 0.42f, 1f);
-                GUI.DrawTexture(Area, Pixel);
-                GUI.color = Color.white;
-                GUI.Label(Area, HostsMark ? "1" : "2", BadgeStyle);
-                GUI.color = Old;
+                /* Keep the picture's proportions inside the square */
+                float Aspect = Source.width / Mathf.Max(1f, Source.height);
+                Rect Fit = Aspect >= 1f ? new Rect(Area.x, Area.center.y - Area.height / Aspect / 2f, Area.width, Area.height / Aspect)
+                                        : new Rect(Area.center.x - Area.width * Aspect / 2f, Area.y, Area.width * Aspect, Area.height);
+                GUI.DrawTextureWithTexCoords(Fit, Atlas, Uv);
+                return true;
             }
         }
 
@@ -564,6 +673,30 @@ namespace COTLMP.Game
                 }
             }
 
+            /// <summary>
+            /// Moving to an answer on our own wheel points at it for the partner
+            /// </summary>
+            [HarmonyPatch(typeof(DialogueWheel), "OnOptionSelected")]
+            [HarmonyPostfix]
+            private static void WheelSelected(DialogueWheel __instance, MMButton button)
+            {
+                if (!CoopSync.InSession || __instance != LocalWheel)
+                    return;
+                try
+                {
+                    DialogueWheel.DialogueOption[] Options = WheelOptions(__instance);
+                    for (int Index = 0; Options != null && Index < Options.Length; Index++)
+                    {
+                        if (Options[Index].Button == button)
+                            Point(Index);
+                    }
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing the answer we are on failed: {e.Message}");
+                }
+            }
+
             [HarmonyPatch(typeof(DialogueWheel), "OnOptionClicked")]
             [HarmonyPrefix]
             private static bool WheelClicked(int option)
@@ -574,7 +707,7 @@ namespace COTLMP.Game
                 }
                 catch (Exception e)
                 {
-                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Voting failed: {e.Message}");
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Holding the answer for the host failed: {e.Message}");
                     return true;
                 }
             }

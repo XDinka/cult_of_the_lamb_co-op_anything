@@ -39,7 +39,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
-    /// <item><c>-cotlmp-autochoice=N</c>: N s after both stand in the cult, vote on answers: the host asks and goes with the partner's vote, then the joining player asks, tries to answer alone and gets the host's decision instead (dialog voting test)</item>
+    /// <item><c>-cotlmp-autochoice=N</c>: N s after both stand in the cult, answer together: the host asks, sees which answer the partner points at and picks it; then the joining player asks, clicks an answer (it only points) and gets the host's pick (dialog choice test)</item>
     /// <item><c>-cotlmp-crashafter=N</c>: in a shared dungeon run, take a sword, a curse and a tarot card, then kill our own process N s later, the way a crash would (run recovery test)</item>
     /// <item><c>-cotlmp-netshots</c>: with -cotlmp-shots, save a frame the first time each kind of bad connection icon shows</item>
     /// <item><c>-cotlmp-netflood</c>: every 3 s send the partner a 20 KB packet and a burst of 300 small ones of a kind they ignore (network stress test; pair it with -cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE for a bad connection)</item>
@@ -190,6 +190,10 @@ namespace COTLMP.Debug
              */
             DataManager.Instance.ShownDodgeTutorial = true;
             DataManager.Instance.ShownDodgeTutorialCount = 3;
+
+            /* The same for the difficulty a fresh save asks for on arrival (it covers the screen) */
+            DataManager.Instance.DifficultyChosen = true;
+            Plugin.MonoInstance.StartCoroutine(SkipDifficulty());
             yield return new WaitForSecondsRealtime(1f);
 
             if (Host)
@@ -251,7 +255,7 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
-        /// Both sides of the dialog voting test, by role.
+        /// Both sides of the dialog choice test, by role: the host picks, the joining player points.
         /// </summary>
         private static IEnumerator VoteOnChoices()
         {
@@ -260,16 +264,17 @@ namespace COTLMP.Debug
             yield return new WaitForSecondsRealtime(AutoChoice);
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
 
-            /* Round 1: the host asks, the joining player votes for the second answer, the host goes with it */
+            /* Round 1: the host asks; the joining player points at the second answer, the host is on the first, then picks the second */
             if (Host)
             {
                 Ask("host");
-                yield return Until(() => COTLMP.Game.Dialogs.OpenWheel != null && COTLMP.Game.Dialogs.PartnerVoteNow >= 0, 30f);
-                Plugin.Logger?.LogWarning($"{Tag} Round 1: the partner voted {COTLMP.Game.Dialogs.PartnerVoteNow}");
-                yield return new WaitForSecondsRealtime(1f);
-                Shot("choice-host-sees-vote");
-                yield return new WaitForSecondsRealtime(1f);
-                ClickOwn(COTLMP.Game.Dialogs.PartnerVoteNow);
+                yield return Until(() => COTLMP.Game.Dialogs.OpenWheel != null && COTLMP.Game.Dialogs.PartnerPickNow >= 0, 30f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 1: the partner points at {COTLMP.Game.Dialogs.PartnerPickNow}");
+                MoveTo(0);
+                yield return new WaitForSecondsRealtime(2f);
+                Shot("choice-host-own-wheel");
+                yield return new WaitForSecondsRealtime(2f);
+                ClickOwn(COTLMP.Game.Dialogs.PartnerPickNow);
             }
             else
             {
@@ -277,31 +282,51 @@ namespace COTLMP.Debug
                 Plugin.Logger?.LogWarning($"{Tag} Round 1: the host's answers are up ({COTLMP.Game.Dialogs.RemoteChoiceCount})");
                 yield return new WaitForSecondsRealtime(1f);
                 COTLMP.Game.Dialogs.PickRemote(1);
-                yield return new WaitForSecondsRealtime(1f);
-                Shot("choice-client-voted");
+                yield return Until(() => COTLMP.Game.Dialogs.PartnerPickNow == 0, 10f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 1: the host is on {COTLMP.Game.Dialogs.PartnerPickNow}");
+                yield return new WaitForSecondsRealtime(0.5f);
+                Shot("choice-client-sees-host");
             }
 
             yield return new WaitForSecondsRealtime(12f);
 
-            /* Round 2: the joining player asks and picks the first answer, the host decides on the second */
+            /* Round 2: the joining player asks, moves to and clicks the first answer (it only points), the host picks the second */
             if (!Host)
             {
                 Ask("client");
                 yield return Until(() => COTLMP.Game.Dialogs.OpenWheel != null, 20f);
                 yield return new WaitForSecondsRealtime(1f);
+                MoveTo(0);
+                yield return new WaitForSecondsRealtime(0.5f);
                 ClickOwn(0);
                 Plugin.Logger?.LogWarning($"{Tag} Round 2: clicked answer 0, wheel still open: {COTLMP.Game.Dialogs.OpenWheel != null}");
-                yield return new WaitForSecondsRealtime(1f);
-                Shot("choice-client-waits");
+                yield return Until(() => COTLMP.Game.Dialogs.PartnerPickNow == 1, 20f);
+                yield return new WaitForSecondsRealtime(0.5f);
+                Shot("choice-client-own-wheel");
             }
             else
             {
-                yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0 && COTLMP.Game.Dialogs.PartnerVoteNow >= 0, 40f);
-                Plugin.Logger?.LogWarning($"{Tag} Round 2: the partner's answers are up, they voted {COTLMP.Game.Dialogs.PartnerVoteNow}");
+                yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0 && COTLMP.Game.Dialogs.PartnerPickNow >= 0, 40f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 2: the partner's answers are up, they point at {COTLMP.Game.Dialogs.PartnerPickNow}");
+                COTLMP.Game.Dialogs.Point(1);
+                yield return new WaitForSecondsRealtime(2f);
+                Shot("choice-host-sees-client");
                 yield return new WaitForSecondsRealtime(1f);
-                Shot("choice-host-decides");
                 COTLMP.Game.Dialogs.PickRemote(1);
             }
+        }
+
+        /// <summary>
+        /// Moves the selection of our own wheel to an answer, as the stick or the mouse does
+        /// </summary>
+        private static void MoveTo(int Answer)
+        {
+            var Wheel = COTLMP.Game.Dialogs.OpenWheel;
+            var Options = Wheel != null ? HarmonyLib.Traverse.Create(Wheel).Field("_options").GetValue<MMTools.DialogueWheel.DialogueOption[]>() : null;
+            if (Options == null || Answer < 0 || Answer >= Options.Length)
+                return;
+            MonoSingleton<src.UINavigator.UINavigatorNew>.Instance.NavigateToNew(Options[Answer].Button);
+            Plugin.Logger?.LogWarning($"{Tag} Moved to answer {Answer}");
         }
 
         private static void Ask(string Who)
@@ -335,11 +360,31 @@ namespace COTLMP.Debug
             Options[Answer].Button.onClick.Invoke();
         }
 
+        /// <summary>
+        /// Picks the medium difficulty on the selector a fresh save shows when the player arrives, if it is up
+        /// </summary>
+        private static IEnumerator SkipDifficulty()
+        {
+            float Start = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - Start < 20f)
+            {
+                var Selector = UnityEngine.Object.FindObjectOfType<Lamb.UI.UIDifficultySelectorOverlayController>();
+                if (Selector != null)
+                {
+                    HarmonyLib.Traverse.Create(Selector).Method("SelectDifficulty", 1).GetValue();
+                    Plugin.Logger?.LogWarning($"{Tag} Closed the difficulty selector");
+                    yield break;
+                }
+                yield return new WaitForSecondsRealtime(0.5f);
+            }
+        }
+
         private static void Shot(string Name)
         {
             if (string.IsNullOrEmpty(ShotsDir))
                 return;
             string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{Name}.png");
+            System.IO.Directory.CreateDirectory(ShotsDir);
             ScreenCapture.CaptureScreenshot(File);
             Plugin.Logger?.LogWarning($"{Tag} Saved {File}");
         }
