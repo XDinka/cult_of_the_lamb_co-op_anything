@@ -258,15 +258,14 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.ClearedRooms.Initialize();
         COTLMP.Game.Dialogs.Initialize();
         COTLMP.Game.HazardSync.Initialize();
-        COTLMP.Game.HostPools.Initialize();
         COTLMP.Game.RoomRandom.Initialize();
         COTLMP.Game.MapSync.Initialize();
         COTLMP.Game.MiniMapSync.Initialize();
         COTLMP.Game.PuppetSync.Initialize();
+        COTLMP.Game.HostSave.Initialize();
         COTLMP.Game.TimeSync.Initialize();
         COTLMP.Game.PropSync.Initialize();
         COTLMP.Game.ConnectionQuality.Initialize();
-        COTLMP.Game.RunRecovery.Initialize();
         COTLMP.Debug.TestHarness.Initialize();
 
         /* Log to the debugger that our mod is loaded */

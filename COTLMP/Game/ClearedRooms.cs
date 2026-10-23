@@ -56,11 +56,74 @@ namespace COTLMP.Game
         private static string Watching;
 
         /* Counters for the test harness report */
-        internal static int Sent, Applied, EnemiesHidden;
+        internal static int Sent, Applied, EnemiesHidden, Unstuck;
+
+        /* A shut room with no enemy left opens after this long (waves come within a couple of seconds) */
+        private const float StuckAfter = 8f;
 
         public static void Initialize()
         {
             BiomeGenerator.OnBiomeChangeRoom += OnRoomEntered;
+            Plugin.MonoInstance.StartCoroutine(Unstick());
+        }
+
+        /// <summary>
+        /// The room's doors are shut: none went down since they came up (a locked one, or the way
+        /// back the game keeps shut behind the player, stays up in an open room too)
+        /// </summary>
+        private static bool DoorsShut() => !RoomLockController.DoorsOpen &&
+            RoomLockController.RoomLockControllers.Exists(Lock => Lock != null && !Lock.Standalone && !Lock.Open && !Lock.ForcedLocked);
+
+        private static bool IsBossRoom(BiomeRoom Room) =>
+            Room != null && (Room.IsBoss || (Room.GameObject != null && Room.GameObject.GetComponentInChildren<MiniBossManager>(true) != null));
+
+        private static bool AnyEnemyLeft()
+        {
+            foreach (Health Enemy in Health.team2)
+            {
+                if (Enemy != null && Enemy.gameObject.activeInHierarchy && Enemy.HP > 0f && Enemy.GetComponent<UnitObject>() != null)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// In a session two games share a room's fight, and a lost message could leave one of them
+        /// shut in with nothing left to kill. Opens such a room, as the end of its fight would.
+        /// </summary>
+        private static IEnumerator Unstick()
+        {
+            float ShutSince = -1f;
+            string ShutPlace = null;
+            while (true)
+            {
+                yield return new WaitForSeconds(1f);
+                try
+                {
+                    BiomeRoom Room = BiomeGenerator.Instance?.CurrentRoom;
+                    string Place = CoopSync.CurrentPlace();
+                    bool Stuck = CoopSync.InSession && Room != null && Place != null && !MMTools.MMTransition.IsPlaying && !IsBossRoom(Room) &&
+                                 DoorsShut() && !AnyEnemyLeft();
+                    if (!Stuck || Place != ShutPlace)
+                    {
+                        ShutSince = Stuck ? Time.time : -1f;
+                        ShutPlace = Stuck ? Place : null;
+                        continue;
+                    }
+                    if (Time.time - ShutSince < StuckAfter)
+                        continue;
+
+                    Plugin.Logger?.LogWarning($"[COOP] {Place} stayed shut with no enemy left (completed {Room.Completed}): opening it");
+                    ++Unstuck;
+                    ShutSince = -1f;
+                    ShutPlace = null;
+                    RoomLockController.RoomCompleted(!Room.Completed, true);
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Checking for a shut room failed: {e.Message}");
+                }
+            }
         }
 
         /// <summary>
@@ -123,7 +186,7 @@ namespace COTLMP.Game
 
             BiomeRoom Room = BiomeGenerator.Instance?.CurrentRoom;
             bool Done = Room == null || Room.Completed;
-            bool Boss = Room != null && (Room.IsBoss || (Room.GameObject != null && Room.GameObject.GetComponentInChildren<MiniBossManager>(true) != null));
+            bool Boss = IsBossRoom(Room);
             float Started = Time.realtimeSinceStartup;
 
             if (!Done)
@@ -159,9 +222,14 @@ namespace COTLMP.Game
                         ++EnemiesHidden;
                     }
 
-                    /* A boss room completes itself once the boss is dead */
-                    if (!Done && !Boss)
+                    /*
+                     * A boss room completes itself once the boss is dead. Others open here, also when
+                     * the room counts as completed already but its doors shut on us: its waves are off now
+                     */
+                    if ((!Done || DoorsShut()) && !Boss && Room != null)
                     {
+                        if (Done)
+                            Plugin.Logger?.LogInfo($"[COOP] {Place} is completed but shut, opening its doors");
                         Done = true;
 
                         /*

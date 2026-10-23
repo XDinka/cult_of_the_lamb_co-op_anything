@@ -75,7 +75,8 @@ namespace COTLMP.Language
 
             /* Steam invites */
             new("Multiplayer/Steam/AfterPrologue", "Онлайн игра откроется после пролога, в вашем культе", false),
-            new("Multiplayer/Steam/JoinAfterLoad", "Загрузите сохранение, чтобы присоединиться к другу", false),
+            new("Multiplayer/Steam/LoadingHostSave", "Загружаем игру друга", false),
+            new("Multiplayer/Steam/HostSaveFailed", "Не удалось загрузить игру друга", false),
             new("Multiplayer/Steam/Joined", "Вы в игре друга", false),
             new("Multiplayer/Steam/JoinFailed", "Не удалось связаться с другом", false),
             new("Multiplayer/Steam/HostLeft", "Друг закрыл онлайн игру", false),

@@ -75,7 +75,8 @@ namespace COTLMP.Language
 
             /* Steam invites */
             new("Multiplayer/Steam/AfterPrologue", "Online play opens after the prologue, in your cult", false),
-            new("Multiplayer/Steam/JoinAfterLoad", "Load your save to join your friend", false),
+            new("Multiplayer/Steam/LoadingHostSave", "Loading your friend's game", false),
+            new("Multiplayer/Steam/HostSaveFailed", "Couldn't load your friend's game", false),
             new("Multiplayer/Steam/Joined", "Joined your friend", false),
             new("Multiplayer/Steam/JoinFailed", "Couldn't reach your friend", false),
             new("Multiplayer/Steam/HostLeft", "Your friend stopped hosting", false),

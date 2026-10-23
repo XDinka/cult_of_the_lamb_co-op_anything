@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Product>Cult of the Lamb Core Server Library</Product>
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <Copyright>Copyright (c) 2026 GeoB99 &amp; Neco-Arc</Copyright>
     <RootNamespace>COTLMPServer</RootNamespace>
   </PropertyGroup>

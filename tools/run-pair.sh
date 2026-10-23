@@ -61,7 +61,9 @@ LOGS=$(winpath "$OUT")
 launch "$G1" "$WIN -logFile $LOGS\\host-player.log -cotlmp-window=0,0,$WIN_W,$WIN_H -cotlmp-fakesteam=1 -cotlmp-autohost -cotlmp-report -cotlmp-quitafter=600 ${HOST_EXTRA:-}"
 if ! wait_for "$G1/BepInEx/LogOutput.log" "StartHosting returned True" 150; then echo "HOST DID NOT START"; fi
 
-launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 -cotlmp-join=1 -cotlmp-autoenter -cotlmp-report -cotlmp-quitafter=600 $EXTRA"
+# CLIENT_MENU=1: the client joins from the main menu and plays on the host's save
+CLIENT_ENTER=$([ -n "${CLIENT_MENU:-}" ] || echo -cotlmp-autoenter)
+launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 -cotlmp-join=1 $CLIENT_ENTER -cotlmp-report -cotlmp-quitafter=600 $EXTRA"
 if ! wait_for "$G2/BepInEx/LogOutput.log" "Joined host" 150; then echo "CLIENT DID NOT CONNECT"; fi
 wait_for "$G2/BepInEx/LogOutput.log" "QA client\].* scene=Base Biome 1 .*local=" 90
 
@@ -69,16 +71,8 @@ client_running() {
     powershell.exe -NoProfile -Command "@(Get-Process 'Cult Of The Lamb' -ErrorAction SilentlyContinue | Where-Object { \$_.Path -like '$(winpath "$G2")\\*' }).Count" 2>/dev/null | tr -d '\r'
 }
 
-# CLIENT_RESTART="args": if the client copy dies during the hold (a crash test), start it again with these
-RESTARTED=0
 for _ in $(seq 1 $HOLD); do
     timeout 1 cat /dev/zero > /dev/null 2>&1
-    if [ -n "${CLIENT_RESTART:-}" ] && [ $RESTARTED = 0 ] && [ "$(client_running)" = "0" ]; then
-        RESTARTED=1
-        echo "client copy is gone, starting it again"
-        cp "$G2/BepInEx/LogOutput.log" "$OUT/client-crashed-bepinex.log"
-        launch "$G2" "$WIN -logFile $LOGS\\client2-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 -cotlmp-report -cotlmp-quitafter=600 $CLIENT_RESTART"
-    fi
 done
 
 cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex.log"

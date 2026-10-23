@@ -41,13 +41,12 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
     /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
-    /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu, log whether it is still open 2 s later and what closed it</item>
+    /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
     /// <item><c>-cotlmp-nomapclick</c>: with -cotlmp-nextfloor, never click on the map, only wait for the partner's pick</item>
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
     /// <item><c>-cotlmp-autochoice=N</c>: N s after both stand in the cult, answer together: the host asks, sees which answer the partner points at and picks it; then the joining player asks, clicks an answer (it only points) and gets the host's pick (dialog choice test)</item>
-    /// <item><c>-cotlmp-crashafter=N</c>: in a shared dungeon run, take a sword, a curse and a tarot card, then kill our own process N s later, the way a crash would (run recovery test)</item>
     /// <item><c>-cotlmp-netshots</c>: with -cotlmp-shots, save a frame the first time each kind of bad connection icon shows</item>
     /// <item><c>-cotlmp-netflood</c>: every 3 s send the partner a 20 KB packet and a burst of 300 small ones of a kind they ignore (network stress test; pair it with -cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE for a bad connection)</item>
     /// <item><c>-cotlmp-drawtest</c>: in each shared dungeon room draw 3 tarot cards the way a chest would and log them (host pools test); the host also gets extra unlocks in memory so the two saves differ</item>
@@ -66,7 +65,7 @@ namespace COTLMP.Debug
         private static bool NextFloor;
         private static bool NoMapClick;
         private static bool AnimTest;
-        private static bool PauseTest, PauseWatch, PauseNoPlayer;
+        private static bool PauseTest, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
         private static int[] WindowRect;
@@ -74,7 +73,6 @@ namespace COTLMP.Debug
         private static bool AutoShoot;
         private static bool DrawTest;
         private static bool NetFlood, NetShots;
-        private static float CrashAfter;
         private static float AutoChoice;
         private static int FloodSent;
 
@@ -103,8 +101,6 @@ namespace COTLMP.Debug
                     NetShots = true;
                 else if (Arg.StartsWith("-cotlmp-autochoice=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autochoice=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoChoice);
-                else if (Arg.StartsWith("-cotlmp-crashafter=", StringComparison.OrdinalIgnoreCase))
-                    float.TryParse(Arg.Substring("-cotlmp-crashafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out CrashAfter);
                 else if (Arg.Equals("-cotlmp-drawtest", StringComparison.OrdinalIgnoreCase))
                     DrawTest = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
@@ -119,8 +115,6 @@ namespace COTLMP.Debug
                     AnimTest = true;
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
                     PauseTest = true;
-                else if (Arg.Equals("-cotlmp-pausewatch", StringComparison.OrdinalIgnoreCase))
-                    PauseWatch = true;
                 else if (Arg.Equals("-cotlmp-pausenoplayer", StringComparison.OrdinalIgnoreCase))
                     PauseTest = PauseNoPlayer = true;
                 else if (Arg.Equals("-cotlmp-tarottest", StringComparison.OrdinalIgnoreCase))
@@ -162,8 +156,6 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(KeepWindow());
             if (AnimTest)
                 Plugin.MonoInstance.StartCoroutine(PlayAttacks());
-            if (PauseTest || PauseWatch)
-                WatchPauseMenu();
             if (PauseTest)
                 Plugin.MonoInstance.StartCoroutine(OpenPauseMenus());
             if (NextFloor && AutoEnter && !NoMapClick)
@@ -203,8 +195,6 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(Draw());
             if (NetFlood)
                 Plugin.MonoInstance.StartCoroutine(Flood());
-            if (CrashAfter > 0)
-                Plugin.MonoInstance.StartCoroutine(CrashLater());
             if (AutoChoice > 0)
                 Plugin.MonoInstance.StartCoroutine(VoteOnChoices());
             if (AutoKill)
@@ -442,24 +432,6 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
-        /// Gears up in a shared run, then dies the way a crash does: no goodbye, nothing saved.
-        /// </summary>
-        private static IEnumerator CrashLater()
-        {
-            while (COTLMP.Game.RunRecovery.Status != "kept" || PlayerFarming.Instance == null)
-                yield return null;
-
-            PlayerFarming Player = PlayerFarming.Instance;
-            Player.playerWeapon.SetWeapon(EquipmentType.Sword, 2);
-            Player.playerSpells.SetSpell(EquipmentType.Fireball, 1);
-            TrinketManager.AddTrinket(new TarotCards.TarotCard(TarotCards.Card.MovementSpeed, 0), Player);
-            Plugin.Logger?.LogWarning($"{Tag} Geared up: {Player.currentWeapon} {Player.currentWeaponLevel}, {Player.currentCurse}, {Player.RunTrinkets.Count} cards");
-
-            yield return new WaitForSecondsRealtime(CrashAfter);
-            Plugin.Logger?.LogWarning($"{Tag} Crashing on purpose in {COTLMP.Game.CoopSync.CurrentPlace()} {Gear()}");
-            System.Diagnostics.Process.GetCurrentProcess().Kill();
-        }
-
         private static string Gear()
         {
             PlayerFarming Player = PlayerFarming.Instance;
@@ -505,13 +477,13 @@ namespace COTLMP.Debug
                 Line.Append($" knockouts={COTLMP.Game.CoopLife.KnockOuts} revives={COTLMP.Game.CoopLife.Revives} down={COTLMP.Game.CoopLife.WeAreDown} partnerdown={COTLMP.Game.CoopLife.PartnerDown}");
                 Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
                 Line.Append($" dialog={COTLMP.Game.Dialogs.LinesSent}/{COTLMP.Game.Dialogs.LinesShown} camtargets={GameManager.GetInstance()?.CamFollowTarget?.targets.Count}:{(GameManager.GetInstance()?.CamFollowTarget?.targets.Count > 0 ? GameManager.GetInstance().CamFollowTarget.targets[0].gameObject?.name : "-")}");
-                Line.Append($" hazards={COTLMP.Game.HazardSync.Sent}/{COTLMP.Game.HazardSync.Shown}/{COTLMP.Game.HazardSync.Missing} moved={COTLMP.Game.HazardSync.Moved} pools={COTLMP.Game.HostPools.Received}/{COTLMP.Game.HostPools.Scopes}");
-                Line.Append($" recovery={COTLMP.Game.RunRecovery.Status} {Gear()}");
+                Line.Append($" hazards={COTLMP.Game.HazardSync.Sent}/{COTLMP.Game.HazardSync.Shown}/{COTLMP.Game.HazardSync.Missing} moved={COTLMP.Game.HazardSync.Moved}");
+                Line.Append($" {Gear()}");
                 Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
                 Line.Append($" props={PropSync.Sent}/{PropSync.Received}/{PropSync.Applied}/{PropSync.Missing}/{PropSync.AppliedOnEntry}/{PropSync.AlreadyBroken} propmatch={PropSync.ByNumber}/{PropSync.BySpawn}/{PropSync.ByNearest}");
                 Line.Append($" tarot={SharedTarot.Sent}/{SharedTarot.Received}/{SharedTarot.Applied} time={TimeManager.CurrentGameTime:F0}:{TimeManager.CurrentPhase} gap={TimeSync.Gap:F1} timesync={TimeSync.Sent}/{TimeSync.Received}/{TimeSync.Skips}");
-                Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.Conflicts} minimap={MiniMapSync.Marked} pose={PuppetSync.Sent}/{PuppetSync.Received}/{PuppetSync.Applied}/{PuppetSync.Appeared}/{PuppetSync.Vanished} enemyanims={RoomSync.EnemyAnimations} puppetanim={(COTLMP.Game.PlayerManager.GetPuppet(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} myanim={(PlayerFarming.Instance?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
+                Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.Conflicts} minimap={MiniMapSync.Marked} hostsave={COTLMP.Game.HostSave.Playing}/{COTLMP.Game.HostSave.Loads}/{COTLMP.Game.HostSave.ReceivedBytes}/{COTLMP.Game.HostSave.SentBytes} pose={PuppetSync.Sent}/{PuppetSync.Received}/{PuppetSync.Applied}/{PuppetSync.Appeared}/{PuppetSync.Vanished} enemyanims={RoomSync.EnemyAnimations} puppetanim={(COTLMP.Game.PlayerManager.GetPuppet(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} myanim={(PlayerFarming.Instance?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
                 if (PlayerFarming.Instance != null)
@@ -953,26 +925,8 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
-        /// Plays the lamb's attack animations one after another, for the partner's puppet to repeat
+        /// Opens the pause menu over and over and logs whether it stays up
         /// </summary>
-        /// <summary>
-        /// Opens the pause menu over and over and logs what closes it
-        /// </summary>
-        private static void WatchPauseMenu()
-        {
-            var Patcher = new HarmonyLib.Harmony("cotlmp.qa.pause");
-            Patcher.Patch(HarmonyLib.AccessTools.Method(typeof(Lamb.UI.UIMenuBase), "Hide"),
-                prefix: new HarmonyLib.HarmonyMethod(typeof(TestHarness), nameof(PauseHiding)));
-            Patcher.Patch(HarmonyLib.AccessTools.Method(typeof(Lamb.UI.UIManager), nameof(Lamb.UI.UIManager.ShowPauseMenu)),
-                prefix: new HarmonyLib.HarmonyMethod(typeof(TestHarness), nameof(PauseShowing)));
-        }
-
-        private static void PauseShowing(PlayerFarming playerFarming)
-        {
-            PauseOpened = Time.realtimeSinceStartup;
-            Plugin.Logger?.LogWarning($"{Tag} Pause menu shown, frame {Time.frameCount}, for {(playerFarming == null ? "anyone" : playerFarming.name + " #" + PlayerFarming.players.IndexOf(playerFarming))}, players {PlayerFarming.playersCount}");
-        }
-
         private static IEnumerator OpenPauseMenus()
         {
             int Count = 0;
@@ -983,6 +937,7 @@ namespace COTLMP.Debug
                 if (PlayerFarming.Instance == null || MMTransition.IsPlaying || UI == null || UI.IsPaused || UI.MenusBlocked)
                     continue;
                 ++Count;
+
                 /* As in the game's opening, before the crown: no lamb in the player list */
                 List<PlayerFarming> Hidden = null;
                 if (PauseNoPlayer)
@@ -1005,47 +960,18 @@ namespace COTLMP.Debug
                     PlayerFarming.players.AddRange(Hidden);
                     PlayerFarming.playersCount = PlayerFarming.players.Count;
                 }
-                PauseOpened = Time.realtimeSinceStartup;
-                /* A second press right away (key bounce) must not close it */
-                yield return null;
-                yield return null;
-                if (!PauseNoPlayer)
-                    Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController)?.OnCancelButtonInput();
-                Plugin.Logger?.LogWarning($"{Tag} Pause {Count} opened (players {PlayerFarming.playersCount}, session {Plugin.GlobalsInternal.InGameSession})");
+
                 yield return new WaitForSecondsRealtime(2f);
                 var Menu = Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController);
                 Plugin.Logger?.LogWarning($"{Tag} Pause {Count} after 2 s: {(Menu != null && !Menu.IsHiding ? "open" : "CLOSED")}, timeScale {Time.timeScale}");
                 Shot($"pause-{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{Count}");
-                if (Menu != null && !Menu.IsHiding)
-                {
-                    ClosingOnPurpose = true;
-                    Menu.OnCancelButtonInput();
-                    ClosingOnPurpose = false;
-                    yield return new WaitForSecondsRealtime(1f);
-                    Plugin.Logger?.LogWarning($"{Tag} Pause {Count} closed by cancel: {!Lamb.UI.UIMenuBase.ActiveMenus.Exists(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController && !Item.IsHiding)}");
-                }
+                Menu?.OnCancelButtonInput();
             }
         }
 
-        private static bool ClosingOnPurpose;
-        private static float PauseOpened;
-
-        private static void PauseHiding(Lamb.UI.UIMenuBase __instance)
-        {
-            if (__instance is Lamb.UI.PauseMenu.UIPauseMenuController && !ClosingOnPurpose)
-            {
-                PlayerFarming Who = MonoSingleton<src.UINavigator.UINavigatorNew>.Instance?.AllowInputOnlyFromPlayer;
-                StringBuilder Players = new StringBuilder();
-                for (int Index = 0; Index < 4; Index++)
-                {
-                    Rewired.Player Player = Rewired.ReInput.players.GetPlayer(Index);
-                    if (Player != null)
-                        Players.Append($" p{Index}: pause={Player.GetButtonDown(17)} last={Player.controllers.GetLastActiveController()?.name}");
-                }
-                Plugin.Logger?.LogWarning($"{Tag} Pause menu hidden {Time.realtimeSinceStartup - PauseOpened:F2} s after opening, frame {Time.frameCount}, input from {(Who == null ? "anyone" : Who.name + " #" + PlayerFarming.players.IndexOf(Who))} (rewired {Who?.rewiredPlayer?.id}, puppet {(Who != null && Who.health != null && COTLMP.Game.PlayerManager.IsPuppet(Who.health))}),{Players} focus={Application.isFocused}: {Environment.StackTrace}");
-            }
-        }
-
+        /// <summary>
+        /// Plays the lamb's attack animations one after another, for the partner's puppet to repeat
+        /// </summary>
         private static IEnumerator PlayAttacks()
         {
             int Next = 0;

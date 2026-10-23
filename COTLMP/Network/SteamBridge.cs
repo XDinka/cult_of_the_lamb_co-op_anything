@@ -100,25 +100,6 @@ namespace COTLMP.Network
         private static bool Joining;
 
         /// <summary>
-        /// Who we joined: the host's id and the Steam lobby (0 for the loopback stand-in), for RunRecovery.
-        /// </summary>
-        internal static ulong JoinedHost => IsJoinedClient ? HostId : 0;
-        internal static ulong JoinedLobby => IsJoinedClient && !IsFake ? Lobby.m_SteamID : 0;
-
-        /// <summary>
-        /// Joins the same host again once the player stands in their loaded game, after a restart.
-        /// </summary>
-        /// <param name = "LobbyId">The Steam lobby, or 0 with the loopback stand-in.</param>
-        /// <param name = "Host">The host's id, used with the loopback stand-in.</param>
-        public static void QueueRejoin(ulong LobbyId, ulong Host)
-        {
-            if (IsFake)
-                PendingFakeHost = Host;
-            else if (LobbyId != 0)
-                PendingLobby = LobbyId;
-        }
-
-        /// <summary>
         /// True while players are connected through the bridge.
         /// </summary>
         public static bool Active => Link != null;
@@ -373,8 +354,6 @@ namespace COTLMP.Network
             PendingLobby = Request.m_steamIDLobby.m_SteamID;
             if (InPrologue)
                 Notify("Multiplayer/Steam/AfterPrologue");
-            else if (!ReadyToJoin())
-                Notify("Multiplayer/Steam/JoinAfterLoad");
         }
 
         /// <summary>
@@ -393,8 +372,10 @@ namespace COTLMP.Network
         /// </remarks>
         private static bool ReadyToJoin()
         {
+            /* From the main menu straight into the host's game, as the game's co-op */
+            if (SceneManager.GetActiveScene().name == "Main Menu")
+                return !Plugin.GlobalsInternal.InGameSession && !MMTransition.IsPlaying;
             return PlayerFarming.Instance != null &&
-                   SceneManager.GetActiveScene().name != "Main Menu" &&
                    !InPrologue &&
                    !Plugin.GlobalsInternal.InGameSession &&
                    !MMTransition.IsPlaying &&
@@ -491,6 +472,9 @@ namespace COTLMP.Network
             COTLMP.Game.CoopSync.SayHello();
             Notify("Multiplayer/Steam/Joined");
             Plugin.Logger?.LogInfo($"[STEAM] Joined host {Host} in scene {SceneManager.GetActiveScene().name}");
+
+            /* Then into the host's game, on its save */
+            COTLMP.Game.HostSave.BeginJoin();
         }
 
         private static async System.Threading.Tasks.Task ProxyLoop()

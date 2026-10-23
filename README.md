@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.3, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.4, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,13 +15,15 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.3, pre-release.**
+**Version 0.2.4, pre-release.**
 
-You invite a friend through the Steam overlay. Each of you keeps playing your own save, and you see
-each other in the cult and on dungeon runs. Dungeon runs are shared: same floors, same rooms, and
+You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
+game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
+is written on their side, their own saves stay as they were). You see each other in the cult and on
+dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.3.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.4.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -42,7 +44,7 @@ You play as the Lamb.</td>
 </tr>
 <tr>
 <td width="96" align="center"><img alt="Goat" src="Media/readme/goat.png" width="72"><br><sub><b>Friend</b></sub></td>
-<td>Accept the invite (or <b>Join game</b> in the friends list) and load your own save.
+<td>Accept the invite (or <b>Join game</b> in the friends list), from the main menu: your game loads the host's and takes you to their cult.
 You play as the Goat, as in the game's own co-op.</td>
 </tr>
 </table>
@@ -91,9 +93,9 @@ You play as the Goat, as in the game's own co-op.</td>
 | Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both | works in the automated test |
 | Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
 | Followers, base, rituals | not synced, each player has their own (the clock follows the host) |
-| Leaving / host stopping keeps you in your own game | works |
-| Leaving and joining again mid-run: same run, same rooms and rolls | works in the automated test |
-| Back into the run after a crash: the game loads your save, joins the host, enters the same run, puts back weapon, curse, relic, tarot cards and health, and teleports you to the host's room | works in the automated test (first floor; later floors untested) |
+| The friend plays on the host's save: joins from the main menu without a save of their own; leaving (or the host stopping) takes them back to the main menu and the host's save is forgotten | works in the automated test (join, leave, join again) |
+| The host keeps playing their own game when the friend leaves or they stop hosting | works |
+| A room whose fight ended stays open: a room the partner cleared opens even if its doors shut on you, and a shut room with no enemy left opens after 8 s | works in the automated test |
 | Bad connection icon: ping 120+ ms yellow bars, 200+ ms red; packet loss 5 %+ (15 %+ red); unplugged cable when the partner stops answering | works in the automated test (simulated bad connection) |
 | Holds up on a bad connection: 5 % loss, 80±40 ms delay, 4 s drop-outs every 25 s, floods of large and many small messages | works in the automated test (200 s dungeon run, no disconnects, 0 errors) |
 
@@ -105,16 +107,17 @@ You play as the Goat, as in the game's own co-op.</td>
 - [BepInEx 5.4.23.5](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.5) and
   [COTL API 0.3.4](https://github.com/xhayper/COTL_API/releases/tag/v0.3.4).
   The release zip contains both and an installer.
-- At least one save on each side. You join from your own loaded game.
+- A save on the host's side. The friend needs none: they join from the main menu.
 
 <p align="center"><img alt="По-русски" src="Media/readme/title-russian.png" width="760"></p>
 
 ## По-русски
 
-Версия 0.2.3, предрелиз.
+Версия 0.2.4, предрелиз.
 
-Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
-друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
+Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
+игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
+не записывается, его собственные сохранения не трогаются). Вы видите друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
 получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
 Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Онлайн игра»
 («Open Online» в английской версии), затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
@@ -126,8 +129,8 @@ You play as the Goat, as in the game's own co-op.</td>
 ходит сам, комнаты, где побывал партнёр, открываются и на вашей мини-карте. Удары, перекаты и
 заклинания партнёра видны как у него, а появляется он в комнате, только когда она у него загрузилась. В диалоге отвечает тот, кто говорит, как в обычном
 кооперативе; второй видит варианты и может указать на один (значки красного Ягнёнка и синего Козла).
-В меню паузы список игроков. Онлайн игра открывается после пролога. Если игра у друга вылетела посреди забега, после перезапуска
-она сама загрузит сохранение, подключится к хосту и вернёт его в тот же забег с тем же снаряжением.
+В меню паузы список игроков. Онлайн игра открывается после пролога. Когда друг выходит или хост закрывает игру,
+друг возвращается в главное меню, сохранение хоста забывается.
 
 <p align="center"><img alt="For the devout" src="Media/readme/title-devout.png" width="760"></p>
 
@@ -180,9 +183,11 @@ paths from environment variables (see the top of each).
   is sent once by prefab name, then its position, rotation and scale ten times a second; the follower
   takes the same prefab from its own pool and moves the copy to match. Copies hurt nobody. See
   `HazardSync.cs`. Attacks created outside the pool (a few addressable beams) are not covered.
-- **Host's pools.** The host sends its weapon, curse, tarot and relic pools and a few counters; the
-  joining player's game uses them only for the length of each reward roll, then gets its own back
-  (anything added during a roll is kept). See `HostPools.cs`.
+- **The host's save.** The joining player asks the host for its save once connected (from the
+  main menu, or from their own game, saved first). The host packs its DataManager as the game writes
+  a save file (MessagePack with the game's options, LZ4) and sends it in 32 KB pieces. The joining
+  game takes it the way "Continue" loads a slot, into the cult scene, with saving off and a slot
+  number no menu shows; leaving goes back to the main menu. See `HostSave.cs`.
 - **The map between floors.** The game builds a run's map from a seed and from the player's save
   (objectives, unlocks and inventory decide some nodes), so two saves never get the same one. The
   host builds it when the run's first room is up and sends every node; the joining player's game
@@ -219,10 +224,6 @@ paths from environment variables (see the top of each).
   run is too old to be adopted by a newcomer), every room cleared in it and what is known of its
   enemies' health. A handshake from an address already in the game replaces the old connection at
   once, so a restarted game doesn't wait for the 30 s timeout.
-- **Crash recovery.** While the joining player is in a shared run, `BepInEx/config/cotlmp-rejoin.json`
-  keeps the host, lobby, save slot, run, floor, room and equipment (rewritten every 2 s). On the next
-  start it is read and deleted at once, then used as above. Leaving the session, quitting the game
-  or finishing the run deletes it, so only a crash brings you back. See `RunRecovery.cs`.
 - **Tarot readings.** A reader's cards come from the player's save (cards found, held or met this run,
   fleece, season) and a save without a reading yet gets the Lovers first, so a seed can't make them
   match. Whoever draws first sends the two cards and the other reading deals those. See `SharedTarot.cs`.
@@ -252,8 +253,9 @@ connection (reliable packets delayed for resends and drop-outs, unreliable ones 
 exit and the map to the next floor (`-cotlmp-nomapclick` only waits for the partner's pick), `-cotlmp-animtest`
 plays attack animations for the partner's puppet to repeat, `-cotlmp-tarottest` deals tarot to both, `-cotlmp-autocut` cuts grass
 next to the host, `-cotlmp-window=X,Y,W,H` keeps a copy in a small window (`run-pair.sh` puts them side by side),
-`-cotlmp-crashafter=N` kills the joining copy mid-run (with `CLIENT_RESTART="-cotlmp-autoenter"`
-`run-pair.sh` starts it again), and `-cotlmp-endafter=N -cotlmp-rejoin=1` leaves and joins again.
+`-cotlmp-endafter=N -cotlmp-rejoin=1` leaves and joins again, `-cotlmp-pausetest` and `-cotlmp-pausenoplayer`
+open the pause menu (the second as in the game's opening), and `CLIENT_MENU=1 run-pair.sh` has the joining
+copy join from the main menu on the host's save.
 `dotnet run --project tests/ServerChecks` checks the server alone: large relays, junk packets and a
 player coming back on the same address.
 

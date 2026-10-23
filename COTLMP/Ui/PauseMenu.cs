@@ -170,88 +170,10 @@ namespace COTLMP.Ui
                 {
                     ____coopButtonText.text = MultiplayerModLocalization.UI.LeaveServer;
 
-                    /* Players who joined from their own save (Steam invites) keep saving it */
-                    if (!COTLMP.Network.SteamBridge.IsJoinedClient)
-                        MonoSingleton<UIManager>.Instance.ForceDisableSaving = true;
+                    /* A joining player plays on the host's save, which is never written on their side */
+                    MonoSingleton<UIManager>.Instance.ForceDisableSaving = true;
                 }
             }
-        }
-
-        /// <summary>
-        /// When the pause menu last came up (unscaled time)
-        /// </summary>
-        private static float PauseShownAt = -10f;
-
-        /// <summary>
-        /// Notes when the pause menu comes up
-        /// </summary>
-        [HarmonyPatch(typeof(UIManager), nameof(UIManager.ShowPauseMenu))]
-        [HarmonyPrefix]
-        private static void ShowPauseMenu(PlayerFarming playerFarming)
-        {
-            PauseShownAt = Time.realtimeSinceStartup;
-            Plugin.Logger?.LogInfo($"[COOP] Pause menu opened for {(playerFarming == null ? "anyone" : "player #" + PlayerFarming.players.IndexOf(playerFarming))} (players {PlayerFarming.playersCount}, scene {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}, frame {Time.frameCount}) from {Callers()}");
-        }
-
-        /// <summary>
-        /// Who called the patched method, for the log
-        /// </summary>
-        private static string Callers()
-        {
-            System.Diagnostics.StackFrame[] Frames = new System.Diagnostics.StackTrace(2, false).GetFrames() ?? new System.Diagnostics.StackFrame[0];
-            System.Collections.Generic.List<string> Names = new();
-            foreach (System.Diagnostics.StackFrame Frame in Frames)
-            {
-                System.Reflection.MethodBase Method = Frame.GetMethod();
-                if (Method == null || Method.DeclaringType?.Namespace == "HarmonyLib")
-                    continue;
-                Names.Add($"{Method.DeclaringType?.Name}.{Method.Name}");
-                if (Names.Count == 5)
-                    break;
-            }
-            return string.Join(" < ", Names);
-        }
-
-        /// <summary>
-        /// Logs other UI going away right after the pause menu opened
-        /// </summary>
-        [HarmonyPatch(typeof(UIMenuBase), nameof(UIMenuBase.Hide))]
-        [HarmonyPrefix]
-        private static void MenuHiding(UIMenuBase __instance)
-        {
-            float Open = Time.realtimeSinceStartup - PauseShownAt;
-            if (Open < 3f)
-                Plugin.Logger?.LogInfo($"[COOP] {__instance.GetType().Name} hides {Open:F2} s after the pause menu opened (frame {Time.frameCount}) from {Callers()}");
-        }
-
-        [HarmonyPatch(typeof(HUD_Manager), nameof(HUD_Manager.Hide))]
-        [HarmonyPrefix]
-        private static void HudHiding()
-        {
-            float Open = Time.realtimeSinceStartup - PauseShownAt;
-            if (Open < 3f)
-                Plugin.Logger?.LogInfo($"[COOP] HUD hides {Open:F2} s after the pause menu opened (frame {Time.frameCount}) from {Callers()}");
-        }
-
-        /// <summary>
-        /// The press that opened the pause menu (or a second one right after it, from a key
-        /// bounce or a second device) doesn't close it again at once
-        /// </summary>
-        [HarmonyPatch(typeof(UIPauseMenuController), nameof(UIPauseMenuController.OnCancelButtonInput))]
-        [HarmonyPrefix]
-        private static bool OnCancelButtonInput(UIPauseMenuController __instance)
-        {
-            float Open = Time.realtimeSinceStartup - PauseShownAt;
-            if (Open >= 0.3f)
-                return true;
-
-            /* The menu's own pause-button watch ends when it calls this, so start it again */
-            if (AccessTools.Method(typeof(UIPauseMenuController), "UpdateLoop")?.Invoke(__instance, null) is System.Collections.IEnumerator Loop)
-                __instance.StartCoroutine(Loop);
-
-            PlayerFarming Who = MonoSingleton<UINavigatorNew>.Instance?.AllowInputOnlyFromPlayer;
-            Plugin.Logger?.LogWarning($"[COOP] Pause menu close {Open:F2} s after opening ignored (input from {(Who == null ? "anyone" : "player #" + PlayerFarming.players.IndexOf(Who))}, focus {Application.isFocused}, frame {Time.frameCount}) from {Callers()}");
-            return false;
         }
 
         /// <summary>
@@ -426,8 +348,6 @@ namespace COTLMP.Ui
 
             COTLMP.Ui.SayChat.Shutdown();
             COTLMP.Network.SteamBridge.Shutdown();
-            /* Leaving on purpose (or the host leaving): no going back to this run after a restart */
-            COTLMP.Game.RunRecovery.Forget();
             COTLMP.Game.PlayerManager.DeleteAllPlayers();
             MonoSingleton<UIManager>.Instance.ForceDisableSaving = false;
 
@@ -437,6 +357,9 @@ namespace COTLMP.Ui
 
             if (NotificationKey != null)
                 NotificationCentre.Instance?.PlayGenericNotification(NotificationKey);
+
+            /* A joining player on the host's save goes back to the main menu */
+            COTLMP.Game.HostSave.Forget();
         }
 
         /// <summary>

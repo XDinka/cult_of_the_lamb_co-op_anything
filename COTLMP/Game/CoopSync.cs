@@ -59,8 +59,7 @@ namespace COTLMP.Game
             Dialog = 10,
             /* HazardSync */
             HazardSpawn = 11,
-            /* HostPools */
-            HostPools = 12,
+            /* 12 was the host's reward pools, no longer needed on the host's save */
             /* HazardSync */
             HazardMove = 13,
             HazardGone = 14,
@@ -78,7 +77,10 @@ namespace COTLMP.Game
             /* PropSync */
             PropBroken = 21,
             /* PuppetSync */
-            PuppetPose = 22
+            PuppetPose = 22,
+            /* HostSave */
+            SaveRequest = 23,
+            SaveChunk = 24
         }
 
         /// <summary>
@@ -249,10 +251,6 @@ namespace COTLMP.Game
                     HazardSync.OnRelay((Kind)Data[0], Reader);
                     break;
 
-                case Kind.HostPools:
-                    HostPools.OnRelay(Reader);
-                    break;
-
                 case Kind.Life:
                 case Kind.Revive:
                     CoopLife.OnRelay((Kind)Data[0], Reader);
@@ -276,6 +274,14 @@ namespace COTLMP.Game
 
                 case Kind.PuppetPose:
                     PuppetSync.OnRelay(From, Reader);
+                    break;
+
+                case Kind.SaveRequest:
+                    HostSave.OnRequest(From);
+                    break;
+
+                case Kind.SaveChunk:
+                    HostSave.OnPiece(Reader);
                     break;
 
                 case Kind.PropBroken:
