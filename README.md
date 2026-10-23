@@ -2,15 +2,24 @@
   <img alt="Cult of the Lamb × Co-op Anything" src="Media/cover.png">
 </p>
 
+<p align="center">
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.0, free" src="Media/readme/download.png" width="700"></a>
+</p>
+
+<p align="center">
+  <b>Online co-op for Cult of the Lamb over Steam.</b><br>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest">Release zip and notes</a> · <a href="#по-русски">По-русски</a> · <a href="LICENSE">MIT</a>
+</p>
+
 <p align="center"><sub>Fan-made mod, not affiliated with or endorsed by Massive Monster or Devolver Digital.</sub></p>
 
 # Cult of the Lamb Co-op Anything
 
 **Version 0.2.0, pre-release.**
 
-Online co-op for **Cult of the Lamb** over Steam. You invite a friend through the Steam overlay.
-Each of you keeps playing your own save, and you see each other in the cult and on dungeon runs.
-Dungeon runs are shared: same floors, same rooms, and damage to enemies counts on both sides.
+You invite a friend through the Steam overlay. Each of you keeps playing your own save, and you see
+each other in the cult and on dungeon runs. Dungeon runs are shared: same floors, same rooms, and
+damage to enemies counts on both sides.
 
 > **Pre-release 0.2.0.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
@@ -18,6 +27,38 @@ Dungeon runs are shared: same floors, same rooms, and damage to enemies counts o
 
 Based on [COTLMP](https://github.com/GeoB99/COTLMP) by GeoB99, Neco-Arc and contributors (MIT),
 which provides the player puppets, the UDP protocol and the integrated server.
+
+<p align="center"><img alt="" src="Media/readme/divider.png" width="380"></p>
+
+<p align="center"><img alt="Begin the ritual" src="Media/readme/title-play.png" width="760"></p>
+
+## Playing
+
+<table>
+<tr>
+<td width="96" align="center"><img alt="Lamb" src="Media/readme/lamb.png" width="72"><br><sub><b>Host</b></sub></td>
+<td>Load a save, press <b>Esc</b>, then <b>Open to friends</b>, and invite your friend in the Steam overlay.
+You play as the Lamb.</td>
+</tr>
+<tr>
+<td width="96" align="center"><img alt="Goat" src="Media/readme/goat.png" width="72"><br><sub><b>Friend</b></sub></td>
+<td>Accept the invite (or <b>Join game</b> in the friends list) and load your own save.
+You play as the Goat, as in the game's own co-op.</td>
+</tr>
+</table>
+
+1. **Both players** [download `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe), close the game and press **Install**.
+   It finds the game in Steam, backs up what it replaces, and **Remove mod** puts it back. Windows may
+   warn about an unknown publisher: "More info", then "Run anyway". Without the installer:
+   `install.cmd` from the [release zip](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest).
+2. The host opens the game to friends and invites, the friend joins (see above).
+3. Dungeons: the **host enters the dungeon first** and the friend follows within 10 minutes, through
+   the same door. Then you both get the same run. Each of you walks the floor freely; enemies are
+   shared in a room you are both in.
+
+<p align="center"><img alt="The installer" src="Media/readme/installer.png" width="560"></p>
+
+<p align="center"><img alt="What the flock shares" src="Media/readme/title-features.png" width="760"></p>
 
 ## What works
 
@@ -53,6 +94,8 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Bad connection icon: ping 120+ ms yellow bars, 200+ ms red; packet loss 5 %+ (15 %+ red); unplugged cable when the partner stops answering | works in the automated test (simulated bad connection) |
 | Holds up on a bad connection: 5 % loss, 80±40 ms delay, 4 s drop-outs every 25 s, floods of large and many small messages | works in the automated test (200 s dungeon run, no disconnects, 0 errors) |
 
+<p align="center"><img alt="What you need" src="Media/readme/title-needs.png" width="760"></p>
+
 ## Requirements
 
 - Cult of the Lamb on Steam for both players, version **1.5.26** (Steam build 25223484).
@@ -61,18 +104,33 @@ which provides the player puppets, the UDP protocol and the integrated server.
   The release zip contains both and an installer.
 - At least one save on each side. You join from your own loaded game.
 
-## Playing
+<p align="center"><img alt="По-русски" src="Media/readme/title-russian.png" width="760"></p>
 
-1. Both players run `CotlCoopInstaller.exe` and press **Install** (it finds the game in Steam, backs up
-   what it replaces, and **Remove mod** puts it back). Windows may warn about an unknown publisher:
-   "More info", then "Run anyway". Without the installer: `install.cmd` from the release zip.
-2. Host: load a save, press Esc, then **Open to friends**, and invite the friend in the Steam overlay.
-3. Friend: accept the invite (or "Join game" in the friends list) and load your own save.
-4. Dungeons: the **host enters the dungeon first** and the friend follows within 10 minutes, through
-   the same door. Then you both get the same run. Each of you walks the floor freely; enemies are
-   shared in a room you are both in.
+## По-русски
 
-## Building
+Версия 0.2.0, предрелиз.
+
+Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
+друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
+получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
+Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Open to
+friends», затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
+Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
+(пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
+(друг не отвечает).
+Карты у гадалки одинаковые, время суток как у хоста, сломанная трава, горшки и камни ломаются у обоих.
+Карта между этажами общая (карта хоста): кто первым выбрал путь, туда идут оба. По этажу каждый
+ходит сам, комнаты, где побывал партнёр, открываются и на вашей мини-карте. Удары, перекаты и
+заклинания партнёра видны как у него, а появляется он в комнате, только когда она у него загрузилась. Выбор в диалогах: варианты видят оба, значок игрока (красный Ягнёнок, синий Козёл) стоит над
+вариантом, на который он указывает, выбирает хост. Если игра у друга вылетела посреди забега, после перезапуска
+она сама загрузит сохранение, подключится к хосту и вернёт его в тот же забег с тем же снаряжением.
+
+<p align="center"><img alt="For the devout" src="Media/readme/title-devout.png" width="760"></p>
+
+## For developers
+
+<details>
+<summary><b>Building</b></summary>
 
 `packaging/build-installer.sh` builds the release package (see `build-package.sh` for the paths it
 needs) and then `CotlCoopInstaller.exe`, a one-file installer with the package inside
@@ -88,7 +146,10 @@ game's `Managed` folder for `com.steamworks.net.dll`. `packaging/build-package.s
 release zip, and `tools/run-pair.sh` runs the automated two-copy test. Both scripts read their
 paths from environment variables (see the top of each).
 
-## How it works
+</details>
+
+<details>
+<summary><b>How it works</b></summary>
 
 - **Transport.** The game already runs Steam under its own AppID. On the host every friend gets a
   loopback UDP socket into the integrated COTLMP server, and on the friend's side a local proxy
@@ -172,7 +233,10 @@ paths from environment variables (see the top of each).
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 
-## Testing
+</details>
+
+<details>
+<summary><b>Testing</b></summary>
 
 `COTLMP/Debug/TestHarness.cs` has command line switches (`-cotlmp-fakesteam=N`, `-cotlmp-autohost`,
 `-cotlmp-join=N`, `-cotlmp-autodungeon=N`, `-cotlmp-autokill`, `-cotlmp-report`, ...) that let two
@@ -189,27 +253,14 @@ next to the host, `-cotlmp-window=X,Y,W,H` keeps a copy in a small window (`run-
 `dotnet run --project tests/ServerChecks` checks the server alone: large relays, junk packets and a
 player coming back on the same address.
 
+</details>
+
+<p align="center"><img alt="Credits" src="Media/readme/title-credits.png" width="760"></p>
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Original COTLMP credits are in [CREDITS](CREDITS). Cult of the Lamb is
-© Massive Monster / Devolver Digital. This project is not affiliated with them and ships no game files. The cover uses the game's key art.
+© Massive Monster / Devolver Digital. This project is not affiliated with them and the mod ships no game files. The cover uses the game's key art;
+the pictures in this README are drawn from the game's sprites and font by `tools/make-readme-art.py`.
 
----
-
-## По-русски коротко
-
-Версия 0.2.0, предрелиз.
-
-Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
-друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
-получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
-Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: `CotlCoopInstaller.exe` у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Open to
-friends», затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
-Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
-(пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
-(друг не отвечает).
-Карты у гадалки одинаковые, время суток как у хоста, сломанная трава, горшки и камни ломаются у обоих.
-Карта между этажами общая (карта хоста), путь выбирает хост: друг видит карту и ждёт, потом
-попадает туда же. Выбор в диалогах: варианты видят оба, значок игрока (красный Ягнёнок, синий Козёл) стоит над
-вариантом, на который он указывает, выбирает хост. Если игра у друга вылетела посреди забега, после перезапуска
-она сама загрузит сохранение, подключится к хосту и вернёт его в тот же забег с тем же снаряжением.
+<p align="center"><img alt="" src="Media/readme/divider.png" width="380"></p>
