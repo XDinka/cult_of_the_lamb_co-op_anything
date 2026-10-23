@@ -1,7 +1,7 @@
 /*
  * PROJECT:     Cult of the Lamb Multiplayer Mod
  * LICENSE:     MIT (https://spdx.org/licenses/MIT)
- * PURPOSE:     The partner's conversations show for us too, with the camera on them
+ * PURPOSE:     The partner's conversations show for us too
  * COPYRIGHT:	Copyright 2026 COTLMP contributors
  */
 
@@ -30,17 +30,13 @@ namespace COTLMP.Game
     /// </summary>
     /// <remarks>
     /// When the partner talks to someone in the place we are in, their lines show at the bottom of
-    /// our screen and our camera goes to them. Our own lamb is left alone: we can keep walking, and
-    /// the camera comes back when they are done. Lines go as localization terms with the partner's
-    /// text as a fallback, so each player reads them in their own language.
+    /// our screen. Our camera and our lamb are left alone. Lines go as localization terms with the
+    /// partner's text as a fallback, so each player reads them in their own language.
     ///
-    /// Answers are the host's to pick. When the answers come up, both players see them: the one
-    /// talking in the game's own answer wheel, the other above the partner's line. Each player's
-    /// icon (the Lamb or the Goat, as the game's co-op shows over their heads) stands by the answer
-    /// they are on. The joining player can only point at the answer they would like; a click on
-    /// their own wheel points too. The host's pick is the answer, in either player's conversation.
-    /// Only when the host isn't in the room (and can't see the answers) does the joining player
-    /// answer alone.
+    /// Whoever talks answers, as in the game. When the answers come up, the other player sees them
+    /// above the partner's line and can point at one (mouse over it, or 1-4): each player's icon
+    /// (the Lamb or the Goat, as the game's co-op shows over their heads) stands by the answer they
+    /// are on, in the wheel and in the overlay. Pointing never holds anyone's conversation up.
     /// </remarks>
     internal static class Dialogs
     {
@@ -51,9 +47,7 @@ namespace COTLMP.Game
             /* The answers came up in the sender's conversation */
             Choice = 3,
             /* The answer the sender is on (an index) */
-            Highlight = 4,
-            /* The host's pick in the joining player's conversation */
-            Decide = 5
+            Highlight = 4
         }
 
         private const int None = -1;
@@ -63,7 +57,6 @@ namespace COTLMP.Game
 
         /* Our own answers on screen */
         private static DialogueWheel LocalWheel;
-        private static bool ApplyingDecision;
 
         /* The partner's answers, shown in the overlay */
         private static List<string> RemoteOptions;
@@ -73,22 +66,15 @@ namespace COTLMP.Game
 
         private static bool IsHost => Plugin.GlobalsInternal.IsServerCreator;
 
-        /// <summary>
-        /// The partner stands in our place (the server only shows us puppets in our place)
-        /// </summary>
-        private static bool PartnerHere => PlayerManager.GetAnyPuppetObject() != null;
-
         private static readonly FieldInfo CurrentConversation = AccessTools.Field(typeof(MMConversation), "CURRENT_CONVERSATION");
         private static readonly FieldInfo PositionField = AccessTools.Field(typeof(MMConversation), "Position");
 
         /* What the partner says, shown by the overlay */
         private static string Speaker, Text;
         private static float ShownAt;
-        private static bool Watching;
-        private static List<CameraFollowTarget.Target> SavedTargets;
 
         /* Counters for the test harness report */
-        internal static int LinesSent, LinesShown, HighlightsSent, HighlightsSeen, Decisions;
+        internal static int LinesSent, LinesShown, HighlightsSent, HighlightsSeen;
 
         /// <summary>
         /// The answers of the partner's conversation on our screen, for the test harness
@@ -103,7 +89,7 @@ namespace COTLMP.Game
             GameObject Overlay = new("COTLMP Dialog Overlay");
             UnityEngine.Object.DontDestroyOnLoad(Overlay);
             Overlay.AddComponent<DialogOverlay>();
-            Plugin.MonoInstance.StartCoroutine(KeepCamera());
+            Plugin.MonoInstance.StartCoroutine(KeepOverlay());
         }
 
         private static void Send(Step Type, Action<BinaryWriter> Body)
@@ -167,7 +153,7 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Handles the partner's conversation: lines, answers, what they point at, the host's pick, the end.
+        /// Handles the partner's conversation: lines, answers, what they point at, the end.
         /// </summary>
         public static void OnRelay(BinaryReader Reader)
         {
@@ -196,7 +182,6 @@ namespace COTLMP.Game
                     OurPick = PartnerPick = None;
                     ShownAt = Time.unscaledTime;
                     Text ??= "";
-                    Watch();
                     return;
                 }
 
@@ -204,14 +189,6 @@ namespace COTLMP.Game
                     PartnerPick = Reader.ReadSByte();
                     ++HighlightsSeen;
                     return;
-
-                case Step.Decide:
-                {
-                    int Answer = Reader.ReadSByte();
-                    Plugin.Logger?.LogInfo($"[COOP] The host picked answer {Answer}");
-                    AnswerLocal(Answer);
-                    return;
-                }
             }
 
             string NameTerm = Reader.ReadString(), Name = Reader.ReadString();
@@ -227,7 +204,6 @@ namespace COTLMP.Game
             Speaker = string.IsNullOrEmpty(OurName) ? Name : OurName;
             ShownAt = Time.unscaledTime;
             ++LinesShown;
-            Watch();
         }
 
         /// <summary>
@@ -240,21 +216,6 @@ namespace COTLMP.Game
             OurPick = Answer;
             ++HighlightsSent;
             Send(Step.Highlight, Writer => Writer.Write((sbyte)Answer));
-        }
-
-        /// <summary>
-        /// A click on one of the partner's answers: the answer if we host, a pointer if we joined.
-        /// </summary>
-        internal static void PickRemote(int Answer)
-        {
-            if (RemoteOptions == null || Answer < 0 || Answer >= RemoteOptions.Count)
-                return;
-            Point(Answer);
-            if (!IsHost)
-                return;
-            ++Decisions;
-            Plugin.Logger?.LogInfo($"[COOP] Picking answer {Answer} of the partner's conversation");
-            Send(Step.Decide, Writer => Writer.Write((sbyte)Answer));
         }
 
         /// <summary>
@@ -282,118 +243,27 @@ namespace COTLMP.Game
             });
         }
 
-        /// <summary>
-        /// We clicked one of our answers. Returns false when it only points: the host picks.
-        /// </summary>
-        private static bool OnLocalPick(int Answer)
-        {
-            if (ApplyingDecision || !CoopSync.InSession || IsHost || !PartnerHere)
-                return true;
-
-            Point(Answer);
-            Plugin.Logger?.LogInfo($"[COOP] Pointing at answer {Answer}, the host picks");
-            return false;
-        }
-
-        /// <summary>
-        /// Answers our open conversation the way a click on the answer does.
-        /// </summary>
-        private static void AnswerLocal(int Answer)
-        {
-            DialogueWheel Wheel = OpenWheel;
-            DialogueWheel.DialogueOption[] Options = Wheel != null ? WheelOptions(Wheel) : null;
-            if (Options == null || Answer < 0 || Answer >= Options.Length)
-                return;
-
-            ApplyingDecision = true;
-            try
-            {
-                Options[Answer].Button.onClick.Invoke();
-            }
-            finally
-            {
-                ApplyingDecision = false;
-            }
-        }
-
-        /// <summary>
-        /// Points our camera at the partner while they talk
-        /// </summary>
-        private static void Watch()
-        {
-            if (Watching)
-                return;
-            GameObject Partner = PlayerManager.GetAnyPuppetObject();
-            CameraFollowTarget Camera = GameManager.GetInstance()?.CamFollowTarget;
-            if (Partner == null || Camera == null)
-                return;
-
-            SavedTargets = new List<CameraFollowTarget.Target>(Camera.targets);
-            Camera.targets.Clear();
-            Camera.targets.Add(new CameraFollowTarget.Target(Partner, 1f));
-            Watching = true;
-        }
-
         private static void Stop()
         {
             Speaker = Text = null;
             RemoteOptions = null;
             if (LocalWheel == null)
                 OurPick = PartnerPick = None;
-            if (!Watching)
-                return;
-            Watching = false;
-
-            CameraFollowTarget Camera = GameManager.GetInstance()?.CamFollowTarget;
-            if (Camera == null)
-                return;
-            Camera.targets.Clear();
-            if (SavedTargets != null)
-            {
-                foreach (CameraFollowTarget.Target Target in SavedTargets)
-                {
-                    if (Target?.gameObject != null)
-                        Camera.targets.Add(Target);
-                }
-            }
-            if (Camera.targets.Count == 0 && PlayerFarming.Instance != null)
-                GameManager.GetInstance().AddToCamera(PlayerFarming.Instance.CameraBone);
-            SavedTargets = null;
         }
 
         /// <summary>
-        /// Holds the camera on the partner (other code adds our lamb back) and lets go if they vanish
+        /// Takes the partner's conversation off the screen when its end got lost, they left, or
+        /// our own conversation started
         /// </summary>
-        private static IEnumerator KeepCamera()
+        private static IEnumerator KeepOverlay()
         {
             while (true)
             {
                 yield return null;
-                if (!Watching && Text == null)
+                if (Text == null)
                     continue;
-                try
-                {
-                    GameObject Partner = PlayerManager.GetAnyPuppetObject();
-
-                    /* The end got lost, we left, or our own conversation started: give the camera back */
-                    if (!CoopSync.InSession || Partner == null || MMConversation.isPlaying || Time.unscaledTime - ShownAt > 30f)
-                    {
-                        Stop();
-                        continue;
-                    }
-
-                    CameraFollowTarget Camera = GameManager.GetInstance()?.CamFollowTarget;
-                    if (Watching && Camera != null && (Camera.targets.Count != 1 || Camera.targets[0].gameObject != Partner))
-                    {
-                        Camera.targets.Clear();
-                        Camera.targets.Add(new CameraFollowTarget.Target(Partner, 1f));
-                    }
-                }
-                catch (Exception e)
-                {
-                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Watching the partner's conversation failed: {e.Message}");
+                if (!CoopSync.InSession || PlayerManager.GetAnyPuppetObject() == null || MMConversation.isPlaying || Time.unscaledTime - ShownAt > 30f)
                     Stop();
-                }
             }
         }
 
@@ -402,7 +272,7 @@ namespace COTLMP.Game
         /// <summary>
         /// The players' icons from the game's own co-op: the Lamb's and the Goat's.
         /// </summary>
-        private static class Icons
+        internal static class Icons
         {
             private static Sprite Lamb, Goat;
 
@@ -562,13 +432,13 @@ namespace COTLMP.Game
                     PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Placing the answer icons failed: {e.Message}");
                 }
 
-                /* Number keys pick among the partner's answers (the game's own keys move our lamb) */
+                /* Number keys point at one of the partner's answers */
                 if (RemoteOptions == null)
                     return;
                 for (int Index = 0; Index < RemoteOptions.Count && Index < 4; Index++)
                 {
                     if (Input.GetKeyDown(KeyCode.Alpha1 + Index) || Input.GetKeyDown(KeyCode.Keypad1 + Index))
-                        PickRemote(Index);
+                        Point(Index);
                 }
             }
 
@@ -610,8 +480,8 @@ namespace COTLMP.Game
                 if (Options == null || Options.Count == 0)
                     return;
 
-                /* The partner's answers in a row above the line: the host picks, the joining player points */
-                OptionStyle ??= new GUIStyle(GUI.skin.button) { wordWrap = true };
+                /* The partner's answers in a row above the line, to point at; drawn, not buttons, so our clicks stay the game's */
+                OptionStyle ??= new GUIStyle(GUI.skin.box) { wordWrap = true, alignment = TextAnchor.MiddleCenter };
                 OptionStyle.fontSize = Size;
                 float Gap = Size, OptionWidth = (Box.width - Gap * (Options.Count - 1)) / Options.Count, OptionHeight = Size * 2.6f;
                 float IconSize = OptionHeight * 0.8f;
@@ -624,8 +494,7 @@ namespace COTLMP.Game
                         Point(Index);
 
                     GUI.color = OurPick == Index ? new Color(0.96f, 0.82f, 0.45f, 1f) : Color.white;
-                    if (GUI.Button(Area, $"{Index + 1}. {Options[Index]}", OptionStyle))
-                        PickRemote(Index);
+                    GUI.Box(Area, $"{Index + 1}. {Options[Index]}", OptionStyle);
                     GUI.color = Old;
 
                     /* Icons at the answer's top right corner, the partner's outermost */
@@ -694,21 +563,6 @@ namespace COTLMP.Game
                 catch (Exception e)
                 {
                     PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing the answer we are on failed: {e.Message}");
-                }
-            }
-
-            [HarmonyPatch(typeof(DialogueWheel), "OnOptionClicked")]
-            [HarmonyPrefix]
-            private static bool WheelClicked(int option)
-            {
-                try
-                {
-                    return OnLocalPick(option);
-                }
-                catch (Exception e)
-                {
-                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Holding the answer for the host failed: {e.Message}");
-                    return true;
                 }
             }
 

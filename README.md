@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.2, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.3, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,13 +15,13 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.2, pre-release.**
+**Version 0.2.3, pre-release.**
 
 You invite a friend through the Steam overlay. Each of you keeps playing your own save, and you see
 each other in the cult and on dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.2.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.3.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -79,8 +79,10 @@ You play as the Goat, as in the game's own co-op.</td>
 | The map between floors is the host's for both; either player picks the way, whoever picks first, and the other is taken there. The next floor gets the same seed | works in the automated test (two floors, the joining player picked, the host followed) |
 | Each player walks a floor on their own (the partner's puppet at a door takes nobody along); rooms one player opened show on the other's minimap | works in the automated test |
 | Rooms one player cleared are cleared for the other (no second fight), wounds and kills carry over | works in the automated test |
-| The partner's conversations show at the bottom of your screen, camera on them, you keep control | works in the automated test |
-| Dialog choices: both see the answers, the game's co-op icons (red Lamb, blue Goat) show which answer each player is on, the host's pick counts for both (the joining player answers alone only when the host isn't in the room) | works in the automated test (both directions) |
+| The partner's conversations show at the bottom of your screen; your camera and your lamb stay yours | works in the automated test |
+| Dialog choices: whoever talks answers, as in the game's co-op; the other sees the answers and can point at one, the game's co-op icons (red Lamb, blue Goat) show which answer each player is on | works in the automated test (both directions) |
+| The pause menu lists the session's players: co-op icon, Steam name, host, ping | works in the automated test |
+| Online play opens after the prologue (the game keeps local co-op out of it too); an invite accepted in the prologue waits for the cult | not tested in the prologue itself |
 | Enemy attacks of the room owner (shots incl. homing, beams, bombs, warning circles, other pooled attacks) show for the other player and move exactly as the owner's | works in the automated test (forced shots) |
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
@@ -109,7 +111,7 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.2, предрелиз.
+Версия 0.2.3, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
 друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
@@ -122,8 +124,9 @@ You play as the Goat, as in the game's own co-op.</td>
 Карты у гадалки одинаковые, время суток как у хоста, сломанная трава, горшки и камни ломаются у обоих.
 Карта между этажами общая (карта хоста): кто первым выбрал путь, туда идут оба. По этажу каждый
 ходит сам, комнаты, где побывал партнёр, открываются и на вашей мини-карте. Удары, перекаты и
-заклинания партнёра видны как у него, а появляется он в комнате, только когда она у него загрузилась. Выбор в диалогах: варианты видят оба, значок игрока (красный Ягнёнок, синий Козёл) стоит над
-вариантом, на который он указывает, выбирает хост. Если игра у друга вылетела посреди забега, после перезапуска
+заклинания партнёра видны как у него, а появляется он в комнате, только когда она у него загрузилась. В диалоге отвечает тот, кто говорит, как в обычном
+кооперативе; второй видит варианты и может указать на один (значки красного Ягнёнка и синего Козла).
+В меню паузы список игроков. Онлайн игра открывается после пролога. Если игра у друга вылетела посреди забега, после перезапуска
 она сама загрузит сохранение, подключится к хосту и вернёт его в тот же забег с тем же снаряжением.
 
 <p align="center"><img alt="For the devout" src="Media/readme/title-devout.png" width="760"></p>
@@ -171,8 +174,8 @@ paths from environment variables (see the top of each).
 - **Cleared rooms.** A completed room is sent to the partner (per run); when they walk in, their
   copy is completed the way the game marks a finished room, without a second fight or a second
   reward. Remote kills drop no loot, since the killer's loot is shared. See `ClearedRooms.cs`.
-- **Conversations.** Lines go as localization terms; the partner sees them and their camera
-  follows the speaker. See `Dialogs.cs`.
+- **Conversations.** Lines go as localization terms; the partner sees them at the bottom of the
+  screen, their camera and lamb untouched. See `Dialogs.cs`.
 - **Enemy attacks.** Everything the owner's game takes from the object pool that is an enemy attack
   is sent once by prefab name, then its position, rotation and scale ten times a second; the follower
   takes the same prefab from its own pool and moves the copy to match. Copies hurt nobody. See
@@ -209,9 +212,9 @@ paths from environment variables (see the top of each).
   connection has been bad for 2 s, or at once when the partner stops answering. See `ConnectionQuality.cs`.
 - **Choices.** When the answer wheel comes up, its answers go to the partner, who sees them above
   the line and points with the mouse or the 1-4 keys. Each player's co-op icon (the game's red Lamb
-  and blue Goat rings) stands above the answer they are on, in the wheel and in the overlay. The
-  host's pick is the answer in either player's conversation: in the joining player's own
-  conversation a click only points, and the host's pick is clicked for them. See `Dialogs.cs`.
+  and blue Goat rings) stands above the answer they are on, in the wheel and in the overlay.
+  Whoever talks answers, as local co-op lets only the talking player answer; pointing never holds
+  a conversation up. See `Dialogs.cs`.
 - **Rejoining.** A player who (re)joins says hello; the host answers with its run (even after the
   run is too old to be adopted by a newcomer), every room cleared in it and what is known of its
   enemies' health. A handshake from an address already in the game replaces the old connection at

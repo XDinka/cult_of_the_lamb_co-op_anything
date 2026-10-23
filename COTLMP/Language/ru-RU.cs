@@ -68,8 +68,13 @@ namespace COTLMP.Language
             new("Multiplayer/UI/LeaveConfirm", "Покинуть игру друга?", false),
             new("Multiplayer/UI/Disconnected", "Отключено", false),
             new("Multiplayer/UI/DisconnectedError", "Произошла ошибка (подробности в консоли)", false),
+            new("Multiplayer/UI/Players", "Игроки", false),
+            new("Multiplayer/UI/Host", "хост", false),
+            new("Multiplayer/UI/You", "вы", false),
+            new("Multiplayer/UI/Ms", "мс", false),
 
             /* Steam invites */
+            new("Multiplayer/Steam/AfterPrologue", "Онлайн игра откроется после пролога, в вашем культе", false),
             new("Multiplayer/Steam/JoinAfterLoad", "Загрузите сохранение, чтобы присоединиться к другу", false),
             new("Multiplayer/Steam/Joined", "Вы в игре друга", false),
             new("Multiplayer/Steam/JoinFailed", "Не удалось связаться с другом", false),

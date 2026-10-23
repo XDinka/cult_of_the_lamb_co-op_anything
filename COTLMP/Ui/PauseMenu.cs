@@ -73,7 +73,13 @@ namespace COTLMP.Ui
 
             PlayerFarming player = PlayerFarming.players[0];
             StateMachine.State playerState = player.state.CURRENT_STATE;
-            if(playerState == StateMachine.State.InActive || playerState == StateMachine.State.CustomAnimation || player.GoToAndStopping)
+            if (!Plugin.GlobalsInternal.InGameSession && COTLMP.Network.SteamBridge.InPrologue)
+            {
+                __instance.DenyCoop = true;
+                ____coopButton.interactable = false;
+                ____coopButtonText.text = ScriptLocalization.UI.CoopDisabled_Intro;
+            }
+            else if(playerState == StateMachine.State.InActive || playerState == StateMachine.State.CustomAnimation || player.GoToAndStopping)
             {
                 __instance.DenyCoop = true;
                 ____coopButton.interactable = false;
@@ -127,7 +133,13 @@ namespace COTLMP.Ui
 
             PlayerFarming player = PlayerFarming.players[0];
             StateMachine.State playerState = player.state.CURRENT_STATE;
-            if (playerState == StateMachine.State.InActive || playerState == StateMachine.State.CustomAnimation || player.GoToAndStopping)
+            if (!Plugin.GlobalsInternal.InGameSession && COTLMP.Network.SteamBridge.InPrologue)
+            {
+                __instance.DenyCoop = true;
+                ____coopButton.interactable = false;
+                ____coopButtonText.text = ScriptLocalization.UI.CoopDisabled_Intro;
+            }
+            else if (playerState == StateMachine.State.InActive || playerState == StateMachine.State.CustomAnimation || player.GoToAndStopping)
             {
                 __instance.DenyCoop = true;
                 ____coopButton.interactable = false;

@@ -68,8 +68,13 @@ namespace COTLMP.Language
             new("Multiplayer/UI/LeaveConfirm", "Do you want to leave the server?", false),
             new("Multiplayer/UI/Disconnected", "Disconnected", false),
             new("Multiplayer/UI/DisconnectedError", "An error has ocurred (check console)", false),
+            new("Multiplayer/UI/Players", "Players", false),
+            new("Multiplayer/UI/Host", "host", false),
+            new("Multiplayer/UI/You", "you", false),
+            new("Multiplayer/UI/Ms", "ms", false),
 
             /* Steam invites */
+            new("Multiplayer/Steam/AfterPrologue", "Online play opens after the prologue, in your cult", false),
             new("Multiplayer/Steam/JoinAfterLoad", "Load your save to join your friend", false),
             new("Multiplayer/Steam/Joined", "Joined your friend", false),
             new("Multiplayer/Steam/JoinFailed", "Couldn't reach your friend", false),

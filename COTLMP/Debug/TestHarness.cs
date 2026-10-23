@@ -305,7 +305,7 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
-        /// Both sides of the dialog choice test, by role: the host picks, the joining player points.
+        /// Both sides of the dialog choice test: whoever asks answers, the other points
         /// </summary>
         private static IEnumerator VoteOnChoices()
         {
@@ -314,7 +314,7 @@ namespace COTLMP.Debug
             yield return new WaitForSecondsRealtime(AutoChoice);
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
 
-            /* Round 1: the host asks; the joining player points at the second answer, the host is on the first, then picks the second */
+            /* Round 1: the host asks; the joining player points at the second answer, the host answers the second */
             if (Host)
             {
                 Ask("host");
@@ -323,46 +323,41 @@ namespace COTLMP.Debug
                 MoveTo(0);
                 yield return new WaitForSecondsRealtime(2f);
                 Shot("choice-host-own-wheel");
-                yield return new WaitForSecondsRealtime(2f);
                 ClickOwn(COTLMP.Game.Dialogs.PartnerPickNow);
+                yield return Until(() => COTLMP.Game.Dialogs.OpenWheel == null, 10f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 1: answered, wheel closed: {COTLMP.Game.Dialogs.OpenWheel == null}");
             }
             else
             {
                 yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0, 40f);
                 Plugin.Logger?.LogWarning($"{Tag} Round 1: the host's answers are up ({COTLMP.Game.Dialogs.RemoteChoiceCount})");
                 yield return new WaitForSecondsRealtime(1f);
-                COTLMP.Game.Dialogs.PickRemote(1);
-                yield return Until(() => COTLMP.Game.Dialogs.PartnerPickNow == 0, 10f);
-                Plugin.Logger?.LogWarning($"{Tag} Round 1: the host is on {COTLMP.Game.Dialogs.PartnerPickNow}");
+                COTLMP.Game.Dialogs.Point(1);
                 yield return new WaitForSecondsRealtime(0.5f);
                 Shot("choice-client-sees-host");
             }
 
             yield return new WaitForSecondsRealtime(12f);
 
-            /* Round 2: the joining player asks, moves to and clicks the first answer (it only points), the host picks the second */
+            /* Round 2: the joining player asks and answers the first right away; the host points at the second */
             if (!Host)
             {
                 Ask("client");
                 yield return Until(() => COTLMP.Game.Dialogs.OpenWheel != null, 20f);
-                yield return new WaitForSecondsRealtime(1f);
-                MoveTo(0);
-                yield return new WaitForSecondsRealtime(0.5f);
-                ClickOwn(0);
-                Plugin.Logger?.LogWarning($"{Tag} Round 2: clicked answer 0, wheel still open: {COTLMP.Game.Dialogs.OpenWheel != null}");
-                yield return Until(() => COTLMP.Game.Dialogs.PartnerPickNow == 1, 20f);
-                yield return new WaitForSecondsRealtime(0.5f);
+                yield return new WaitForSecondsRealtime(3f);
                 Shot("choice-client-own-wheel");
+                MoveTo(0);
+                ClickOwn(0);
+                yield return Until(() => COTLMP.Game.Dialogs.OpenWheel == null, 10f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 2: answered 0 ourselves, wheel closed: {COTLMP.Game.Dialogs.OpenWheel == null}");
             }
             else
             {
-                yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0 && COTLMP.Game.Dialogs.PartnerPickNow >= 0, 40f);
-                Plugin.Logger?.LogWarning($"{Tag} Round 2: the partner's answers are up, they point at {COTLMP.Game.Dialogs.PartnerPickNow}");
+                yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0, 40f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 2: the partner's answers are up ({COTLMP.Game.Dialogs.RemoteChoiceCount})");
                 COTLMP.Game.Dialogs.Point(1);
-                yield return new WaitForSecondsRealtime(2f);
-                Shot("choice-host-sees-client");
                 yield return new WaitForSecondsRealtime(1f);
-                COTLMP.Game.Dialogs.PickRemote(1);
+                Shot("choice-host-sees-client");
             }
         }
 

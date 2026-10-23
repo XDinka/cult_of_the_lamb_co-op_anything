@@ -129,6 +129,42 @@ namespace COTLMP.Network
         public static bool IsFake => FakeSteamId != 0;
 
         /// <summary>
+        /// Our own name in Steam (the mod's player name in a test without Steam)
+        /// </summary>
+        internal static string LocalName()
+        {
+            try
+            {
+                return IsFake || !SteamManager.Initialized ? $"Player {FakeSteamId}" : SteamFriends.GetPersonaName();
+            }
+            catch (Exception)
+            {
+                return Plugin.Globals.PlayerName;
+            }
+        }
+
+        /// <summary>
+        /// The Steam names of the other players in the session
+        /// </summary>
+        internal static List<string> PartnerNames()
+        {
+            List<ulong> Ids = IsHost ? new List<ulong>(Peers.Keys) : HostId != 0 ? new List<ulong> { HostId } : new List<ulong>();
+            List<string> Names = new();
+            foreach (ulong Id in Ids)
+            {
+                try
+                {
+                    Names.Add(IsFake ? $"Player {Id}" : SteamFriends.GetFriendPersonaName(new CSteamID(Id)));
+                }
+                catch (Exception)
+                {
+                    Names.Add(Id.ToString());
+                }
+            }
+            return Names;
+        }
+
+        /// <summary>
         /// True while we are a player who joined someone through the bridge from our own loaded save.
         /// </summary>
         public static bool IsJoinedClient { get; private set; }
@@ -335,9 +371,17 @@ namespace COTLMP.Network
         {
             Plugin.Logger?.LogInfo($"[STEAM] Join requested for lobby {Request.m_steamIDLobby.m_SteamID} (friend {Request.m_steamIDFriend.m_SteamID})");
             PendingLobby = Request.m_steamIDLobby.m_SteamID;
-            if (!ReadyToJoin())
+            if (InPrologue)
+                Notify("Multiplayer/Steam/AfterPrologue");
+            else if (!ReadyToJoin())
                 Notify("Multiplayer/Steam/JoinAfterLoad");
         }
+
+        /// <summary>
+        /// The game's opening (before the crown and the cult): scripted rooms, enemies and
+        /// talks the shared runs don't fit, and the game keeps local co-op out of it too
+        /// </summary>
+        internal static bool InPrologue => SceneManager.GetActiveScene().name == "Game Biome Intro";
 
         /// <summary>
         /// A join waits until the player stands in their own loaded game.
@@ -351,6 +395,7 @@ namespace COTLMP.Network
         {
             return PlayerFarming.Instance != null &&
                    SceneManager.GetActiveScene().name != "Main Menu" &&
+                   !InPrologue &&
                    !Plugin.GlobalsInternal.InGameSession &&
                    !MMTransition.IsPlaying &&
                    Time.timeScale > 0f;
