@@ -76,7 +76,9 @@ namespace COTLMP.Game
             /* TimeSync */
             Time = 20,
             /* PropSync */
-            PropBroken = 21
+            PropBroken = 21,
+            /* PuppetSync */
+            PuppetPose = 22
         }
 
         /// <summary>
@@ -270,6 +272,10 @@ namespace COTLMP.Game
 
                 case Kind.Time:
                     TimeSync.OnRelay(Reader);
+                    break;
+
+                case Kind.PuppetPose:
+                    PuppetSync.OnRelay(From, Reader);
                     break;
 
                 case Kind.PropBroken:

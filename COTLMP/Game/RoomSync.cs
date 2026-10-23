@@ -86,7 +86,10 @@ namespace COTLMP.Game
 
         /* Counters for the test harness report */
         private static int HitsRefused;
-        internal static int SnapshotsSent, SnapshotsApplied, PuppetHitsSent, HitsTaken, EnemiesRemoved;
+        internal static int SnapshotsSent, SnapshotsApplied, PuppetHitsSent, HitsTaken, EnemiesRemoved, EnemyAnimations;
+
+        /* The partner's hit the game holds back for a moment (a dodge in time still clears it) */
+        private static object RemoteHitQueued;
 
         /// <summary>
         /// True while we run the enemies of a dungeon room the partner is also in
@@ -197,6 +200,7 @@ namespace COTLMP.Game
             PartnerOwns = Owns;
             if (PartnerPlace != null)
                 PartnerLastPlace = PartnerPlace;
+            MiniMapSync.PartnerAt(PartnerPlace);
             if (Arrived)
                 Plugin.Logger?.LogInfo($"[COOP] Partner is in {(PartnerPlace ?? "a transition")}{(Owns ? " (theirs)" : "")}, we are in {MyPlace ?? "a transition"}");
 
@@ -269,7 +273,7 @@ namespace COTLMP.Game
             {
                 Enemy = Enemy,
                 Body = Enemy.GetComponent<Rigidbody2D>(),
-                Spine = Enemy.GetComponentInChildren<SkeletonAnimation>(true),
+                Spine = MainSpine(Enemy.gameObject),
                 Units = Enemy.GetComponents<UnitObject>(),
                 LastSeen = Time.realtimeSinceStartup,
                 Registered = Time.realtimeSinceStartup
@@ -278,6 +282,18 @@ namespace COTLMP.Game
 
             FollowedEnemies[Enemy] = Entry;
             FollowedByHash[Hash(Id)] = Entry;
+        }
+
+        /// <summary>
+        /// The skeleton an enemy's animator plays on (some carry other skeletons for effects and
+        /// warnings, which the first one found may be): the same pick on both sides
+        /// </summary>
+        private static SkeletonAnimation MainSpine(GameObject Enemy)
+        {
+            SimpleSpineAnimator Animator = Enemy.GetComponentInChildren<SimpleSpineAnimator>();
+            if (Animator != null && Animator.anim != null)
+                return Animator.anim;
+            return Enemy.GetComponentInChildren<SkeletonAnimation>() ?? Enemy.GetComponentInChildren<SkeletonAnimation>(true);
         }
 
         /// <summary>
@@ -308,6 +324,12 @@ namespace COTLMP.Game
             }
             if (Entry.Renderer != null)
                 Entry.Renderer.enabled = true;
+            /* Its animations come from the owner now: its animator mustn't put its own back, on state changes or every frame */
+            foreach (SimpleSpineAnimator Animator in Entry.Enemy.GetComponentsInChildren<SimpleSpineAnimator>(true))
+            {
+                Animator.UpdateAnimsOnStateChange = false;
+                Animator.enabled = false;
+            }
             Entry.Frozen = true;
             return true;
         }
@@ -448,7 +470,10 @@ namespace COTLMP.Game
                                 var Current = Entry.Spine.AnimationState?.GetCurrent(0);
                                 if ((Current == null || Current.Animation == null || Current.Animation.Name != Entry.Animation) &&
                                     Entry.Spine.Skeleton.Data.FindAnimation(Entry.Animation) != null)
+                                {
                                     Entry.Spine.AnimationState.SetAnimation(0, Entry.Animation, Entry.Loop);
+                                    ++EnemyAnimations;
+                                }
                             }
                         }
                     }
@@ -508,7 +533,7 @@ namespace COTLMP.Game
                             {
                                 (int Id, Health Enemy) = Batch[Index];
                                 Vector3 Position = Enemy.transform.position;
-                                SkeletonAnimation Spine = Enemy.GetComponentInChildren<SkeletonAnimation>(true);
+                                SkeletonAnimation Spine = MainSpine(Enemy.gameObject);
                                 var Track = Spine != null ? Spine.AnimationState?.GetCurrent(0) : null;
 
                                 Writer.Write(Id);
@@ -586,7 +611,10 @@ namespace COTLMP.Game
             try
             {
                 if (Player.health.DealDamage(Damage, Attacker, Location, false, Type))
+                {
                     ++HitsTaken;
+                    RemoteHitQueued = Player.health.damageEventQueue;
+                }
                 else if (HitsRefused++ < 10)
                     Plugin.Logger?.LogInfo($"[COOP] Partner's hit for {Damage} refused: hp {Player.health.HP}, state {Player.state?.CURRENT_STATE}, untouchable {Player.health.untouchable}, invincible {Player.health.invincible}");
             }
@@ -640,7 +668,7 @@ namespace COTLMP.Game
         {
             [HarmonyPatch(typeof(Health), nameof(Health.DealDamage))]
             [HarmonyPrefix]
-            private static bool DealDamage(Health __instance, float Damage, GameObject Attacker, Vector3 AttackLocation, Health.AttackTypes AttackType, ref bool __result)
+            private static bool DealDamage(Health __instance, float Damage, GameObject Attacker, Vector3 AttackLocation, Health.AttackTypes AttackType, bool dealDamageImmediately, ref bool __result)
             {
                 try
                 {
@@ -651,6 +679,13 @@ namespace COTLMP.Game
                             SendHit(Damage, AttackLocation, AttackType);
                         __result = false;
                         return false;
+                    }
+
+                    /* The partner's hit the game held back lands now */
+                    if (dealDamageImmediately && RemoteHitQueued != null && __instance.damageEventQueue == RemoteHitQueued)
+                    {
+                        RemoteHitQueued = null;
+                        return true;
                     }
 
                     /* Following, only the owner's enemies hurt us, through OnHit */

@@ -39,7 +39,9 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-window=X,Y,W,H</c>: keep the game in a W x H window at X,Y (the game's own settings would make it full screen again on load)</item>
     /// <item><c>-cotlmp-tarottest</c>: in the first dungeon room both have, a tarot reader deals two cards to the host, then to the joining copy (shared tarot test)</item>
     /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
-    /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host picks the last way out, the joining copy clicks the first (it only waits) and is taken where the host went (map sync test)</item>
+    /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
+    /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
+    /// <item><c>-cotlmp-nomapclick</c>: with -cotlmp-nextfloor, never click on the map, only wait for the partner's pick</item>
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
@@ -61,6 +63,8 @@ namespace COTLMP.Debug
         private static float AutoDie;
         private static bool Solo;
         private static bool NextFloor;
+        private static bool NoMapClick;
+        private static bool AnimTest;
         private static bool TarotTest;
         private static bool AutoCut;
         private static int[] WindowRect;
@@ -107,6 +111,10 @@ namespace COTLMP.Debug
                     Solo = true;
                 else if (Arg.Equals("-cotlmp-nextfloor", StringComparison.OrdinalIgnoreCase))
                     NextFloor = true;
+                else if (Arg.Equals("-cotlmp-nomapclick", StringComparison.OrdinalIgnoreCase))
+                    NoMapClick = true;
+                else if (Arg.Equals("-cotlmp-animtest", StringComparison.OrdinalIgnoreCase))
+                    AnimTest = true;
                 else if (Arg.Equals("-cotlmp-tarottest", StringComparison.OrdinalIgnoreCase))
                     TarotTest = true;
                 else if (Arg.Equals("-cotlmp-autocut", StringComparison.OrdinalIgnoreCase))
@@ -144,7 +152,9 @@ namespace COTLMP.Debug
 
             if (WindowRect != null)
                 Plugin.MonoInstance.StartCoroutine(KeepWindow());
-            if (NextFloor && AutoEnter)
+            if (AnimTest)
+                Plugin.MonoInstance.StartCoroutine(PlayAttacks());
+            if (NextFloor && AutoEnter && !NoMapClick)
                 Plugin.MonoInstance.StartCoroutine(ClickMaps());
             if (TarotTest)
                 Plugin.MonoInstance.StartCoroutine(DrawTarot());
@@ -492,9 +502,9 @@ namespace COTLMP.Debug
                 Line.Append($" recovery={COTLMP.Game.RunRecovery.Status} {Gear()}");
                 Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
-                Line.Append($" props={PropSync.Sent}/{PropSync.Received}/{PropSync.Applied}/{PropSync.Missing}/{PropSync.AppliedOnEntry} propmatch={PropSync.ByNumber}/{PropSync.BySpawn}/{PropSync.ByNearest}");
+                Line.Append($" props={PropSync.Sent}/{PropSync.Received}/{PropSync.Applied}/{PropSync.Missing}/{PropSync.AppliedOnEntry}/{PropSync.AlreadyBroken} propmatch={PropSync.ByNumber}/{PropSync.BySpawn}/{PropSync.ByNearest}");
                 Line.Append($" tarot={SharedTarot.Sent}/{SharedTarot.Received}/{SharedTarot.Applied} time={TimeManager.CurrentGameTime:F0}:{TimeManager.CurrentPhase} gap={TimeSync.Gap:F1} timesync={TimeSync.Sent}/{TimeSync.Received}/{TimeSync.Skips}");
-                Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.ClicksHeld} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
+                Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.Conflicts} minimap={MiniMapSync.Marked} pose={PuppetSync.Sent}/{PuppetSync.Received}/{PuppetSync.Applied}/{PuppetSync.Appeared}/{PuppetSync.Vanished} enemyanims={RoomSync.EnemyAnimations} puppetanim={(COTLMP.Game.PlayerManager.GetPuppet(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} myanim={(PlayerFarming.Instance?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
                 if (PlayerFarming.Instance != null)
@@ -578,6 +588,13 @@ namespace COTLMP.Debug
                     if (Solo && Partner != Mine)
                         yield return new WaitForSecondsRealtime(6f);
 
+                    /* Both at the floor's exit: through it on our own, the partner's puppet takes nobody along */
+                    if (NextFloor && Partner == Mine && Mine != null && HasNextLayer(Room))
+                    {
+                        yield return new WaitForSecondsRealtime(3f);
+                        yield return GoToNextFloor(Room, false);
+                        continue;
+                    }
                     if (Partner == null || Mine == null || Partner == Mine || !Partner.Contains("@") || !Mine.Contains("@"))
                         continue;
 
@@ -929,6 +946,31 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
+        /// Plays the lamb's attack animations one after another, for the partner's puppet to repeat
+        /// </summary>
+        private static IEnumerator PlayAttacks()
+        {
+            int Next = 0;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(3f);
+                PlayerFarming Player = PlayerFarming.Instance;
+                if (Player?.Spine?.AnimationState == null || MMTransition.IsPlaying || !AnyRemotePlayer())
+                    continue;
+                var Attacks = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(Player.Spine.Skeleton.Data.Animations.Items,
+                    Item => Item != null && Item.Name.IndexOf("attack", StringComparison.OrdinalIgnoreCase) >= 0), Item => Item.Name));
+                if (Attacks.Count == 0)
+                    continue;
+                string Name = Attacks[Next++ % Attacks.Count];
+                Player.Spine.AnimationState.SetAnimation(0, Name, false);
+                Player.Spine.AnimationState.AddAnimation(0, "idle", true, 0f);
+                Plugin.Logger?.LogWarning($"{Tag} Playing {Name}");
+                yield return new WaitForSecondsRealtime(0.25f);
+                Shot($"anim-{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{Next}");
+            }
+        }
+
+        /// <summary>
         /// A reader in the room the two first share deals two cards, to the host first
         /// </summary>
         private static IEnumerator DrawTarot()
@@ -1042,7 +1084,7 @@ namespace COTLMP.Debug
 
             yield return new WaitForSecondsRealtime(3f);
             global::Map.Node Current = Overlay.Map?.GetCurrentNode();
-            if (Host && MapSync.Open == Overlay && Current != null && Current.outgoing.Count > 0)
+            if (Host && !NoMapClick && MapSync.Open == Overlay && Current != null && Current.outgoing.Count > 0)
             {
                 global::Map.Point Choice = Host ? Current.outgoing[Current.outgoing.Count - 1] : Current.outgoing[0];
                 Lamb.UI.AdventureMapNode Shown = Overlay.NodeFromPoint(Choice);

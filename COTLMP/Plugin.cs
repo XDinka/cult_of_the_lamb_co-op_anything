@@ -260,6 +260,8 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.HostPools.Initialize();
         COTLMP.Game.RoomRandom.Initialize();
         COTLMP.Game.MapSync.Initialize();
+        COTLMP.Game.MiniMapSync.Initialize();
+        COTLMP.Game.PuppetSync.Initialize();
         COTLMP.Game.TimeSync.Initialize();
         COTLMP.Game.PropSync.Initialize();
         COTLMP.Game.ConnectionQuality.Initialize();

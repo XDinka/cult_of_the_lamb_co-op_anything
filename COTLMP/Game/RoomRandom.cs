@@ -56,6 +56,7 @@ namespace COTLMP.Game
                 ChestDrops.Clear();
             };
             PatchChestCoroutines();
+            PatchPickers();
         }
 
         private static int Hash(string Text)
@@ -129,6 +130,63 @@ namespace COTLMP.Game
             }
         }
 
+        /* What a room's grass, bushes and decorations come up as, picked by each spot as the room comes up */
+        private static readonly (Type Type, string Method)[] Pickers =
+        {
+            (typeof(RandomBushPicker), "UpdateObject"),
+            (typeof(RandomGrassPicker), "UpdateGrass"),
+            (typeof(RandomChildPickerWeighted), "SelectObejct"),
+            (typeof(RandomInstantiator), "Start"),
+            (typeof(randomChildPicker), "Start"),
+            (typeof(DecorationPercentageSelector), "Start"),
+        };
+
+        /// <summary>
+        /// The same grass, bushes and decorations in both games: each spot rolls from the room and where it is
+        /// </summary>
+        private static void PatchPickers()
+        {
+            HarmonyMethod Prefix = new(typeof(RoomRandom).GetMethod(nameof(PickerRoll), BindingFlags.NonPublic | BindingFlags.Static));
+            foreach (var (Type, Name) in Pickers)
+            {
+                try
+                {
+                    MethodInfo Method = AccessTools.Method(Type, Name);
+                    if (Method == null)
+                        Plugin.Logger?.LogWarning($"[COOP] No {Type.Name}.{Name} to seed");
+                    else
+                        Coroutines.Patch(Method, prefix: Prefix);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] Can't seed {Type.Name}.{Name}: {e.Message}");
+                }
+            }
+            try
+            {
+                /* Rolls after its first frame */
+                MethodInfo MoveNext = AccessTools.EnumeratorMoveNext(AccessTools.Method(typeof(DungeonObjectInstantiator), "Spawn"));
+                if (MoveNext != null)
+                    Coroutines.Patch(MoveNext, prefix: new HarmonyMethod(typeof(RoomRandom).GetMethod(nameof(InstantiatorStep), BindingFlags.NonPublic | BindingFlags.Static)));
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Can't seed the dungeon decorations: {e.Message}");
+            }
+        }
+
+        private static void PickerRoll(Component __instance)
+        {
+            if (__instance != null)
+                Seed(__instance.GetType().Name + "@" + At(__instance), 0);
+        }
+
+        private static void InstantiatorStep(object __instance)
+        {
+            if (Traverse.Create(__instance).Field("<>4__this").GetValue() is Component Owner && Owner != null)
+                Seed("DungeonObjectInstantiator@" + At(Owner), 0);
+        }
+
         private static void ChestStep(object __instance)
         {
             StrongBox<int> Step = Steps.GetOrCreateValue(__instance);
@@ -170,6 +228,22 @@ namespace COTLMP.Game
             [HarmonyPatch(typeof(TarotCards), nameof(TarotCards.DrawRandomCard))]
             [HarmonyPrefix]
             private static void Tarot() => Seed("tarot");
+
+            /// <summary>
+            /// A breakable decoration is one of several (barrel, crate, bone pile), picked once per
+            /// kind in each room: the same one in both games, else they break different things
+            /// </summary>
+            [HarmonyPatch(typeof(BreakableDecorationObject), "Start")]
+            [HarmonyPrefix]
+            private static void Decoration(BreakableDecorationObject __instance)
+            {
+                if (__instance.DestructableAsset != null)
+                    Seed("decoration:" + __instance.DestructableAsset.name, 0);
+            }
+
+            [HarmonyPatch(typeof(RandomObjectPicker), "Start")]
+            [HarmonyPrefix]
+            private static void Picker(RandomObjectPicker __instance) => Seed("picker@" + At(__instance));
 
             [HarmonyPatch(typeof(Interaction), nameof(Interaction.OnInteract))]
             [HarmonyPrefix]

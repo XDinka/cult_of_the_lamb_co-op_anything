@@ -13,6 +13,8 @@ using HarmonyLib;
 using MMTools;
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 /* CLASSES & CODE *************************************************************/
@@ -159,6 +161,7 @@ namespace COTLMP.Game
         }
         private readonly static Vector3?[] targets;
         private readonly static int[] skins;
+        private readonly static string[] weapons;
         private readonly static Vector3?[] spineBase;
 
         /// <summary>
@@ -169,6 +172,7 @@ namespace COTLMP.Game
             players = new PlayerFarming[InternalData.MaxPlayersPerServerInternal];
             targets = new Vector3?[InternalData.MaxPlayersPerServerInternal];
             skins = new int[InternalData.MaxPlayersPerServerInternal];
+            weapons = new string[InternalData.MaxPlayersPerServerInternal];
             spineBase = new Vector3?[InternalData.MaxPlayersPerServerInternal];
             Plugin.MonoInstance.StartCoroutine(MovePlayers());
         }
@@ -250,10 +254,12 @@ namespace COTLMP.Game
                 return;
             }
 
+            /* A puppet that plays its player's own animations (PuppetSync) keeps its state */
+            bool driven = PuppetSync.Driving(plr);
             if (gap.magnitude > StopDistance)
             {
                 Place(farming, Vector3.Lerp(position, target, 1f - Mathf.Exp(-FollowRate * Time.deltaTime)));
-                if (state != null && (state.CURRENT_STATE == StateMachine.State.Idle || state.CURRENT_STATE == StateMachine.State.Moving))
+                if (!driven && state != null && (state.CURRENT_STATE == StateMachine.State.Idle || state.CURRENT_STATE == StateMachine.State.Moving))
                 {
                     state.CURRENT_STATE = StateMachine.State.Moving;
                     state.facingAngle = state.LookAngle = Mathf.Atan2(gap.y, gap.x) * Mathf.Rad2Deg;
@@ -263,7 +269,7 @@ namespace COTLMP.Game
             {
                 Place(farming, target);
                 targets[plr] = null;
-                if (state != null && state.CURRENT_STATE == StateMachine.State.Moving)
+                if (!driven && state != null && state.CURRENT_STATE == StateMachine.State.Moving)
                     state.CURRENT_STATE = StateMachine.State.Idle;
             }
         }
@@ -413,6 +419,7 @@ namespace COTLMP.Game
 
             players[id] = farming;
             skins[id] = skin;
+            weapons[id] = null;
             spineBase[id] = null;
             ApplySkin(farming, skin);
 
@@ -444,6 +451,22 @@ namespace COTLMP.Game
         internal static int GetSkin(uint plr) => plr < players.Length && players[plr] != null ? skins[plr] : -1;
 
         /// <summary>
+        /// The puppet of a player, or null
+        /// </summary>
+        internal static PlayerFarming GetPuppet(uint plr) => plr < players.Length ? players[plr] : null;
+
+        /// <summary>
+        /// Arms a puppet with the weapon its player holds (the skin part named after it)
+        /// </summary>
+        internal static void SetPuppetWeapon(uint plr, string weapon)
+        {
+            if (plr > players.Length - 1 || players[plr] == null || weapons[plr] == weapon)
+                return;
+            weapons[plr] = weapon;
+            ApplySkin(players[plr], skins[plr]);
+        }
+
+        /// <summary>
         /// Dresses a puppet as the Lamb in a fleece or as the Goat
         /// </summary>
         internal static Spine.Skin ApplySkin(PlayerFarming farming, int skin)
@@ -451,7 +474,13 @@ namespace COTLMP.Game
             var data = farming.Spine.Skeleton.Data;
             var playerskin = farming.PlayerSkin = new Spine.Skin("Player Skin");
             playerskin.AddSkin(Appearance.FindSkin(data, skin));
-            var weapon = data.FindSkin("Weapons/Normal");
+            string weaponName = null;
+            for (int i = 0; i < players.Length; ++i)
+            {
+                if (players[i] != null && players[i] == farming)
+                    weaponName = weapons[i];
+            }
+            var weapon = data.FindSkin("Weapons/" + (weaponName ?? "Normal")) ?? data.FindSkin("Weapons/Normal");
             if (weapon != null)
                 playerskin.AddSkin(weapon);
             farming.Spine.Skeleton.SetSkin(playerskin);
@@ -505,6 +534,17 @@ namespace COTLMP.Game
 
             PlayerFarming farming = players[plr];
             farming.AbortGoTo();
+
+            /* Its player's animations come through PuppetSync; only which way it looks is taken here */
+            if (PuppetSync.Driving(plr))
+            {
+                if (!isCustomAnimation && state != null && farming.state != null)
+                {
+                    farming.state.facingAngle = state.facingAngle;
+                    farming.state.LookAngle = state.LookAngle;
+                }
+                return;
+            }
             if (isCustomAnimation)
             {
                 farming.CustomAnimation(customAnimation, customAnimationLoop);
@@ -623,6 +663,39 @@ namespace COTLMP.Game
             {
                 var farming = collision.GetComponent<PlayerFarming>();
                 return !players.Contains(farming);
+            }
+
+            /// <summary>
+            /// The doors out of a room, to the next floor, the base and the bosses are for the
+            /// local player alone: the partner's puppet walking through one would take us along
+            /// </summary>
+            [HarmonyPatch]
+            private static class PuppetDoors
+            {
+                private static readonly Type[] Doors =
+                {
+                    typeof(Door), typeof(ChangeLocation), typeof(GraveyardDoor), typeof(Inteaction_DoorRoomDoor),
+                    typeof(Interaction_BaseDungeonDoor), typeof(Interaction_BiomeDoor), typeof(Interaction_MysticShop),
+                    typeof(Interaction_TempleBossDoor), typeof(NextBiome), typeof(YngyaBossDoor), typeof(DLCOpenMountainMap)
+                };
+
+                private static IEnumerable<MethodBase> TargetMethods()
+                {
+                    foreach (Type Type in Doors)
+                    {
+                        MethodInfo Method = AccessTools.DeclaredMethod(Type, "OnTriggerEnter2D", new[] { typeof(Collider2D) });
+                        if (Method != null)
+                            yield return Method;
+                    }
+                }
+
+                private static bool Prefix(Collider2D __0)
+                {
+                    if (__0 == null)
+                        return true;
+                    var farming = __0.GetComponentInParent<PlayerFarming>();
+                    return farming == null || !players.Contains(farming);
+                }
             }
 
             /// <summary>

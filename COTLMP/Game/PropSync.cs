@@ -73,12 +73,16 @@ namespace COTLMP.Game
         {
             public Vector2 At;
             public int Number = -1;
+            /* The room it was numbered in: pooled grass comes up again in the next room */
+            public string Place;
         }
+
+        private static int NumberedRun;
 
         private static readonly ConditionalWeakTable<Health, Spawn> Spawns = new();
 
-        /* How many things of each name the current room has numbered */
-        private static readonly Dictionary<string, int> Numbers = new();
+        /* How many things of each name each room has numbered */
+        private static readonly Dictionary<string, Dictionary<string, int>> NumbersByPlace = new();
 
         private static Vector2 SpawnOf(Health Thing) =>
             Spawns.TryGetValue(Thing, out Spawn Info) ? Info.At : (Vector2)Thing.transform.position;
@@ -92,26 +96,37 @@ namespace COTLMP.Game
         /// </summary>
         private static void NumberRoom()
         {
+            string Place = CoopSync.CurrentPlace() ?? "";
+            if (NumberedRun != CoopSync.CurrentRun)
+            {
+                NumberedRun = CoopSync.CurrentRun;
+                NumbersByPlace.Clear();
+            }
+            if (!NumbersByPlace.TryGetValue(Place, out Dictionary<string, int> Numbers))
+                NumbersByPlace[Place] = Numbers = new Dictionary<string, int>();
             List<Health> Fresh = new();
-            bool Seen = false;
             foreach (Health Thing in Health.neutralTeam)
             {
-                if (Thing == null || Thing.isPlayer)
+                if (Thing == null || Thing.isPlayer || !Thing.gameObject.activeInHierarchy)
                     continue;
-                if (Spawns.TryGetValue(Thing, out Spawn Info) && Info.Number >= 0)
-                    Seen = true;
-                else
+                if (!Spawns.TryGetValue(Thing, out Spawn Info) || Info.Number < 0 || Info.Place != Place)
                     Fresh.Add(Thing);
             }
-            if (!Seen)
-                Numbers.Clear();
             foreach (Health Thing in Fresh)
             {
                 string Name = BaseName(Thing.gameObject);
                 Numbers.TryGetValue(Name, out int Next);
                 Numbers[Name] = Next + 1;
                 Spawns.Remove(Thing);
-                Spawns.Add(Thing, new Spawn { At = Thing.transform.position, Number = Next });
+                Spawns.Add(Thing, new Spawn { At = Thing.transform.position, Number = Next, Place = Place });
+            }
+            if (Fresh.Count > 0 && CoopSync.InSession)
+            {
+                List<string> Counts = new();
+                foreach (var Pair in Numbers)
+                    Counts.Add($"{Pair.Key} {Pair.Value}");
+                Counts.Sort(StringComparer.Ordinal);
+                Plugin.Logger?.LogInfo($"[COOP] Numbered in {Place}: {string.Join(", ", Counts)}");
             }
         }
 
@@ -119,7 +134,7 @@ namespace COTLMP.Game
         private static readonly List<PickUp> RemoteDrops = new();
 
         /* Counters for the test harness report */
-        internal static int Sent, Received, Applied, Missing, AppliedOnEntry;
+        internal static int Sent, Received, Applied, Missing, AppliedOnEntry, AlreadyBroken;
 
         public static void Initialize()
         {
@@ -129,11 +144,37 @@ namespace COTLMP.Game
 
         private static string BaseName(GameObject Thing)
         {
-            string Name = Thing.name;
+            string Name = Trim(Thing.name);
+            /* A part named for what it is ("Sprite") goes by what it belongs to */
+            if (Name == "Sprite" && Thing.transform.parent != null)
+                Name = Trim(Thing.transform.parent.name) + "/" + Name;
+            return Name;
+        }
+
+        private static string Trim(string Name)
+        {
             int Cut = Name.IndexOf(" (", StringComparison.Ordinal);
             if (Cut > 0)
                 Name = Name.Substring(0, Cut);
             return Name.Replace("(Clone)", "").Trim();
+        }
+
+        private static readonly HashSet<string> Described = new();
+
+        /// <summary>
+        /// What a thing is, once per name, to tell what breaks in a room
+        /// </summary>
+        private static void Describe(Health Thing, string Name)
+        {
+            if (!Described.Add(Name))
+                return;
+            string Path = Thing.name;
+            for (Transform Up = Thing.transform.parent; Up != null; Up = Up.parent)
+                Path = Up.name + "/" + Path;
+            List<string> Parts = new();
+            foreach (Component Part in Thing.GetComponents<Component>())
+                Parts.Add(Part?.GetType().Name);
+            Plugin.Logger?.LogInfo($"[COOP] Breakable {Name}: {Path} [{string.Join(", ", Parts)}] number {NumberOf(Thing)}");
         }
 
         private static List<Broken> ForPlace(int ForRun, string Place)
@@ -191,7 +232,9 @@ namespace COTLMP.Game
         {
             if (Victim == null || Victim.isPlayer || Victim.team != Health.Team.Neutral || Victim.GetComponent<PlayerFarming>() != null)
                 return;
-            Record(Kind.Health, Victim.gameObject, SpawnOf(Victim), NumberOf(Victim));
+            Describe(Victim, BaseName(Victim.gameObject));
+            /* Something that came up after the room did may have spawned elsewhere for the partner: where it died tells more */
+            Record(Kind.Health, Victim.gameObject, NumberOf(Victim) >= 0 ? SpawnOf(Victim) : Victim.transform.position, NumberOf(Victim));
         }
 
         /// <summary>
@@ -234,14 +277,14 @@ namespace COTLMP.Game
         internal static int ByNumber, BySpawn, ByNearest;
 
         /// <summary>
-        /// Our copy of a thing the partner broke: the same number in the room if it stands
-        /// roughly there, else what came up where theirs did, else the nearest one of that name
-        /// (a critter runs further than a pushed pot rolls)
+        /// Our copy of a thing the partner broke: what came up where theirs did, else the same
+        /// number in the room if it stands roughly there (a critter runs about), else the nearest
+        /// one of that name (a critter runs further than a pushed pot rolls)
         /// </summary>
         private static Health FindHealth(Broken Item)
         {
             Health Numbered = null, Spawned = null, Running = null;
-            float SpawnDistance = Near, RunDistance = 4f;
+            float SpawnDistance = Near, RunDistance = float.MaxValue;
             foreach (Health Candidate in Health.neutralTeam)
             {
                 if (Candidate == null || !Candidate.enabled || Candidate.HP <= 0f || !Candidate.gameObject.activeInHierarchy || Candidate.isPlayer)
@@ -258,22 +301,26 @@ namespace COTLMP.Game
                     SpawnDistance = Distance;
                 }
                 Distance = Mathf.Min(Distance, Vector2.Distance(Candidate.transform.position, Item.At));
-                float Reach = Candidate.GetComponentInParent<Critter>() != null ? 4f : 2.5f;
+                /* An enemy's body lies where it died, which differs between the games: any body of that enemy will do */
+                /* A critter runs anywhere in the room: any one of them, so the count matches */
+                float Reach = Item.Name.StartsWith("Dead Body", StringComparison.Ordinal) || Candidate.GetComponentInParent<Critter>() != null
+                    ? float.MaxValue : 2.5f;
                 if (Distance < Reach && Distance < RunDistance)
                 {
                     Running = Candidate;
                     RunDistance = Distance;
                 }
             }
-            if (Numbered != null)
-            {
-                ++ByNumber;
-                return Numbered;
-            }
+            /* Where it came up is surest: a room's numbers drift when something comes up late on one side */
             if (Spawned != null)
             {
                 ++BySpawn;
                 return Spawned;
+            }
+            if (Numbered != null)
+            {
+                ++ByNumber;
+                return Numbered;
             }
             if (Running != null)
                 ++ByNearest;
@@ -375,13 +422,42 @@ namespace COTLMP.Game
         {
             if (Quietly)
                 return;
+
+            /* Both broke it: we did ourselves (what died may be gone from the scene), or ours is dead or put away */
+            if (InRun(out string Place) && ByPlace.TryGetValue(Place, out List<Broken> List))
+            {
+                bool Body = Item.Name.StartsWith("Dead Body", StringComparison.Ordinal);
+                foreach (Broken Mine in List)
+                {
+                    if (!Mine.Ours || Mine.Type != Item.Type || Mine.Name != Item.Name || Mine.Done)
+                        continue;
+                    if (Body || (Item.Number >= 0 && Mine.Number == Item.Number) || Vector2.Distance(Mine.At, Item.At) < Near)
+                    {
+                        /* One of ours answers one of theirs */
+                        Mine.Done = true;
+                        ++AlreadyBroken;
+                        return;
+                    }
+                }
+            }
+            Health[] All = UnityEngine.Object.FindObjectsOfType<Health>(true);
+            foreach (Health Candidate in All)
+            {
+                if (BaseName(Candidate.gameObject) != Item.Name || (Candidate.HP > 0f && Candidate.gameObject.activeInHierarchy && Candidate.enabled))
+                    continue;
+                if ((Item.Number >= 0 && NumberOf(Candidate) == Item.Number) || Vector2.Distance(SpawnOf(Candidate), Item.At) < Near)
+                {
+                    ++AlreadyBroken;
+                    return;
+                }
+            }
             if (++Missing > 40)
                 return;
 
             /* What stands nearest under that name, whatever its state, to tell a double break from a different room */
             string Nearest = "nothing of that name";
             float Best = float.MaxValue;
-            foreach (Health Candidate in UnityEngine.Object.FindObjectsOfType<Health>())
+            foreach (Health Candidate in All)
             {
                 if (BaseName(Candidate.gameObject) != Item.Name)
                     continue;
@@ -450,7 +526,19 @@ namespace COTLMP.Game
             {
                 if (__instance.isPlayer || __instance.team != Health.Team.Neutral || Spawns.TryGetValue(__instance, out _))
                     return;
-                Spawns.Add(__instance, new Spawn { At = __instance.transform.position });
+                Spawn Info = new() { At = __instance.transform.position };
+                Spawns.Add(__instance, Info);
+                Plugin.MonoInstance.StartCoroutine(Settle(__instance, Info));
+            }
+
+            /// <summary>
+            /// A thing out of a pool is put in place after it comes up: where it stands a moment later
+            /// </summary>
+            private static IEnumerator Settle(Health Thing, Spawn Info)
+            {
+                yield return new WaitForSeconds(0.3f);
+                if (Thing != null && Info.Number < 0)
+                    Info.At = Thing.transform.position;
             }
 
             [HarmonyPatch(typeof(BreakableObject), "CollideRoutine")]

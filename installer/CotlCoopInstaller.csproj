@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- One-file installer: the payload (BepInEx, COTL_API, the mod) goes inside as payload.zip -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>CotlCoopInstaller</AssemblyName>
+    <RootNamespace>CotlCoopInstaller</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>Cult of the Lamb Co-op Anything installer</Product>
+    <Copyright>Copyright (c) 2026 COTLMP contributors, MIT</Copyright>
+    <Version>0.2.0</Version>
+    <!-- Where build-installer.sh puts the zipped game folder of the package -->
+    <PayloadZip Condition="'$(PayloadZip)' == ''">$(MSBuildProjectDirectory)\obj\payload.zip</PayloadZip>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="$(PayloadZip)" LogicalName="payload.zip" />
+    <EmbeddedResource Include="icon.ico" LogicalName="icon.ico" />
+  </ItemGroup>
+
+</Project>

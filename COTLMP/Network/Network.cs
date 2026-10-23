@@ -323,9 +323,8 @@ namespace COTLMP.Network
                             var pos = COTLMPServer.Vector3.Deserialize(msg.Data, sizeof(uint), out _);
                             ++ReceivedPositions;
 
-                            if (!PlayerManager.DoesPlayerExist(id) && PlayerFarming.Instance != null)
-                                PlayerManager.CreatePlayer(id, pos.ToUnity());
-                            else
+                            /* PuppetSync makes the puppet once its player says they stand here */
+                            if (PlayerManager.DoesPlayerExist(id))
                                 PlayerManager.MovePlayer(id, pos.ToUnity(), 1); // just use 1 as a timeout to get smooth animation
 
                             break;
@@ -335,12 +334,7 @@ namespace COTLMP.Network
                         {
                             var plrinfo = PlayerInfo.Deserialize(msg.Data);
 
-                            if (!PlayerManager.DoesPlayerExist(plrinfo.ID) && PlayerFarming.Instance != null)
-                            {
-                                PlayerManager.CreatePlayer(plrinfo.ID, plrinfo.State.Position.ToUnity(), plrinfo.Skin);
-                                PlayerManager.SetPlayerState(plrinfo.ID, plrinfo.State.ToUnity());
-                            }
-                            else
+                            if (PlayerManager.DoesPlayerExist(plrinfo.ID))
                             {
                                 /* A puppet first seen through a position update has the default skin */
                                 PlayerManager.SetPlayerSkin(plrinfo.ID, plrinfo.Skin);
@@ -368,12 +362,11 @@ namespace COTLMP.Network
                         {
                             var info = CustomAnimationInfo.Deserialize(msg.Data);
 
-                            if (!PlayerManager.DoesPlayerExist(info.ID) && PlayerFarming.Instance != null)
-                                PlayerManager.CreatePlayer(info.ID, info.Position.ToUnity());
-                            else
+                            if (PlayerManager.DoesPlayerExist(info.ID))
+                            {
                                 PlayerManager.MovePlayerNow(info.ID, info.Position.ToUnity());
-
-                            PlayerManager.SetPlayerState(info.ID, null, true, info.Name, info.Loop);
+                                PlayerManager.SetPlayerState(info.ID, null, true, info.Name, info.Loop);
+                            }
                             break;
                         }
 

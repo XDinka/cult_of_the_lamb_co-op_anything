@@ -1,7 +1,7 @@
 /*
  * PROJECT:     Cult of the Lamb Multiplayer Mod
  * LICENSE:     MIT (https://spdx.org/licenses/MIT)
- * PURPOSE:     Both players get the host's map between floors and go where the host picks
+ * PURPOSE:     Both players get the host's map between floors and go where the first of them picks
  * COPYRIGHT:	Copyright 2026 COTLMP contributors
  */
 
@@ -31,10 +31,10 @@ namespace COTLMP.Game
     /// time it is shown, from a seed and from the player's save: objectives, unlocks and inventory
     /// decide some of the nodes, so two saves never build the same map. The host builds theirs as
     /// soon as the first room of the run is up and sends it node by node; the joining player's game
-    /// takes it in place of its own. Which way to go is the host's to pick, as with dialog answers:
-    /// the joining player sees the map and waits, and the host's pick is taken for them, with the
-    /// node as the host had it (a shuffle or a curse on the host's side may have changed it). Only
-    /// when the host isn't in the run does the joining player pick alone.
+    /// takes it in place of its own. Either player picks the way: whoever reaches the map and picks
+    /// first, the other's map takes that pick as soon as it is open, with the node as the picker
+    /// had it (a shuffle or a curse on their side may have changed it). If both pick the same step
+    /// at once, each goes their own way and the log says so.
     /// </remarks>
     internal static class MapSync
     {
@@ -42,7 +42,7 @@ namespace COTLMP.Game
         {
             /* The host's map: run, how many maps the run had before, the nodes */
             Layout = 1,
-            /* The host went to a node: run, map, step on the path, the node */
+            /* A player went to a node: run, map, step on the path, whether on the host's map, the node */
             Pick = 2
         }
 
@@ -61,26 +61,29 @@ namespace COTLMP.Game
         /* Maps built in this run, on our side */
         private static int MapRun, MapCount;
 
-        /* Host: what we sent, again for a player who (re)joins */
+        /* What we sent, again for a player who (re)joins: the host's map, either player's picks */
         private static byte[] SentLayout;
         private static readonly List<byte[]> SentPicks = new();
 
-        /* Joining player: the host's maps and picks of the run */
+        /* Joining player: the host's maps of the run */
         private static int HostRun;
         private static readonly Dictionary<int, List<NodeData>> HostLayouts = new();
-        private static readonly Dictionary<(int Map, int Step), NodeData> HostPicks = new();
+
+        /* The partner's picks of the run */
+        private static int PartnerPickRun;
+        private static readonly Dictionary<(int Map, int Step), NodeData> PartnerPicks = new();
 
         /* Joining player: the map on screen comes from the host */
         private static bool Following;
         private static UIAdventureMapOverlayController OpenMap;
         private static bool OpenInteractive;
         private static float OpenedAt;
-        private static bool ApplyingHost;
+        private static bool ApplyingPartner;
 
         private static Dictionary<string, DungeonModifier> Modifiers;
 
         /* Counters for the test harness report */
-        internal static int LayoutsSent, LayoutsAdopted, PicksSent, PicksApplied, ClicksHeld;
+        internal static int LayoutsSent, LayoutsAdopted, PicksSent, PicksApplied, Conflicts;
 
         private static bool IsHost => Plugin.GlobalsInternal.IsServerCreator;
 
@@ -101,11 +104,14 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// The host is in our run and on a dungeon floor, so the way is theirs to pick
+        /// The partner is in our run and on a dungeon floor, so the way is picked together
         /// </summary>
-        private static bool HostInRun =>
+        private static bool PartnerInRun =>
             CoopSync.CurrentRun != 0 && CoopSync.PartnerRun == CoopSync.CurrentRun &&
             RoomSync.PartnerLastPlace != null && RoomSync.PartnerLastPlace.Contains("#");
+
+        /* Our map is the one both share */
+        private static bool OnHostMap => IsHost || Following;
 
         private static void CountMap()
         {
@@ -179,6 +185,7 @@ namespace COTLMP.Game
             Writer.Write(CoopSync.CurrentRun);
             Writer.Write(MapCount);
             Writer.Write((short)PathStep);
+            Writer.Write(OnHostMap);
             WriteNode(Writer, Item);
             Writer.Flush();
             byte[] Packet = Stream.ToArray();
@@ -193,9 +200,10 @@ namespace COTLMP.Game
         /// </summary>
         internal static void SendAll()
         {
-            if (!IsHost || MapRun != CoopSync.CurrentRun || SentLayout == null)
+            if (MapRun != CoopSync.CurrentRun)
                 return;
-            COTLMP.Network.Network.SendRelay(SentLayout);
+            if (IsHost && SentLayout != null)
+                COTLMP.Network.Network.SendRelay(SentLayout);
             foreach (byte[] Packet in SentPicks)
                 COTLMP.Network.Network.SendRelay(Packet);
         }
@@ -252,27 +260,25 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Handles the host's map and picks.
+        /// Handles the host's map and the partner's picks.
         /// </summary>
         public static void OnRelay(BinaryReader Reader)
         {
             Step Type = (Step)Reader.ReadByte();
             int Run = Reader.ReadInt32();
             int Index = Reader.ReadInt32();
-            if (IsHost)
-                return;
-
-            if (Run != HostRun)
-            {
-                HostRun = Run;
-                HostLayouts.Clear();
-                HostPicks.Clear();
-            }
 
             switch (Type)
             {
                 case Step.Layout:
                 {
+                    if (IsHost)
+                        return;
+                    if (Run != HostRun)
+                    {
+                        HostRun = Run;
+                        HostLayouts.Clear();
+                    }
                     int Count = Reader.ReadInt16();
                     List<NodeData> Nodes = new(Count);
                     for (int Item = 0; Item < Count; Item++)
@@ -285,9 +291,30 @@ namespace COTLMP.Game
                 case Step.Pick:
                 {
                     int PathStep = Reader.ReadInt16();
+                    bool TheirsShared = Reader.ReadBoolean();
                     NodeData Item = ReadNode(Reader);
-                    HostPicks[(Index, PathStep)] = Item;
-                    Plugin.Logger?.LogInfo($"[COOP] The host went to node {Item.X},{Item.Y} as step {PathStep} of map {Index}");
+                    if (Run != PartnerPickRun)
+                    {
+                        PartnerPickRun = Run;
+                        PartnerPicks.Clear();
+                    }
+                    Plugin.Logger?.LogInfo($"[COOP] The partner went to node {Item.X},{Item.Y} as step {PathStep} of map {Index}{(TheirsShared ? "" : " (on their own map)")}");
+                    /* A pick on a map of their own means nothing on ours */
+                    if (!TheirsShared)
+                        return;
+                    PartnerPicks[(Index, PathStep)] = Item;
+
+                    /* We picked that step ourselves already */
+                    Map.Map Current = MapManager.Instance?.CurrentMap;
+                    if (Run == CoopSync.CurrentRun && Index == MapCount && Current != null && PathStep < Current.path.Count)
+                    {
+                        Point Ours = Current.path[PathStep];
+                        if (Ours.x != Item.X || Ours.y != Item.Y)
+                        {
+                            ++Conflicts;
+                            Plugin.Logger?.LogWarning($"[COOP] Both picked step {PathStep} of map {Index} at once: we went to {Ours.x},{Ours.y}, the partner to {Item.X},{Item.Y}");
+                        }
+                    }
                     break;
                 }
             }
@@ -393,7 +420,7 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Takes the host's pick on the map on screen, with the node as the host had it
+        /// Takes the partner's pick on the map on screen, with the node as they had it
         /// </summary>
         private static void Apply(UIAdventureMapOverlayController Overlay, NodeData Item)
         {
@@ -402,8 +429,8 @@ namespace COTLMP.Game
             AdventureMapNode Shown = Target != null ? Overlay.NodeFromPoint(Target.point) : null;
             if (Shown == null)
             {
-                Plugin.Logger?.LogWarning($"[COOP] The host's pick {Item.X},{Item.Y} isn't on our map, picking alone");
-                Following = false;
+                Plugin.Logger?.LogWarning($"[COOP] The partner's pick {Item.X},{Item.Y} isn't on our map, picking alone");
+                PartnerPicks.Remove((MapCount, Current?.path.Count ?? 0));
                 return;
             }
 
@@ -415,7 +442,7 @@ namespace COTLMP.Game
             }
 
             int Before = Current.path.Count;
-            ApplyingHost = true;
+            ApplyingPartner = true;
             try
             {
                 Overlay.OnNodeChosen(Shown);
@@ -425,35 +452,29 @@ namespace COTLMP.Game
             }
             finally
             {
-                ApplyingHost = false;
+                ApplyingPartner = false;
             }
             ++PicksApplied;
             OpenMap = null;
-            Plugin.Logger?.LogInfo($"[COOP] Went to the host's node {Item.X},{Item.Y} ({(NodeType)Item.Type})");
+            Plugin.Logger?.LogInfo($"[COOP] Went to the partner's node {Item.X},{Item.Y} ({(NodeType)Item.Type})");
         }
 
         /// <summary>
-        /// The joining player's map is open and the host has picked: go there
+        /// Our map is open and the partner has picked the way: go there
         /// </summary>
         private static void Update()
         {
             UIAdventureMapOverlayController Overlay = Open;
-            if (Overlay == null || IsHost || !Following || !CoopSync.InSession || !HostInRun)
+            if (Overlay == null || !OnHostMap || !CoopSync.InSession || !PartnerInRun)
                 return;
-            if (Time.unscaledTime - OpenedAt < 1.5f || Overlay.Map == null)
+            if (Time.unscaledTime - OpenedAt < 1f || Overlay.Map == null)
                 return;
-            if (HostPicks.TryGetValue((MapCount, Overlay.Map.path.Count), out NodeData Item))
+            if (PartnerPicks.TryGetValue((MapCount, Overlay.Map.path.Count), out NodeData Item))
                 Apply(Overlay, Item);
         }
 
-        private static bool Waiting =>
-            !IsHost && Following && CoopSync.InSession && HostInRun && Open != null && Open.Map != null &&
-            !HostPicks.ContainsKey((MapCount, Open.Map.path.Count));
-
         private sealed class MapOverlay : MonoBehaviour
         {
-            private GUIStyle Style;
-
             private void Update()
             {
                 try
@@ -462,28 +483,9 @@ namespace COTLMP.Game
                 }
                 catch (Exception e)
                 {
-                    Plugin.Logger?.LogError($"[COOP] Following the host's map failed: {e}");
+                    Plugin.Logger?.LogError($"[COOP] Following the partner's pick failed: {e}");
                     OpenMap = null;
                 }
-            }
-
-            private void OnGUI()
-            {
-                if (Event.current.type != EventType.Repaint || !Waiting)
-                    return;
-                Style ??= new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-                Style.fontSize = Mathf.RoundToInt(Screen.height / 30f);
-
-                const string Term = "Multiplayer/Map/WaitingForHost";
-                string Text = LocalizationManager.GetTranslation(Term);
-                if (string.IsNullOrEmpty(Text) || Text == Term)
-                    Text = LocalizationManager.CurrentLanguage == "Russian" ? "Ждём, куда поведёт хост" : "Waiting for the host to choose the way";
-                Rect Area = new(0f, Screen.height * 0.86f, Screen.width, Screen.height * 0.08f);
-                Color Old = GUI.color;
-                GUI.color = new Color(0f, 0f, 0f, 0.8f);
-                GUI.Label(new Rect(Area.x + 2f, Area.y + 2f, Area.width, Area.height), Text, Style);
-                GUI.color = Old;
-                GUI.Label(Area, Text, Style);
             }
         }
 
@@ -551,7 +553,7 @@ namespace COTLMP.Game
             [HarmonyPrefix]
             private static void AddNodeToPath(MapManager __instance, Node mapNode)
             {
-                if (!CoopSync.InSession || !IsHost || CoopSync.CurrentRun == 0 || mapNode == null || __instance.CurrentMap == null)
+                if (!CoopSync.InSession || ApplyingPartner || CoopSync.CurrentRun == 0 || mapNode == null || __instance.CurrentMap == null)
                     return;
                 try
                 {
@@ -573,28 +575,18 @@ namespace COTLMP.Game
             }
 
             /// <summary>
-            /// The joining player's clicks on the host's map wait for the host's pick
+            /// A click on a way the partner already took for this step goes their way instead
             /// </summary>
             [HarmonyPatch(typeof(UIAdventureMapOverlayController), nameof(UIAdventureMapOverlayController.OnNodeChosen))]
             [HarmonyPrefix]
             private static bool OnNodeChosen(UIAdventureMapOverlayController __instance)
             {
-                if (ApplyingHost || IsHost || !Following || !CoopSync.InSession || !HostInRun ||
-                    __instance != OpenMap || !OpenInteractive)
+                if (ApplyingPartner || !OnHostMap || !CoopSync.InSession || __instance != OpenMap || !OpenInteractive || __instance.Map == null)
                     return true;
-                ++ClicksHeld;
+                if (!PartnerPicks.TryGetValue((MapCount, __instance.Map.path.Count), out NodeData Item))
+                    return true;
+                Apply(__instance, Item);
                 return false;
-            }
-
-            /// <summary>
-            /// A shuffle on the joining player's side would leave the host's map
-            /// </summary>
-            [HarmonyPatch(typeof(MapManager), nameof(MapManager.CanShuffle), MethodType.Getter)]
-            [HarmonyPostfix]
-            private static void CanShuffle(ref bool __result)
-            {
-                if (__result && !IsHost && Following && CoopSync.InSession && HostInRun)
-                    __result = false;
             }
         }
     }

@@ -6,13 +6,13 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.1.0, pre-release.**
+**Version 0.2.0, pre-release.**
 
 Online co-op for **Cult of the Lamb** over Steam. You invite a friend through the Steam overlay.
 Each of you keeps playing your own save, and you see each other in the cult and on dungeon runs.
 Dungeon runs are shared: same floors, same rooms, and damage to enemies counts on both sides.
 
-> **Pre-release 0.1.0.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.0.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -24,16 +24,18 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Feature | State |
 |---|---|
 | Join through Steam (invite, "Join game", `+connect_lobby`) | works on loopback, real Steam: lobby and messaging checked, two accounts untested |
-| See the other player: walking, animations, scene changes | works |
+| See the other player: walking, scene changes, and every animation they play (attacks, dodges, spells, hits, knockouts) with their weapon | works in the automated test (attack animations repeated on the puppet) |
+| The other player shows up in a room only once it has loaded for them, already in their look | works in the automated test |
 | Lamb and Goat, like local co-op (setting "Character": Auto / Lamb / Goat), with the co-op 1/2 indicators | works |
 | Shared dungeon layout (same seed for both players' run) | works in the automated test |
 | Room owner: whoever enters a room first runs its enemies, the other player's enemies follow them | works in the automated test |
-| Enemies attack both players, hits on your lamb come from the owner's game | works in the automated test |
+| Enemies attack both players, hits on your lamb come from the owner's game (a dodge in time still saves you) | works in the automated test |
 | Shared enemy health and kills | works in the automated test |
 | Shared pickups: what one picks up, both get | works in the automated test |
 | Knocked out instead of dead while the partner fights on; stand next to them for 3 s to revive, or clear the room | works in the automated test |
 | Game over only when both are down | works in the automated test |
-| The map between floors is the host's for both; the host picks the way, the joining player waits on the map and is taken there (they pick alone only when the host isn't in the run). The next floor gets the same seed | works in the automated test (two floors, the joining player's clicks wait and go where the host went) |
+| The map between floors is the host's for both; either player picks the way, whoever picks first, and the other is taken there. The next floor gets the same seed | works in the automated test (two floors, the joining player picked, the host followed) |
+| Each player walks a floor on their own (the partner's puppet at a door takes nobody along); rooms one player opened show on the other's minimap | works in the automated test |
 | Rooms one player cleared are cleared for the other (no second fight), wounds and kills carry over | works in the automated test |
 | The partner's conversations show at the bottom of your screen, camera on them, you keep control | works in the automated test |
 | Dialog choices: both see the answers, the game's co-op icons (red Lamb, blue Goat) show which answer each player is on, the host's pick counts for both (the joining player answers alone only when the host isn't in the room) | works in the automated test (both directions) |
@@ -42,7 +44,8 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
 | The tarot reader in a dungeon deals both players the same two cards | works in the automated test |
 | Time of day is the host's for both (the joining player's clock runs faster, waits or skips forward, never back) | works in the automated test (clocks within a few game minutes) |
-| Grass, bushes, pots, barrels, rocks and critters broken by one player break for the other, also in rooms entered later | works in the automated test (host's breaks: 52 of 55 repeated, 3 had already broken on the other side) |
+| Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both | works in the automated test |
+| Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
 | Followers, base, rituals | not synced, each player has their own (the clock follows the host) |
 | Leaving / host stopping keeps you in your own game | works |
 | Leaving and joining again mid-run: same run, same rooms and rolls | works in the automated test |
@@ -60,14 +63,21 @@ which provides the player puppets, the UDP protocol and the integrated server.
 
 ## Playing
 
-1. Both players run `install.cmd` from the release zip (it finds the game in Steam, backs up what it
-   replaces, and `uninstall.cmd` restores it).
+1. Both players run `CotlCoopInstaller.exe` and press **Install** (it finds the game in Steam, backs up
+   what it replaces, and **Remove mod** puts it back). Windows may warn about an unknown publisher:
+   "More info", then "Run anyway". Without the installer: `install.cmd` from the release zip.
 2. Host: load a save, press Esc, then **Open to friends**, and invite the friend in the Steam overlay.
 3. Friend: accept the invite (or "Join game" in the friends list) and load your own save.
 4. Dungeons: the **host enters the dungeon first** and the friend follows within 10 minutes, through
-   the same door. Then you both get the same run. Go through the rooms together.
+   the same door. Then you both get the same run. Each of you walks the floor freely; enemies are
+   shared in a room you are both in.
 
 ## Building
+
+`packaging/build-installer.sh` builds the release package (see `build-package.sh` for the paths it
+needs) and then `CotlCoopInstaller.exe`, a one-file installer with the package inside
+(`installer/`, .NET Framework 4.7.2, which every Windows 10/11 has). It also runs silently:
+`CotlCoopInstaller.exe --quiet [--dir "<game folder>"] [--auto uninstall]`.
 
 ```
 dotnet build COTLMP/COTLMP.csproj -c Release "-p:CotlManagedDir=<game dir>\Cult Of The Lamb_Data\Managed"
@@ -111,13 +121,20 @@ paths from environment variables (see the top of each).
 - **The map between floors.** The game builds a run's map from a seed and from the player's save
   (objectives, unlocks and inventory decide some nodes), so two saves never get the same one. The
   host builds it when the run's first room is up and sends every node; the joining player's game
-  takes it instead of building its own. At the end of a floor the joining player sees the map with
-  "Waiting for the host to choose the way" until the host has picked, then goes to the host's node,
-  as the host had it (a shuffle on the host's side is carried over). The next floor's seed is set
-  from the run and the floor. See `MapSync.cs`.
-- **Same rolls.** Before each chest, podium, tarot or interaction roll, Unity's random state is set
-  from the room seed, the run and what is rolled. Chest drops stay with whoever opened that chest.
-  See `RoomRandom.cs`.
+  takes it instead of building its own. Whoever picks a way first sends it; the other's map takes
+  that pick as soon as it is open (or at their click), with the node as the picker had it (a
+  shuffle is carried over). The next floor's seed is set from the run and the floor. See `MapSync.cs`.
+- **Walking a floor.** Doors and exits only react to the local player, so the partner's puppet
+  walking through one takes nobody along. Rooms the partner walks into are marked visited on the
+  minimap. See `PlayerManager.cs` (`PuppetDoors`) and `MiniMapSync.cs`.
+- **The partner's lamb.** Ten times a second, and at once when an animation starts, each game sends
+  what its lamb's skeleton plays on every track and how far in, its facing, skin, weapon, position
+  and place. The puppet plays exactly that (its own animator is switched off). That message is also
+  the word that the partner's room has loaded: the puppet is made only then, in their look, and goes
+  when they stop sending from the room. See `PuppetSync.cs`.
+- **Same rolls.** Before each chest, podium, tarot or interaction roll, and before each spot of a
+  room picks its grass, bush or breakable decoration, Unity's random state is set from the room seed,
+  the run and what is rolled where. Chest drops stay with whoever opened that chest. See `RoomRandom.cs`.
 - **Bad connections.** Events (kills, pickups, cleared rooms, conversations) go reliable and in
   order; enemy and attack positions and the pings go unreliable, so a lost position doesn't hold up
   the events behind it and is replaced 0.1 s later. Messages up to 60 KB (a room full of enemies),
@@ -147,10 +164,11 @@ paths from environment variables (see the top of each).
 - **Time of day.** The host sends its clock every 2 s; the joining player's clock runs twice as fast
   when a little behind, stands still when a little ahead and skips forward like sleeping when far off.
   Their cult lives through the skipped hours; the day count stays each save's own. See `TimeSync.cs`.
-- **Broken things.** Whatever with health dies in a dungeon room (grass, pots, critters) and rubble
-  walked into is sent by name, its number among the things of that name in the room and where it
-  stood when the room came up; the other game breaks its copy without loot. Kept per run, so a room
-  entered later comes up broken the same way. See `PropSync.cs`.
+- **Broken things.** Whatever with health dies in a dungeon room (grass, pots, critters, enemy
+  bodies) and rubble walked into is sent by name, where it stood when the room came up and its number
+  among the things of that name in the room; the other game breaks the one that stood there (else the
+  same number, else the nearest of the name) without loot. Kept per run, so a room entered later
+  comes up broken the same way. See `PropSync.cs`.
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 
@@ -163,7 +181,8 @@ copies of the game on one PC host, join, walk, enter a dungeon and fight unatten
 connection (reliable packets delayed for resends and drop-outs, unreliable ones lost),
 `-cotlmp-netflood` floods the partner with large and small messages, and `-cotlmp-netshots` with
 `-cotlmp-shots=DIR` saves a frame of each connection icon. `-cotlmp-autochoice=N` runs the dialog choice test, `-cotlmp-nextfloor` takes both through the floor's
-exit and the map to the next floor, `-cotlmp-tarottest` deals tarot to both, `-cotlmp-autocut` cuts grass
+exit and the map to the next floor (`-cotlmp-nomapclick` only waits for the partner's pick), `-cotlmp-animtest`
+plays attack animations for the partner's puppet to repeat, `-cotlmp-tarottest` deals tarot to both, `-cotlmp-autocut` cuts grass
 next to the host, `-cotlmp-window=X,Y,W,H` keeps a copy in a small window (`run-pair.sh` puts them side by side),
 `-cotlmp-crashafter=N` kills the joining copy mid-run (with `CLIENT_RESTART="-cotlmp-autoenter"`
 `run-pair.sh` starts it again), and `-cotlmp-endafter=N -cotlmp-rejoin=1` leaves and joins again.
@@ -179,12 +198,12 @@ MIT, see [LICENSE](LICENSE). Original COTLMP credits are in [CREDITS](CREDITS). 
 
 ## По-русски коротко
 
-Версия 0.1.0, предрелиз.
+Версия 0.2.0, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
 друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
 получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
-Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: `install.cmd` из релизного архива у обоих игроков. Хост: Esc, затем «Open to
+Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: `CotlCoopInstaller.exe` у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Open to
 friends», затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
 Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель

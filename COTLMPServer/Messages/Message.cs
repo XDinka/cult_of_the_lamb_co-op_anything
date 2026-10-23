@@ -39,7 +39,7 @@ namespace COTLMPServer.Messages
         /// Co-op sync kinds that only carry the latest state (enemy and attack positions) or measure
         /// the connection (pings, which must be lost the way positions are), see CoopSync.Kind
         /// </summary>
-        private const byte EnemySnapshotKind = 4, HazardMoveKind = 13, PingKind = 15, PongKind = 16;
+        private const byte EnemySnapshotKind = 4, HazardMoveKind = 13, PingKind = 15, PongKind = 16, PuppetPoseKind = 22;
 
         /// <summary>
         /// Whether a message only carries the latest state of something, so a newer one makes it worthless.
@@ -57,7 +57,7 @@ namespace COTLMPServer.Messages
                 return true;
             return type == MessageType.Relay && data != null && data.Length > kindOffset &&
                    (data[kindOffset] == EnemySnapshotKind || data[kindOffset] == HazardMoveKind ||
-                    data[kindOffset] == PingKind || data[kindOffset] == PongKind);
+                    data[kindOffset] == PingKind || data[kindOffset] == PongKind || data[kindOffset] == PuppetPoseKind);
         }
 
         /// <summary>
