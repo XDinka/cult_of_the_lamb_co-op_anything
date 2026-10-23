@@ -1,32 +1,36 @@
 /*
  * PROJECT:     Cult of the Lamb Co-op Anything installer
  * LICENSE:     MIT (https://spdx.org/licenses/MIT)
- * PURPOSE:     Colors, fonts and drawn pieces in the game's spirit: black, blood red, bone
+ * PURPOSE:     Colors, fonts and the torn panels of the README's look: ink, blood red, bone
  * COPYRIGHT:	Copyright 2026 COTLMP contributors
  */
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace CotlCoopInstaller
 {
     internal static class Theme
     {
-        internal static readonly Color Night = Color.FromArgb(18, 10, 12);
-        internal static readonly Color Ash = Color.FromArgb(34, 22, 25);
-        internal static readonly Color Ember = Color.FromArgb(58, 18, 22);
-        internal static readonly Color Blood = Color.FromArgb(196, 30, 44);
+        internal static readonly Color Night = Color.FromArgb(17, 10, 12);
+        internal static readonly Color Ink = Color.FromArgb(10, 6, 7);
+        internal static readonly Color Ash = Color.FromArgb(30, 18, 21);
+        internal static readonly Color Blood = Color.FromArgb(196, 30, 42);
         internal static readonly Color BloodLight = Color.FromArgb(226, 58, 68);
-        internal static readonly Color BloodDark = Color.FromArgb(110, 16, 24);
-        internal static readonly Color Bone = Color.FromArgb(242, 230, 207);
+        internal static readonly Color BloodDark = Color.FromArgb(110, 10, 20);
+        internal static readonly Color Bone = Color.FromArgb(243, 233, 214);
         internal static readonly Color BoneDim = Color.FromArgb(171, 154, 134);
         internal static readonly Color Gold = Color.FromArgb(214, 170, 92);
         internal static readonly Color Moss = Color.FromArgb(132, 176, 108);
 
-        private static readonly string Serif = FirstFont("Constantia", "Palatino Linotype", "Georgia", "Cambria", "Times New Roman");
+        /* Georgia carries Latin and Cyrillic and sits close to the game's serif */
+        private static readonly string Serif = FirstFont("Georgia", "Constantia", "Palatino Linotype", "Cambria", "Times New Roman");
         private static readonly string Sans = FirstFont("Segoe UI", "Tahoma", "Arial");
 
         private static string FirstFont(params string[] Names)
@@ -37,114 +41,109 @@ namespace CotlCoopInstaller
 
         internal static Font Title(float Size) => new(Serif, Size, FontStyle.Bold, GraphicsUnit.Pixel);
         internal static Font Text(float Size, FontStyle Style = FontStyle.Regular) => new(Sans, Size, Style, GraphicsUnit.Pixel);
-        internal static Font Rune(float Size) => new(Serif, Size, FontStyle.Italic, GraphicsUnit.Pixel);
+
+        private static readonly Dictionary<string, Image> Pictures = new();
 
         /// <summary>
-        /// The red crown over a ring of runes: drawn here, nothing of the game's art is used
+        /// One of the pictures in installer/art (drawn by tools/make-readme-art.py, like the README's)
         /// </summary>
-        internal static void Emblem(Graphics G, RectangleF Box, float Glow)
+        internal static Image Art(string Name)
         {
-            G.SmoothingMode = SmoothingMode.AntiAlias;
-            PointF Center = new(Box.X + Box.Width / 2f, Box.Y + Box.Height / 2f);
-            float R = Math.Min(Box.Width, Box.Height) / 2f;
+            if (Pictures.TryGetValue(Name, out Image Found))
+                return Found;
+            using Stream Data = Assembly.GetExecutingAssembly().GetManifestResourceStream("art." + Name);
+            Image Picture = Data == null ? null : new Bitmap(Image.FromStream(Data));
+            Pictures[Name] = Picture;
+            return Picture;
+        }
 
-            /* Glow behind it, breathing with the candles */
-            using (GraphicsPath Halo = new())
-            {
-                Halo.AddEllipse(Center.X - R * 1.25f, Center.Y - R * 1.25f, R * 2.5f, R * 2.5f);
-                using PathGradientBrush Brush = new(Halo)
-                {
-                    CenterColor = Color.FromArgb((int)(90 + 60 * Glow), Blood),
-                    SurroundColors = new[] { Color.FromArgb(0, Blood) }
-                };
-                G.FillPath(Brush, Halo);
-            }
+        internal static void DrawArt(Graphics G, string Name, RectangleF Box, bool Flip = false)
+        {
+            Image Picture = Art(Name);
+            if (Picture == null)
+                return;
+            G.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            if (Flip)
+                G.DrawImage(Picture, new[] { new PointF(Box.Right, Box.Top), new PointF(Box.Left, Box.Top), new PointF(Box.Right, Box.Bottom) });
+            else
+                G.DrawImage(Picture, Box);
+        }
 
-            /* Two rings with ticks between them */
-            using (Pen Ring = new(Color.FromArgb(200, Bone), R * 0.05f))
+        /// <summary>
+        /// The size of picture <paramref name="Name"/> fitted to <paramref name="Height"/>, keeping its shape
+        /// </summary>
+        internal static SizeF Fit(string Name, float Height)
+        {
+            Image Picture = Art(Name);
+            return Picture == null ? SizeF.Empty : new SizeF(Picture.Width * Height / Picture.Height, Height);
+        }
+
+        /// <summary>
+        /// A rectangle with torn paper edges, as the game's panels: the same tear for the same seed
+        /// </summary>
+        internal static GraphicsPath Torn(RectangleF Box, float Amp, int Seed, float Step)
+        {
+            Random Rng = new(Seed);
+            List<PointF> Points = new();
+            void Edge(PointF From, PointF To, float Nx, float Ny)
             {
-                G.DrawEllipse(Ring, Center.X - R, Center.Y - R, R * 2f, R * 2f);
-                Ring.Width = R * 0.03f;
-                G.DrawEllipse(Ring, Center.X - R * 0.84f, Center.Y - R * 0.84f, R * 1.68f, R * 1.68f);
-                for (int Tick = 0; Tick < 24; Tick++)
+                float Length = Math.Max(Math.Abs(To.X - From.X), Math.Abs(To.Y - From.Y));
+                for (float At = 0; At < Length; At += Step)
                 {
-                    double A = Tick * Math.PI / 12;
-                    float In = Tick % 3 == 0 ? 0.84f : 0.9f;
-                    G.DrawLine(Ring, Center.X + (float)Math.Cos(A) * R * In, Center.Y + (float)Math.Sin(A) * R * In,
-                        Center.X + (float)Math.Cos(A) * R * 0.97f, Center.Y + (float)Math.Sin(A) * R * 0.97f);
+                    float T = At / Length;
+                    float Off = (float)(Rng.NextDouble() * 2 - 1) * Amp * (Rng.NextDouble() < 0.7 ? 0.4f : 1f);
+                    Points.Add(new PointF(From.X + (To.X - From.X) * T + Nx * Off, From.Y + (To.Y - From.Y) * T + Ny * Off));
                 }
             }
-
-            /* The crown: five points, a band, an eye on the band */
-            float W = R * 1.1f, H = R * 0.78f;
-            float L = Center.X - W / 2f, T = Center.Y - H * 0.62f, B = T + H;
-            PointF[] Crown =
-            {
-                new(L, B), new(L - W * 0.04f, T + H * 0.18f), new(L + W * 0.2f, T + H * 0.5f), new(L + W * 0.3f, T - H * 0.02f),
-                new(L + W * 0.5f, T + H * 0.42f), new(L + W * 0.7f, T - H * 0.02f), new(L + W * 0.8f, T + H * 0.5f),
-                new(L + W * 1.04f, T + H * 0.18f), new(L + W, B)
-            };
-            using (GraphicsPath Shape = new())
-            {
-                Shape.AddPolygon(Crown);
-                using LinearGradientBrush Fill = new(new RectangleF(L, T, W, H), BloodLight, BloodDark, 90f);
-                G.FillPath(Fill, Shape);
-                using Pen Edge = new(Bone, R * 0.045f) { LineJoin = LineJoin.Round };
-                G.DrawPath(Edge, Shape);
-            }
-            using (SolidBrush Tip = new(Bone))
-            {
-                foreach (int Point in new[] { 1, 3, 5, 7 })
-                    G.FillEllipse(Tip, Crown[Point].X - R * 0.07f, Crown[Point].Y - R * 0.07f, R * 0.14f, R * 0.14f);
-            }
-            float EyeY = B - H * 0.2f;
-            using (SolidBrush White = new(Bone))
-                G.FillEllipse(White, Center.X - R * 0.2f, EyeY - R * 0.1f, R * 0.4f, R * 0.2f);
-            using (SolidBrush Pupil = new(Night))
-                G.FillEllipse(Pupil, Center.X - R * 0.025f, EyeY - R * 0.09f, R * 0.05f, R * 0.18f);
+            Edge(new PointF(Box.Left, Box.Top), new PointF(Box.Right, Box.Top), 0, 1);
+            Edge(new PointF(Box.Right, Box.Top), new PointF(Box.Right, Box.Bottom), 1, 0);
+            Edge(new PointF(Box.Right, Box.Bottom), new PointF(Box.Left, Box.Bottom), 0, 1);
+            Edge(new PointF(Box.Left, Box.Bottom), new PointF(Box.Left, Box.Top), 1, 0);
+            GraphicsPath Path = new();
+            Path.AddPolygon(Points.ToArray());
+            return Path;
         }
 
         /// <summary>
-        /// A small candle with a flame that flickers by <paramref name="Flicker"/>
+        /// The README's red panel: torn ink outside, red shading inside, a bone hairline
         /// </summary>
-        internal static void Candle(Graphics G, float X, float Bottom, float Scale, float Flicker)
+        internal static void RedPanel(Graphics G, RectangleF Box, float S, int Seed, bool Lit = false, bool Pressed = false, float Fade = 1f)
         {
-            G.SmoothingMode = SmoothingMode.AntiAlias;
-            float W = 9f * Scale, H = 26f * Scale;
-            using (SolidBrush Wax = new(Color.FromArgb(225, 214, 190)))
-                G.FillRectangle(Wax, X - W / 2f, Bottom - H, W, H);
-            using (SolidBrush Drip = new(Color.FromArgb(200, 186, 160)))
-                G.FillEllipse(Drip, X - W / 2f, Bottom - H - 2f * Scale, W, 4f * Scale);
+            float Rim = Math.Min(Box.Height * 0.12f, 9f * S);
+            using (GraphicsPath Outer = Torn(Box, 3.2f * S, Seed, 5f * S))
+            using (SolidBrush Back = new(Color.FromArgb((int)(255 * Fade), Ink)))
+                G.FillPath(Back, Outer);
 
-            float FlameH = (13f + 3f * Flicker) * Scale, FlameW = 6f * Scale;
-            float Top = Bottom - H - FlameH - 1f * Scale;
-            using (GraphicsPath Light = new())
+            RectangleF Inner = RectangleF.Inflate(Box, -Rim, -Rim);
+            using (GraphicsPath Red = Torn(Inner, 1.6f * S, Seed + 1, 5f * S))
             {
-                Light.AddEllipse(X - FlameH * 1.4f, Top - FlameH * 0.6f, FlameH * 2.8f, FlameH * 2.8f);
-                using PathGradientBrush Brush = new(Light)
-                {
-                    CenterColor = Color.FromArgb((int)(70 + 40 * Flicker), Gold),
-                    SurroundColors = new[] { Color.FromArgb(0, Gold) }
-                };
-                G.FillPath(Brush, Light);
+                Color Top = Lit ? BloodLight : Blood, Bottom = BloodDark;
+                if (Pressed)
+                    (Top, Bottom) = (Bottom, Top);
+                using LinearGradientBrush Fill = new(RectangleF.Inflate(Inner, 0, 1), Color.FromArgb((int)(255 * Fade), Top), Color.FromArgb((int)(255 * Fade), Bottom), 90f);
+                G.FillPath(Fill, Red);
             }
-            using GraphicsPath Flame = new();
-            Flame.AddBezier(X, Top, X + FlameW, Top + FlameH * 0.55f, X + FlameW * 0.6f, Top + FlameH, X, Top + FlameH);
-            Flame.AddBezier(X, Top + FlameH, X - FlameW * 0.6f, Top + FlameH, X - FlameW, Top + FlameH * 0.55f, X, Top);
-            using LinearGradientBrush Fire = new(new RectangleF(X - FlameW, Top, FlameW * 2f, FlameH), Color.FromArgb(255, 244, 200), Color.FromArgb(232, 92, 40), 90f);
-            G.FillPath(Fire, Flame);
+
+            RectangleF Line = RectangleF.Inflate(Inner, -Rim * 0.55f, -Rim * 0.55f);
+            using (GraphicsPath Hair = Torn(Line, 0.9f * S, Seed + 2, 6f * S))
+            using (Pen Pen = new(Color.FromArgb((int)(170 * Fade), Bone), Math.Max(1f, 1.1f * S)))
+                G.DrawPath(Pen, Hair);
         }
 
-        internal static GraphicsPath Rounded(RectangleF Box, float Radius)
+        /// <summary>
+        /// The README's black panel (its section titles): torn ink with an optional thin edge
+        /// </summary>
+        internal static void InkPanel(Graphics G, RectangleF Box, float S, int Seed, Color Edge, bool Lit = false, float Fade = 1f)
         {
-            GraphicsPath Path = new();
-            float D = Radius * 2f;
-            Path.AddArc(Box.X, Box.Y, D, D, 180, 90);
-            Path.AddArc(Box.Right - D, Box.Y, D, D, 270, 90);
-            Path.AddArc(Box.Right - D, Box.Bottom - D, D, D, 0, 90);
-            Path.AddArc(Box.X, Box.Bottom - D, D, D, 90, 90);
-            Path.CloseFigure();
-            return Path;
+            using GraphicsPath Shape = Torn(Box, 2.6f * S, Seed, 5f * S);
+            using (SolidBrush Back = new(Color.FromArgb((int)(255 * Fade), Lit ? Ash : Ink)))
+                G.FillPath(Back, Shape);
+            if (Edge.A == 0)
+                return;
+            RectangleF Line = RectangleF.Inflate(Box, -4f * S, -4f * S);
+            using GraphicsPath Hair = Torn(Line, 0.9f * S, Seed + 3, 6f * S);
+            using Pen Pen = new(Color.FromArgb((int)(Edge.A * Fade), Edge), Math.Max(1f, 1.1f * S));
+            G.DrawPath(Pen, Hair);
         }
     }
 }

@@ -213,6 +213,37 @@ def divider():
     print("divider.png", Divider.size)
 
 
+def installer_art():
+    """The same pieces for the installer window (installer/art, built into the exe)"""
+    Folder = os.path.join(ROOT, "installer", "art")
+    os.makedirs(Folder, exist_ok=True)
+    for Name, File in (("Coop_Indicator_Lamb", "lamb.png"), ("Coop_Indicator_Goat", "goat.png")):
+        Head = sprite(Name)
+        Head.thumbnail((240, 240), Image.LANCZOS)
+        Head.save(os.path.join(Folder, File), optimize=True)
+    Divider = tint(sprite("Divider Grey"), RED)
+    Divider.save(os.path.join(Folder, "divider.png"), optimize=True)
+    Circle = tint(sprite("Pentagram-Star_1"), RED).resize((640, 640), Image.LANCZOS)
+    Circle.putalpha(Circle.getchannel("A").point(lambda A: A * 0.16))
+    Circle.save(os.path.join(Folder, "ritual.png"), optimize=True)
+    Crown = tint(sprite("Crown_White_Eye"), CREAM)
+    Crown = Crown.resize((90, int(Crown.height * 90 / Crown.width)), Image.LANCZOS)
+    Draw = ImageDraw.Draw(Crown)
+    Cx, Cy = Crown.width // 2, int(Crown.height * 0.6)
+    Draw.ellipse((Cx - 18, Cy - 10, Cx + 18, Cy + 10), fill=RED + (255,))
+    Draw.ellipse((Cx - 4, Cy - 9, Cx + 4, Cy + 9), fill=INK + (255,))
+    Crown.save(os.path.join(Folder, "crown.png"), optimize=True)
+    # The heading in the game's letters (Russian in a serif, the game's font has no Cyrillic)
+    for File, Text in (("title-en.png", "ONLINE CO-OP"), ("title-ru.png", "ОНЛАЙН-КООПЕРАТИВ")):
+        Title = Writer(150)
+        W = int(Title.width(Text, 6)) + 40
+        Big = Image.new("RGBA", (W, 220), (0, 0, 0, 0))
+        Title.draw(ImageDraw.Draw(Big), (W // 2, 110), Text, CREAM, Shadow=INK, Spacing=6)
+        Big = Big.crop(Big.getbbox())
+        Big.save(os.path.join(Folder, File), optimize=True)
+    print("installer art", sorted(os.listdir(Folder)))
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     extract()
@@ -227,3 +258,4 @@ if __name__ == "__main__":
         section(File, Text, 20 + Index)
     heads()
     divider()
+    installer_art()

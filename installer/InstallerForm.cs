@@ -22,9 +22,6 @@ namespace CotlCoopInstaller
         private readonly string Version;
         private readonly TextBox PathBox;
         private readonly RuneButton BrowseButton, InstallButton, RemoveButton, LaunchButton, CloseButton;
-        private readonly Timer Candles;
-        private float Flicker, FlickerTarget;
-        private readonly Random Rng = new();
 
         private string Status = "";
         private Color StatusColor = Theme.BoneDim;
@@ -53,35 +50,25 @@ namespace CotlCoopInstaller
             PathBox = new TextBox
             {
                 BorderStyle = BorderStyle.None,
-                BackColor = Theme.Ash,
+                BackColor = Theme.Ink,
                 ForeColor = Theme.Bone,
                 Font = Theme.Text(15 * S),
-                Location = Pt(48, 225),
-                Width = (int)(456 * S)
+                Location = Pt(50, 225),
+                Width = (int)(452 * S)
             };
             PathBox.TextChanged += (_, _) => Check();
             Controls.Add(PathBox);
 
-            BrowseButton = Add(new RuneButton(Words.Browse, false), 528, 214, 116, 36);
+            BrowseButton = Add(new RuneButton(Words.Browse, false, 31), 528, 212, 118, 42);
             BrowseButton.Click += (_, _) => Browse();
-            RemoveButton = Add(new RuneButton(Words.Uninstall, false), 36, 392, 160, 48);
+            RemoveButton = Add(new RuneButton(Words.Uninstall, false, 41), 32, 388, 172, 54);
             RemoveButton.Click += (_, _) => Run(false);
-            LaunchButton = Add(new RuneButton(Words.Launch, false), 284, 392, 170, 48);
+            LaunchButton = Add(new RuneButton(Words.Launch, false, 51), 276, 388, 180, 54);
             LaunchButton.Click += (_, _) => { Installer.LaunchGame(); Close(); };
-            InstallButton = Add(new RuneButton(Words.Install, true), 474, 392, 170, 48);
+            InstallButton = Add(new RuneButton(Words.Install, true, 61), 468, 388, 180, 54);
             InstallButton.Click += (_, _) => Run(true);
-            CloseButton = Add(new RuneButton("✕", false) { Flat = true }, 640, 8, 32, 32);
+            CloseButton = Add(new RuneButton("✕", false, 0) { Flat = true }, 626, 22, 30, 30);
             CloseButton.Click += (_, _) => Close();
-
-            Candles = new Timer { Interval = 60 };
-            Candles.Tick += (_, _) =>
-            {
-                if (Rng.NextDouble() < 0.15)
-                    FlickerTarget = (float)Rng.NextDouble();
-                Flicker += (FlickerTarget - Flicker) * 0.25f;
-                Invalidate(new Rectangle(0, 0, ClientSize.Width, (int)(178 * S)));
-            };
-            Candles.Start();
 
             MouseDown += (_, Args) =>
             {
@@ -99,6 +86,13 @@ namespace CotlCoopInstaller
             }
             PathBox.Text = Dir ?? "";
             Check();
+
+            /* Nothing selected or focused at first, the path reads as a plain line */
+            Shown += (_, _) =>
+            {
+                PathBox.Select(PathBox.TextLength, 0);
+                ActiveControl = null;
+            };
 
             if (Auto == "install" || Auto == "uninstall")
                 Shown += (_, _) => Run(Auto == "install");
@@ -235,95 +229,97 @@ namespace CotlCoopInstaller
             G.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             float W = ClientSize.Width, H = ClientSize.Height;
 
-            /* Header: embers rising out of the dark */
-            RectangleF Head = new(0, 0, W, 172 * S);
-            using (LinearGradientBrush Back = new(Head, Theme.Ember, Theme.Night, 90f))
-                G.FillRectangle(Back, Head);
-            Theme.Emblem(G, new RectangleF(34 * S, 24 * S, 124 * S, 124 * S), Flicker);
-            Theme.Candle(G, 590 * S, 156 * S, S, Flicker);
-            Theme.Candle(G, 618 * S, 160 * S, S * 0.8f, 1f - Flicker);
+            /* The ritual circle faint behind the page */
+            Theme.DrawArt(G, "ritual.png", new RectangleF(W / 2 - 230 * S, 120 * S, 460 * S, 460 * S));
 
-            using (Font Kicker = Theme.Text(13 * S, FontStyle.Bold))
-            using (SolidBrush Dim = new(Theme.Blood))
-                DrawSpaced(G, Words.Kicker, Kicker, Dim, 182 * S, 46 * S, 4.2f * S);
-            using (Font Big = Theme.Title(38 * S))
-            using (SolidBrush Bone = new(Theme.Bone))
-                G.DrawString(Words.Heading, Big, Bone, 178 * S, 64 * S);
-            using (Font Small = Theme.Text(14 * S))
+            /* Header: the README's red banner, the Lamb and the Goat on either side */
+            RectangleF Banner = new(14 * S, 12 * S, W - 28 * S, 142 * S);
+            Theme.RedPanel(G, Banner, S, 7);
+            float HeadH = 104 * S;
+            SizeF Lamb = Theme.Fit("lamb.png", HeadH), Goat = Theme.Fit("goat.png", HeadH);
+            Theme.DrawArt(G, "lamb.png", new RectangleF(Banner.X + 26 * S, Banner.Y + (Banner.Height - HeadH) / 2 + 4 * S, Lamb.Width, Lamb.Height));
+            Theme.DrawArt(G, "goat.png", new RectangleF(Banner.Right - 26 * S - Goat.Width, Banner.Y + (Banner.Height - HeadH) / 2 + 4 * S, Goat.Width, Goat.Height), Flip: true);
+
+            using (Font Kicker = Theme.Title(13 * S))
+            using (SolidBrush Ink = new(Color.FromArgb(215, Theme.Bone)))
+                DrawSpaced(G, Words.Kicker, Kicker, Ink, W / 2, 30 * S, 4f * S, Centered: true);
+            string TitleArt = Words.Russian ? "title-ru.png" : "title-en.png";
+            SizeF Title = Theme.Fit(TitleArt, 50 * S);
+            float MaxW = Banner.Width - 2 * (Lamb.Width + 44 * S);
+            if (Title.Width > MaxW)
+                Title = new SizeF(MaxW, Title.Height * MaxW / Title.Width);
+            Theme.DrawArt(G, TitleArt, new RectangleF(W / 2 - Title.Width / 2, 54 * S + (50 * S - Title.Height) / 2, Title.Width, Title.Height));
+            using (Font Small = Theme.Title(13 * S))
+            using (SolidBrush Bone = new(Color.FromArgb(225, Theme.Bone)))
+            using (StringFormat Center = new() { Alignment = StringAlignment.Center })
+                G.DrawString(Words.Sub(Version), Small, Bone, new RectangleF(Banner.X, 114 * S, Banner.Width, 22 * S), Center);
+
+            /* The game's divider under the banner */
+            SizeF Divider = Theme.Fit("divider.png", 22 * S);
+            Theme.DrawArt(G, "divider.png", new RectangleF(W / 2 - Divider.Width / 2, 160 * S, Divider.Width, Divider.Height));
+
+            /* A crown with its red eye, then the label */
+            SizeF Crown = Theme.Fit("crown.png", 18 * S);
+            Theme.DrawArt(G, "crown.png", new RectangleF(34 * S, 190 * S, Crown.Width, Crown.Height));
+            using (Font Label = Theme.Title(13 * S))
             using (SolidBrush Dim = new(Theme.BoneDim))
-                G.DrawString(Words.Sub(Version), Small, Dim, 182 * S, 114 * S);
+                DrawSpaced(G, Words.Folder.ToUpperInvariant(), Label, Dim, 34 * S + Crown.Width + 8 * S, 191 * S, 2f * S);
 
-            /* An ornament between the header and the page */
-            using (Pen Line = new(Theme.BloodDark, 1.5f * S))
-            {
-                float Y = 178 * S;
-                G.DrawLine(Line, 36 * S, Y, W / 2 - 14 * S, Y);
-                G.DrawLine(Line, W / 2 + 14 * S, Y, W - 36 * S, Y);
-                PointF[] Diamond = { new(W / 2, Y - 6 * S), new(W / 2 + 8 * S, Y), new(W / 2, Y + 6 * S), new(W / 2 - 8 * S, Y) };
-                using SolidBrush Red = new(Theme.Blood);
-                G.FillPolygon(Red, Diamond);
-            }
-
-            using (Font Label = Theme.Text(13 * S, FontStyle.Bold))
-            using (SolidBrush Dim = new(Theme.BoneDim))
-                G.DrawString(Words.Folder.ToUpperInvariant(), Label, Dim, 36 * S, 194 * S);
-
-            /* The path box's frame */
-            RectangleF Box = new(36 * S, 214 * S, 480 * S, 36 * S);
-            using (GraphicsPath Frame = Theme.Rounded(Box, 6 * S))
-            {
-                using SolidBrush Fill = new(Theme.Ash);
-                G.FillPath(Fill, Frame);
-                using Pen Edge = new(PathBox.Focused ? Theme.Blood : Theme.BloodDark, 1.5f * S);
-                G.DrawPath(Edge, Frame);
-            }
+            /* The path box: a torn black panel */
+            Theme.InkPanel(G, new RectangleF(32 * S, 212 * S, 488 * S, 42 * S), S, 21, PathBox.Focused ? Theme.Blood : Theme.BloodDark);
 
             using (Font Body = Theme.Text(14 * S))
             using (SolidBrush Tint = new(StatusColor))
-                G.DrawString(Status, Body, Tint, new RectangleF(36 * S, 262 * S, W - 72 * S, 40 * S));
+                G.DrawString(Status, Body, Tint, new RectangleF(34 * S, 264 * S, W - 68 * S, 40 * S));
 
-            /* Progress: a bar of blood filling up */
-            RectangleF Bar = new(36 * S, 306 * S, W - 72 * S, 8 * S);
-            using (GraphicsPath Track = Theme.Rounded(Bar, 4 * S))
-            using (SolidBrush Fill = new(Theme.Ash))
+            /* Progress: a torn strip of blood filling up */
+            RectangleF Bar = new(34 * S, 306 * S, W - 68 * S, 10 * S);
+            using (GraphicsPath Track = Theme.Torn(Bar, 1.2f * S, 71, 6f * S))
+            using (SolidBrush Fill = new(Theme.Ink))
                 G.FillPath(Fill, Track);
             if (Progress > 0f)
             {
                 RectangleF Done = new(Bar.X, Bar.Y, Math.Max(Bar.Height, Bar.Width * Math.Min(1f, Progress)), Bar.Height);
-                using GraphicsPath Filled = Theme.Rounded(Done, 4 * S);
-                using LinearGradientBrush Blood = new(Done, Theme.BloodDark, Theme.BloodLight, 0f);
+                using GraphicsPath Filled = Theme.Torn(Done, 1.2f * S, 71, 6f * S);
+                using LinearGradientBrush Blood = new(RectangleF.Inflate(Done, 1, 1), Theme.BloodDark, Theme.BloodLight, 0f);
                 G.FillPath(Blood, Filled);
             }
             using (Font Small = Theme.Text(12 * S))
             using (SolidBrush Dim = new(Theme.BoneDim))
             {
                 string Under = ProgressText.Length > 0 ? ProgressText : Words.HowTo;
-                G.DrawString(Under, Small, Dim, new RectangleF(36 * S, 322 * S, W - 72 * S, 60 * S));
+                G.DrawString(Under, Small, Dim, new RectangleF(34 * S, 324 * S, W - 68 * S, 60 * S));
             }
 
             using (Font Tiny = Theme.Text(11 * S))
             using (SolidBrush Dim = new(Color.FromArgb(120, Theme.BoneDim)))
-                G.DrawString(Words.Footer, Tiny, Dim, new RectangleF(36 * S, 448 * S, W - 72 * S, 20 * S));
+            using (StringFormat Center = new(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
+                G.DrawString(Words.Footer, Tiny, Dim, new RectangleF(10 * S, 450 * S, W - 20 * S, 18 * S), Center);
 
             using (Pen Border = new(Theme.BloodDark, 2f * S))
                 G.DrawRectangle(Border, S, S, W - 2 * S, H - 2 * S);
         }
 
-        private static void DrawSpaced(Graphics G, string Line, Font Font, Brush Brush, float X, float Y, float Gap)
+        private static void DrawSpaced(Graphics G, string Line, Font Font, Brush Brush, float X, float Y, float Gap, bool Centered = false)
         {
+            if (Centered)
+            {
+                float Width = -Gap;
+                foreach (char Letter in Line)
+                    Width += Advance(G, Letter, Font) + Gap;
+                X -= Width / 2;
+            }
             foreach (char Letter in Line)
             {
                 string One = Letter.ToString();
                 G.DrawString(One, Font, Brush, X, Y);
-                X += G.MeasureString(One, Font, PointF.Empty, StringFormat.GenericTypographic).Width + Gap;
+                X += Advance(G, Letter, Font) + Gap;
             }
         }
 
-        protected override void OnFormClosed(FormClosedEventArgs Args)
-        {
-            Candles.Stop();
-            base.OnFormClosed(Args);
-        }
+        /* A typographic measure gives a space no width */
+        private static float Advance(Graphics G, char Letter, Font Font) =>
+            Letter == ' ' ? Font.Size * 0.4f : G.MeasureString(Letter.ToString(), Font, PointF.Empty, StringFormat.GenericTypographic).Width;
 
         /// <summary>
         /// The window as a picture, for checking the look without showing it
@@ -343,11 +339,12 @@ namespace CotlCoopInstaller
     }
 
     /// <summary>
-    /// A button like the game's: blood red with bone letters, or dark with a red edge
+    /// A button like the README's panels: torn red with bone letters, or torn black with a red edge
     /// </summary>
     internal sealed class RuneButton : Control
     {
         private readonly bool Primary;
+        private readonly int Seed;
         private bool Hover, Down;
         internal bool Flat;
 
@@ -357,9 +354,10 @@ namespace CotlCoopInstaller
             set { Text = value; Invalidate(); }
         }
 
-        internal RuneButton(string Label, bool Primary)
+        internal RuneButton(string Label, bool Primary, int Seed)
         {
             this.Primary = Primary;
+            this.Seed = Seed;
             Text = Label;
             Cursor = Cursors.Hand;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
@@ -377,23 +375,19 @@ namespace CotlCoopInstaller
             Graphics G = Args.Graphics;
             G.SmoothingMode = SmoothingMode.AntiAlias;
             G.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            RectangleF Box = new(1, 1, Width - 3, Height - 3);
-            float Fade = Enabled ? 1f : 0.35f;
+            float S = DeviceDpi / 96f;
+            RectangleF Box = new(3 * S, 3 * S, Width - 6 * S, Height - 6 * S);
+            float Fade = Enabled ? 1f : 0.4f;
 
             if (!Flat)
             {
-                using GraphicsPath Shape = Theme.Rounded(Box, Height * 0.18f);
-                Color Top = Primary ? (Hover ? Theme.BloodLight : Theme.Blood) : (Hover ? Theme.Ember : Theme.Ash);
-                Color Bottom = Primary ? Theme.BloodDark : Theme.Night;
-                if (Down)
-                    (Top, Bottom) = (Bottom, Top);
-                using LinearGradientBrush Fill = new(Box, Fade < 1f ? Color.FromArgb(90, Top) : Top, Fade < 1f ? Color.FromArgb(90, Bottom) : Bottom, 90f);
-                G.FillPath(Fill, Shape);
-                using Pen Edge = new(Color.FromArgb((int)(255 * Fade), Primary ? Theme.Bone : Theme.BloodDark), Primary ? 1.6f : 1.4f);
-                G.DrawPath(Edge, Shape);
+                if (Primary)
+                    Theme.RedPanel(G, Box, S, Seed, Hover, Down, Fade);
+                else
+                    Theme.InkPanel(G, Box, S, Seed, Hover ? Theme.Blood : Theme.BloodDark, Hover && !Down, Fade);
             }
 
-            Color Ink = Flat ? (Hover ? Theme.BloodLight : Theme.BoneDim) : Theme.Bone;
+            Color Ink = Flat ? (Hover ? Theme.Ink : Theme.Bone) : Theme.Bone;
             using SolidBrush Letters = new(Color.FromArgb((int)(255 * Fade), Ink));
             using StringFormat Center = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             G.DrawString(Text, Font, Letters, new RectangleF(0, 0, Width, Height), Center);

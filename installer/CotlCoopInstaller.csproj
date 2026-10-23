@@ -28,6 +28,8 @@
   <ItemGroup>
     <EmbeddedResource Include="$(PayloadZip)" LogicalName="payload.zip" />
     <EmbeddedResource Include="icon.ico" LogicalName="icon.ico" />
+    <!-- Pictures drawn by tools/make-readme-art.py, the same as the README's -->
+    <EmbeddedResource Include="art\*.png" LogicalName="art.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>
