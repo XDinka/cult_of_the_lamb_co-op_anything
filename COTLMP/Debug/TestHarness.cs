@@ -15,6 +15,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -40,6 +41,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-tarottest</c>: in the first dungeon room both have, a tarot reader deals two cards to the host, then to the joining copy (shared tarot test)</item>
     /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
     /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
+    /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
     /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
     /// <item><c>-cotlmp-nomapclick</c>: with -cotlmp-nextfloor, never click on the map, only wait for the partner's pick</item>
@@ -64,7 +66,7 @@ namespace COTLMP.Debug
         private static bool Solo;
         private static bool NextFloor;
         private static bool NoMapClick;
-        private static bool AnimTest;
+        private static bool AnimTest, CultTest;
         private static bool PauseTest, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
@@ -113,6 +115,8 @@ namespace COTLMP.Debug
                     NoMapClick = true;
                 else if (Arg.Equals("-cotlmp-animtest", StringComparison.OrdinalIgnoreCase))
                     AnimTest = true;
+                else if (Arg.Equals("-cotlmp-culttest", StringComparison.OrdinalIgnoreCase))
+                    CultTest = true;
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
                     PauseTest = true;
                 else if (Arg.Equals("-cotlmp-pausenoplayer", StringComparison.OrdinalIgnoreCase))
@@ -156,6 +160,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(KeepWindow());
             if (AnimTest)
                 Plugin.MonoInstance.StartCoroutine(PlayAttacks());
+            if (CultTest)
+                Plugin.MonoInstance.StartCoroutine(ChangeCult());
             if (PauseTest)
                 Plugin.MonoInstance.StartCoroutine(OpenPauseMenus());
             if (NextFloor && AutoEnter && !NoMapClick)
@@ -482,7 +488,7 @@ namespace COTLMP.Debug
                 Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
                 Line.Append($" props={PropSync.Sent}/{PropSync.Received}/{PropSync.Applied}/{PropSync.Missing}/{PropSync.AppliedOnEntry}/{PropSync.AlreadyBroken} propmatch={PropSync.ByNumber}/{PropSync.BySpawn}/{PropSync.ByNearest}");
-                Line.Append($" tarot={SharedTarot.Sent}/{SharedTarot.Received}/{SharedTarot.Applied} time={TimeManager.CurrentGameTime:F0}:{TimeManager.CurrentPhase} gap={TimeSync.Gap:F1} timesync={TimeSync.Sent}/{TimeSync.Received}/{TimeSync.Skips}");
+                Line.Append($" tarot={SharedTarot.Sent}/{SharedTarot.Received}/{SharedTarot.Applied} time={TimeManager.CurrentDay}:{TimeManager.CurrentGameTime:F0}:{TimeManager.CurrentPhase} cult={CultSync.MembersSent}/{CultSync.MembersApplied}/{CultSync.WholeSent}/{CultSync.WholeApplied}/{CultSync.GoneSent}/{CultSync.GoneApplied}/{CultSync.ItemsSent}/{CultSync.ItemsApplied}/{CultSync.PosesApplied}/{CultSync.TimeApplied} {CultState()}");
                 Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.Conflicts} minimap={MiniMapSync.Marked} hostsave={COTLMP.Game.HostSave.Playing}/{COTLMP.Game.HostSave.Loads}/{COTLMP.Game.HostSave.ReceivedBytes}/{COTLMP.Game.HostSave.SentBytes} pose={PuppetSync.Sent}/{PuppetSync.Received}/{PuppetSync.Applied}/{PuppetSync.Appeared}/{PuppetSync.Vanished} enemyanims={RoomSync.EnemyAnimations} puppetanim={(COTLMP.Game.PlayerManager.GetPuppet(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} myanim={(PlayerFarming.Instance?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
@@ -972,6 +978,83 @@ namespace COTLMP.Debug
         /// <summary>
         /// Plays the lamb's attack animations one after another, for the partner's puppet to repeat
         /// </summary>
+        /// <summary>
+        /// Both sides of the cult test, by role
+        /// </summary>
+        private static IEnumerator ChangeCult()
+        {
+            /* Who hosts is known once the session is up */
+            while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer() ||
+                   (!Plugin.GlobalsInternal.IsServerCreator && !HostSave.Playing))
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 10f : 25f);
+            Vector3 Here = PlayerFarming.Instance.transform.position;
+
+            if (Host)
+            {
+                Inventory.ChangeItemQuantity(InventoryItem.ITEM_TYPE.LOG, 10);
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: +10 wood");
+                yield return new WaitForSecondsRealtime(3f);
+                StructuresData Bed = StructuresData.GetInfoByType(StructureBrain.TYPES.BED, 0);
+                StructureManager.BuildStructure(FollowerLocation.Base, Bed, Here + new Vector3(3f, 0f), Bed.Bounds);
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: built a bed ({Bed.ID})");
+                yield return new WaitForSecondsRealtime(3f);
+                FollowerInfo New = FollowerInfo.NewCharacter(FollowerLocation.Base);
+                DataManager.Instance.Followers.Add(New);
+                FollowerManager.SpawnFollower(New, Here + new Vector3(-2f, 1f));
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: new follower {New.Name} ({New.ID})");
+            }
+            else
+            {
+                Inventory.ChangeItemQuantity(InventoryItem.ITEM_TYPE.STONE, 4);
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: +4 stone");
+                yield return new WaitForSecondsRealtime(3f);
+                StructuresData Torch = StructuresData.GetInfoByType(StructureBrain.TYPES.DECORATION_TORCH, 0);
+                StructureManager.BuildStructure(FollowerLocation.Base, Torch, Here + new Vector3(-3f, -1f), Torch.Bounds);
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: built a torch ({Torch.ID})");
+                yield return new WaitForSecondsRealtime(3f);
+                FollowerInfo Named = DataManager.Instance.Followers.LastOrDefault();
+                if (Named != null)
+                {
+                    Named.Name = "Synced";
+                    Plugin.Logger?.LogWarning($"{Tag} Cult test: renamed follower {Named.ID} to Synced");
+                }
+                yield return new WaitForSecondsRealtime(3f);
+                StructureBrain Bed = StructureManager.GetAllStructuresOfType(StructureBrain.TYPES.BED).LastOrDefault();
+                if (Bed != null)
+                {
+                    foreach (Structure Built in Structure.Structures.ToList())
+                    {
+                        if (Built != null && Built.Brain == Bed)
+                            UnityEngine.Object.Destroy(Built.gameObject);
+                    }
+                    Bed.Remove();
+                    Plugin.Logger?.LogWarning($"{Tag} Cult test: removed the bed ({Bed.Data.ID})");
+                }
+            }
+
+            /* Frames of both cults at the same moments (both copies run on one clock) */
+            for (int Frame = 1; Frame <= 2; Frame++)
+            {
+                while (DateTime.Now.Second % 15 != 0)
+                    yield return null;
+                Shot($"cult-{(Host ? "host" : "client")}-{Frame}");
+                yield return new WaitForSecondsRealtime(1.5f);
+            }
+        }
+
+        private static string CultState()
+        {
+            if (DataManager.Instance == null)
+                return "";
+            var Followers = DataManager.Instance.Followers;
+            return $"wood={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.LOG)} stone={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.STONE)} " +
+                   $"structures={StructureManager.StructuresDataAtLocation(FollowerLocation.Base).Count} beds={StructureManager.GetAllStructuresOfType(StructureBrain.TYPES.BED).Count} " +
+                   $"torches={StructureManager.GetAllStructuresOfType(StructureBrain.TYPES.DECORATION_TORCH).Count} followers={Followers.Count}:{string.Join(",", Followers.Select(Info => Info?.Name))} " +
+                   $"bodies={FollowerManager.FollowersAtLocation(FollowerLocation.Base).Count}";
+        }
+
         private static IEnumerator PlayAttacks()
         {
             int Next = 0;

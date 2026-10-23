@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.4, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.5, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.4, pre-release.**
+**Version 0.2.5, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.4.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.5.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -89,10 +89,11 @@ You play as the Goat, as in the game's own co-op.</td>
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
 | The tarot reader in a dungeon deals both players the same two cards | works in the automated test |
-| Time of day is the host's for both (the joining player's clock runs faster, waits or skips forward, never back) | works in the automated test (clocks within a few game minutes) |
+| One cult for both: the host's game runs it (followers, structures, time), the friend's shows it: followers walk and animate as the host's, new and gone followers and structures appear and go, the inventory is shared | works in the automated test (wood, stone, a bed, a torch, a new follower, a removed bed, both ways) |
+| What the friend does in the cult reaches the host: building, removing, items gained or spent, changes to followers and structures (as data) | works in the automated test (a renamed follower, a built torch, a removed bed) |
 | Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both | works in the automated test |
 | Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
-| Followers, base, rituals | not synced, each player has their own (the clock follows the host) |
+| Follower commands, rituals and sermons started by the friend | not yet: they run in the friend's game, the host's followers don't take them yet |
 | The friend plays on the host's save: joins from the main menu without a save of their own; leaving (or the host stopping) takes them back to the main menu and the host's save is forgotten | works in the automated test (join, leave, join again) |
 | The host keeps playing their own game when the friend leaves or they stop hosting | works |
 | A room whose fight ended stays open: a room the partner cleared opens even if its doors shut on you, and a shut room with no enemy left opens after 8 s | works in the automated test |
@@ -113,7 +114,7 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.4, предрелиз.
+Версия 0.2.5, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
@@ -124,7 +125,8 @@ You play as the Goat, as in the game's own co-op.</td>
 Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
 (друг не отвечает).
-Карты у гадалки одинаковые, время суток как у хоста, сломанная трава, горшки и камни ломаются у обоих.
+Культ общий: последователи, постройки, ресурсы и время у обоих как у хоста, что строит или тратит друг, видит и хост.
+Карты у гадалки одинаковые, сломанная трава, горшки и камни ломаются у обоих.
 Карта между этажами общая (карта хоста): кто первым выбрал путь, туда идут оба. По этажу каждый
 ходит сам, комнаты, где побывал партнёр, открываются и на вашей мини-карте. Удары, перекаты и
 заклинания партнёра видны как у него, а появляется он в комнате, только когда она у него загрузилась. В диалоге отвечает тот, кто говорит, как в обычном
@@ -227,9 +229,14 @@ paths from environment variables (see the top of each).
 - **Tarot readings.** A reader's cards come from the player's save (cards found, held or met this run,
   fleece, season) and a save without a reading yet gets the Lovers first, so a seed can't make them
   match. Whoever draws first sends the two cards and the other reading deals those. See `SharedTarot.cs`.
-- **Time of day.** The host sends its clock every 2 s; the joining player's clock runs twice as fast
-  when a little behind, stands still when a little ahead and skips forward like sleeping when far off.
-  Their cult lives through the skipped hours; the day count stays each save's own. See `TimeSync.cs`.
+- **The cult.** One world, run by the host's game: on the friend's side game time doesn't run (no
+  follower or structure ticks); the host sends its day, part of day and clock every second, and its
+  followers' positions and animations ten times a second. Followers and structures are compared as the
+  game saves them, once a second, with what both sides last agreed on; only changed members go, as
+  absolute values, so the same change made on both sides lands once, and the agreed state takes only
+  the partner's members, so a change of ours not sent yet isn't lost. New objects go whole (a structure
+  is placed with its id), gone ones go as gone. The host's inventory is the inventory; the friend sends
+  what their own actions add or spend, in the cult. See `CultSync.cs`.
 - **Broken things.** Whatever with health dies in a dungeon room (grass, pots, critters, enemy
   bodies) and rubble walked into is sent by name, where it stood when the room came up and its number
   among the things of that name in the room; the other game breaks the one that stood there (else the

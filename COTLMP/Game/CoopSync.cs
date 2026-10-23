@@ -72,15 +72,20 @@ namespace COTLMP.Game
             Map = 18,
             /* SharedTarot */
             TarotDraw = 19,
-            /* TimeSync */
-            Time = 20,
+            /* 20 was the host's clock for a friend on their own save, now CultTime */
             /* PropSync */
             PropBroken = 21,
             /* PuppetSync */
             PuppetPose = 22,
             /* HostSave */
             SaveRequest = 23,
-            SaveChunk = 24
+            SaveChunk = 24,
+            /* CultSync */
+            CultReady = 25,
+            CultData = 26,
+            CultItems = 27,
+            CultTime = 28,
+            CultPoses = 29
         }
 
         /// <summary>
@@ -268,10 +273,6 @@ namespace COTLMP.Game
                     SharedTarot.OnRelay(Reader);
                     break;
 
-                case Kind.Time:
-                    TimeSync.OnRelay(Reader);
-                    break;
-
                 case Kind.PuppetPose:
                     PuppetSync.OnRelay(From, Reader);
                     break;
@@ -282,6 +283,26 @@ namespace COTLMP.Game
 
                 case Kind.SaveChunk:
                     HostSave.OnPiece(Reader);
+                    break;
+
+                case Kind.CultReady:
+                    CultSync.OnPartnerReady();
+                    break;
+
+                case Kind.CultData:
+                    CultSync.OnData(Reader);
+                    break;
+
+                case Kind.CultItems:
+                    CultSync.OnItems(Reader);
+                    break;
+
+                case Kind.CultTime:
+                    CultSync.OnTime(Reader);
+                    break;
+
+                case Kind.CultPoses:
+                    CultSync.OnPoses(Reader);
                     break;
 
                 case Kind.PropBroken:

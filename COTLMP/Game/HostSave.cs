@@ -13,6 +13,7 @@ using MMTools;
 using src.UINavigator;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -67,21 +68,32 @@ namespace COTLMP.Game
 
         private static object Options => AccessTools.Field(AccessTools.TypeByName("Data.Serialization.MPSerialization"), "options").GetValue(null);
 
-        private static byte[] Pack(Type Of, object Value)
+        private static readonly MethodInfo SerializeOf = Serializer?.GetMethods().First(Item => Item.Name == "Serialize" && Item.IsGenericMethodDefinition &&
+            Item.ReturnType == typeof(byte[]) && Item.GetParameters().Length == 3);
+        private static readonly MethodInfo DeserializeOf = Serializer?.GetMethods().First(Item => Item.Name == "Deserialize" && Item.IsGenericMethodDefinition &&
+            Item.GetParameters().Length == 3 && Item.GetParameters()[0].ParameterType.Name == "ReadOnlyMemory`1");
+        private static readonly Dictionary<Type, (MethodInfo Serialize, MethodInfo Deserialize)> Made = new();
+        private static object CachedOptions;
+
+        private static (MethodInfo Serialize, MethodInfo Deserialize) For(Type Of)
         {
-            MethodInfo Method = Serializer.GetMethods().First(Item => Item.Name == "Serialize" && Item.IsGenericMethodDefinition &&
-                Item.ReturnType == typeof(byte[]) && Item.GetParameters().Length == 3);
-            return (byte[])Method.MakeGenericMethod(Of).Invoke(null, new[] { Value, Options, CancellationToken.None });
+            if (!Made.TryGetValue(Of, out var Pair))
+                Made[Of] = Pair = (SerializeOf.MakeGenericMethod(Of), DeserializeOf.MakeGenericMethod(Of));
+            CachedOptions ??= Options;
+            return Pair;
         }
 
-        private static object Unpack(Type Of, byte[] Data)
+        internal static byte[] Pack(Type Of, object Value)
         {
-            MethodInfo Method = Serializer.GetMethods().First(Item => Item.Name == "Deserialize" && Item.IsGenericMethodDefinition &&
-                Item.GetParameters().Length == 3 && Item.GetParameters()[0].ParameterType.Name == "ReadOnlyMemory`1");
-            object Buffer = Activator.CreateInstance(Method.GetParameters()[0].ParameterType.IsGenericType
-                ? Method.GetParameters()[0].ParameterType.GetGenericTypeDefinition().MakeGenericType(typeof(byte))
-                : Method.GetParameters()[0].ParameterType, Data);
-            return Method.MakeGenericMethod(Of).Invoke(null, new[] { Buffer, Options, CancellationToken.None });
+            return (byte[])For(Of).Serialize.Invoke(null, new[] { Value, CachedOptions, CancellationToken.None });
+        }
+
+        internal static object Unpack(Type Of, byte[] Data)
+        {
+            MethodInfo Method = For(Of).Deserialize;
+            Type Memory = Method.GetParameters()[0].ParameterType;
+            object Buffer = Activator.CreateInstance(Memory, Data);
+            return Method.Invoke(null, new[] { Buffer, CachedOptions, CancellationToken.None });
         }
 
         /// <summary>
@@ -152,6 +164,7 @@ namespace COTLMP.Game
                 return;
 
             byte[] Save, Meta;
+            CultSync.OnSaveSent();
             try
             {
                 Save = Pack(typeof(DataManager), DataManager.Instance);
@@ -279,6 +292,7 @@ namespace COTLMP.Game
             MonoSingleton<Lamb.UI.UIManager>.Instance.ForceDisableSaving = true;
             MonoSingleton<UINavigatorNew>.Instance.LockInput = MonoSingleton<UINavigatorNew>.Instance.LockNavigation = false;
             Appearance.Refresh();
+            CultSync.OnLoaded();
             Plugin.Logger?.LogInfo("[COOP] Playing on the host's save");
         }
 
@@ -289,6 +303,7 @@ namespace COTLMP.Game
         {
             bool Was = Playing || Waiting;
             Playing = Waiting = false;
+            CultSync.Reset();
             Pieces = null;
             AskedAt = 0f;
             if (!Was)

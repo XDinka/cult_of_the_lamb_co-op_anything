@@ -263,7 +263,7 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.MiniMapSync.Initialize();
         COTLMP.Game.PuppetSync.Initialize();
         COTLMP.Game.HostSave.Initialize();
-        COTLMP.Game.TimeSync.Initialize();
+        COTLMP.Game.CultSync.Initialize();
         COTLMP.Game.PropSync.Initialize();
         COTLMP.Game.ConnectionQuality.Initialize();
         COTLMP.Debug.TestHarness.Initialize();

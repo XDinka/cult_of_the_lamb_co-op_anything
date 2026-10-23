@@ -359,6 +359,7 @@ namespace COTLMP.Ui
                 NotificationCentre.Instance?.PlayGenericNotification(NotificationKey);
 
             /* A joining player on the host's save goes back to the main menu */
+            COTLMP.Game.CultSync.Reset();
             COTLMP.Game.HostSave.Forget();
         }
 
