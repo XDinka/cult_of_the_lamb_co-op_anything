@@ -67,6 +67,10 @@ namespace COTLMP.Ui
         [HarmonyPrefix]
         private static bool RefreshCoopText(UIPauseMenuController __instance, MMButton ____coopButton, TextMeshProUGUI ____coopButtonText, MMButton ____photoModeButton, bool ___CoopButtonSelected)
         {
+            /* No lamb yet (the opening, before the crown): the game's own text, the button is off there */
+            if (PlayerFarming.players.Count == 0 || PlayerFarming.players[0] == null)
+                return true;
+
             PlayerFarming player = PlayerFarming.players[0];
             StateMachine.State playerState = player.state.CURRENT_STATE;
             if(playerState == StateMachine.State.InActive || playerState == StateMachine.State.CustomAnimation || player.GoToAndStopping)
@@ -118,6 +122,9 @@ namespace COTLMP.Ui
         [HarmonyPostfix]
         private static void OnEnable(UIPauseMenuController __instance, MMButton ____coopButton, TextMeshProUGUI ____coopButtonText)
         {
+            if (PlayerFarming.players.Count == 0 || PlayerFarming.players[0] == null)
+                return;
+
             PlayerFarming player = PlayerFarming.players[0];
             StateMachine.State playerState = player.state.CURRENT_STATE;
             if (playerState == StateMachine.State.InActive || playerState == StateMachine.State.CustomAnimation || player.GoToAndStopping)
@@ -168,9 +175,50 @@ namespace COTLMP.Ui
         /// </summary>
         [HarmonyPatch(typeof(UIManager), nameof(UIManager.ShowPauseMenu))]
         [HarmonyPrefix]
-        private static void ShowPauseMenu()
+        private static void ShowPauseMenu(PlayerFarming playerFarming)
         {
             PauseShownAt = Time.realtimeSinceStartup;
+            Plugin.Logger?.LogInfo($"[COOP] Pause menu opened for {(playerFarming == null ? "anyone" : "player #" + PlayerFarming.players.IndexOf(playerFarming))} (players {PlayerFarming.playersCount}, scene {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}, frame {Time.frameCount}) from {Callers()}");
+        }
+
+        /// <summary>
+        /// Who called the patched method, for the log
+        /// </summary>
+        private static string Callers()
+        {
+            System.Diagnostics.StackFrame[] Frames = new System.Diagnostics.StackTrace(2, false).GetFrames() ?? new System.Diagnostics.StackFrame[0];
+            System.Collections.Generic.List<string> Names = new();
+            foreach (System.Diagnostics.StackFrame Frame in Frames)
+            {
+                System.Reflection.MethodBase Method = Frame.GetMethod();
+                if (Method == null || Method.DeclaringType?.Namespace == "HarmonyLib")
+                    continue;
+                Names.Add($"{Method.DeclaringType?.Name}.{Method.Name}");
+                if (Names.Count == 5)
+                    break;
+            }
+            return string.Join(" < ", Names);
+        }
+
+        /// <summary>
+        /// Logs other UI going away right after the pause menu opened
+        /// </summary>
+        [HarmonyPatch(typeof(UIMenuBase), nameof(UIMenuBase.Hide))]
+        [HarmonyPrefix]
+        private static void MenuHiding(UIMenuBase __instance)
+        {
+            float Open = Time.realtimeSinceStartup - PauseShownAt;
+            if (Open < 3f)
+                Plugin.Logger?.LogInfo($"[COOP] {__instance.GetType().Name} hides {Open:F2} s after the pause menu opened (frame {Time.frameCount}) from {Callers()}");
+        }
+
+        [HarmonyPatch(typeof(HUD_Manager), nameof(HUD_Manager.Hide))]
+        [HarmonyPrefix]
+        private static void HudHiding()
+        {
+            float Open = Time.realtimeSinceStartup - PauseShownAt;
+            if (Open < 3f)
+                Plugin.Logger?.LogInfo($"[COOP] HUD hides {Open:F2} s after the pause menu opened (frame {Time.frameCount}) from {Callers()}");
         }
 
         /// <summary>
@@ -190,7 +238,7 @@ namespace COTLMP.Ui
                 __instance.StartCoroutine(Loop);
 
             PlayerFarming Who = MonoSingleton<UINavigatorNew>.Instance?.AllowInputOnlyFromPlayer;
-            Plugin.Logger?.LogWarning($"[COOP] Pause menu close {Open:F2} s after opening ignored (input from {(Who == null ? "anyone" : "player #" + PlayerFarming.players.IndexOf(Who))}, focus {Application.isFocused})");
+            Plugin.Logger?.LogWarning($"[COOP] Pause menu close {Open:F2} s after opening ignored (input from {(Who == null ? "anyone" : "player #" + PlayerFarming.players.IndexOf(Who))}, focus {Application.isFocused}, frame {Time.frameCount}) from {Callers()}");
             return false;
         }
 

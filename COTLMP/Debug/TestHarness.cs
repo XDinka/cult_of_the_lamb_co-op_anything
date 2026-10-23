@@ -66,7 +66,7 @@ namespace COTLMP.Debug
         private static bool NextFloor;
         private static bool NoMapClick;
         private static bool AnimTest;
-        private static bool PauseTest, PauseWatch;
+        private static bool PauseTest, PauseWatch, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
         private static int[] WindowRect;
@@ -121,6 +121,8 @@ namespace COTLMP.Debug
                     PauseTest = true;
                 else if (Arg.Equals("-cotlmp-pausewatch", StringComparison.OrdinalIgnoreCase))
                     PauseWatch = true;
+                else if (Arg.Equals("-cotlmp-pausenoplayer", StringComparison.OrdinalIgnoreCase))
+                    PauseTest = PauseNoPlayer = true;
                 else if (Arg.Equals("-cotlmp-tarottest", StringComparison.OrdinalIgnoreCase))
                     TarotTest = true;
                 else if (Arg.Equals("-cotlmp-autocut", StringComparison.OrdinalIgnoreCase))
@@ -986,12 +988,34 @@ namespace COTLMP.Debug
                 if (PlayerFarming.Instance == null || MMTransition.IsPlaying || UI == null || UI.IsPaused || UI.MenusBlocked)
                     continue;
                 ++Count;
-                UI.ShowPauseMenu(PlayerFarming.Instance);
+                /* As in the game's opening, before the crown: no lamb in the player list */
+                List<PlayerFarming> Hidden = null;
+                if (PauseNoPlayer)
+                {
+                    Hidden = new List<PlayerFarming>(PlayerFarming.players);
+                    PlayerFarming.players.Clear();
+                    PlayerFarming.playersCount = 0;
+                }
+                try
+                {
+                    UI.ShowPauseMenu(PauseNoPlayer ? null : PlayerFarming.Instance);
+                }
+                catch (Exception Error)
+                {
+                    Plugin.Logger?.LogError($"{Tag} Pause {Count} threw: {Error}");
+                }
+                if (Hidden != null)
+                {
+                    yield return new WaitForSecondsRealtime(0.5f);
+                    PlayerFarming.players.AddRange(Hidden);
+                    PlayerFarming.playersCount = PlayerFarming.players.Count;
+                }
                 PauseOpened = Time.realtimeSinceStartup;
                 /* A second press right away (key bounce) must not close it */
                 yield return null;
                 yield return null;
-                Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController)?.OnCancelButtonInput();
+                if (!PauseNoPlayer)
+                    Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController)?.OnCancelButtonInput();
                 Plugin.Logger?.LogWarning($"{Tag} Pause {Count} opened (players {PlayerFarming.playersCount}, session {Plugin.GlobalsInternal.InGameSession})");
                 yield return new WaitForSecondsRealtime(2f);
                 var Menu = Lamb.UI.UIMenuBase.ActiveMenus.Find(Item => Item is Lamb.UI.PauseMenu.UIPauseMenuController);

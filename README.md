@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.1, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.2, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,13 +15,13 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.1, pre-release.**
+**Version 0.2.2, pre-release.**
 
 You invite a friend through the Steam overlay. Each of you keeps playing your own save, and you see
 each other in the cult and on dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.1.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.2.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -109,7 +109,7 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.1, предрелиз.
+Версия 0.2.2, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Каждый играет на своём сохранении, вы видите
 друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут

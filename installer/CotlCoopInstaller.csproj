@@ -12,7 +12,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>Cult of the Lamb Co-op Anything installer</Product>
     <Copyright>Copyright (c) 2026 COTLMP contributors, MIT</Copyright>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <!-- Where build-installer.sh puts the zipped game folder of the package -->
     <PayloadZip Condition="'$(PayloadZip)' == ''">$(MSBuildProjectDirectory)\obj\payload.zip</PayloadZip>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
