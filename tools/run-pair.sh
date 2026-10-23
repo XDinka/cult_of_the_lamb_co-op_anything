@@ -51,7 +51,7 @@ kill_test_copies
 rm -f "$OUT"/*-bepinex.log "$OUT"/*-player.log
 for G in "$G1" "$G2"; do
     cp "$SRC"/COTLMP/bin/Release/net472/{COTLMP.dll,COTLMP.pdb,COTLMPServer.dll} "$G/BepInEx/plugins/COTLMP/"
-    rm -f "$G/BepInEx/LogOutput.log"
+    rm -f "$G/BepInEx/LogOutput.log" "$G/BepInEx/config/cotlmp-rejoin.json"
 done
 
 WIN="-screen-fullscreen 0 -screen-width 960 -screen-height 540"
@@ -63,7 +63,21 @@ launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-fakesteam=2 -cotlmp
 if ! wait_for "$G2/BepInEx/LogOutput.log" "Joined host" 150; then echo "CLIENT DID NOT CONNECT"; fi
 wait_for "$G2/BepInEx/LogOutput.log" "QA client\].* scene=Base Biome 1 .*local=" 90
 
-for _ in $(seq 1 $HOLD); do timeout 1 cat /dev/zero > /dev/null 2>&1; done
+client_running() {
+    powershell.exe -NoProfile -Command "@(Get-Process 'Cult Of The Lamb' -ErrorAction SilentlyContinue | Where-Object { \$_.Path -like '$(winpath "$G2")\\*' }).Count" 2>/dev/null | tr -d '\r'
+}
+
+# CLIENT_RESTART="args": if the client copy dies during the hold (a crash test), start it again with these
+RESTARTED=0
+for _ in $(seq 1 $HOLD); do
+    timeout 1 cat /dev/zero > /dev/null 2>&1
+    if [ -n "${CLIENT_RESTART:-}" ] && [ $RESTARTED = 0 ] && [ "$(client_running)" = "0" ]; then
+        RESTARTED=1
+        echo "client copy is gone, starting it again"
+        cp "$G2/BepInEx/LogOutput.log" "$OUT/client-crashed-bepinex.log"
+        launch "$G2" "$WIN -logFile $LOGS\\client2-player.log -cotlmp-fakesteam=2 -cotlmp-report -cotlmp-quitafter=600 $CLIENT_RESTART"
+    fi
+done
 
 cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex.log"
 cp "$G2/BepInEx/LogOutput.log" "$OUT/client-bepinex.log"

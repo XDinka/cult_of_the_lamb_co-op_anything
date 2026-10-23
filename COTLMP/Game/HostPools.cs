@@ -92,22 +92,23 @@ namespace COTLMP.Game
             }
             Targets.Add(AccessTools.EnumeratorMoveNext(AccessTools.Method(typeof(BiomeGenerator), "GenerateRoutine")));
 
+            HashSet<MethodBase> RollerMethods = new(Targets.Where(Target => Target != null));
+            int Skipped = 0;
             foreach (Type Owner in RollingClasses)
             {
                 foreach (MethodInfo Method in Owner.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
                 {
                     if (Method.IsAbstract || Method.IsGenericMethod || Method.Name == "Update" || Method.Name == "LateUpdate" || Method.Name == "FixedUpdate")
                         continue;
-                    if (Method.ReturnType == typeof(IEnumerator))
-                    {
-                        MethodInfo Step = AccessTools.EnumeratorMoveNext(Method);
-                        if (Step != null)
-                            Targets.Add(Step);
-                    }
-                    else if (Method.GetMethodBody() != null)
-                    {
-                        Targets.Add(Method);
-                    }
+                    MethodBase Target = Method.ReturnType == typeof(IEnumerator) ? AccessTools.EnumeratorMoveNext(Method) : Method.GetMethodBody() != null ? Method : null;
+                    if (Target == null)
+                        continue;
+
+                    /* Only what can reach the pools: labels, prompts and the like run every frame and roll nothing */
+                    if (ReachesPools(Target, RollerMethods, 3, new HashSet<MethodBase>()))
+                        Targets.Add(Target);
+                    else
+                        ++Skipped;
                 }
             }
 
@@ -124,7 +125,53 @@ namespace COTLMP.Game
                     Plugin.Logger?.LogWarning($"[COOP] Can't wrap {Target.DeclaringType?.Name}.{Target.Name}: {e.Message}");
                 }
             }
-            Plugin.Logger?.LogInfo($"[COOP] Reward rolls wrapped: {Patched}");
+            Plugin.Logger?.LogInfo($"[COOP] Reward rolls wrapped: {Patched} (skipped {Skipped} that never reach the pools)");
+        }
+
+        /// <summary>
+        /// The DataManager fields the host's values stand in for
+        /// </summary>
+        private static readonly HashSet<FieldInfo> PoolFields = new(new[]
+        {
+            nameof(DataManager.WeaponPool), nameof(DataManager.CursePool), nameof(DataManager.PlayerFoundTrinkets),
+            nameof(DataManager.PlayerFoundRelics), nameof(DataManager.dungeonRun), nameof(DataManager.OnboardedRelics),
+            nameof(DataManager.EnabledSpells)
+        }.Select(Name => AccessTools.Field(typeof(DataManager), Name)));
+
+        /// <summary>
+        /// Whether a method reads a pool, or calls (a few calls deep, within the game's code) something that does.
+        /// </summary>
+        private static bool ReachesPools(MethodBase Method, HashSet<MethodBase> Rollers, int Depth, HashSet<MethodBase> Seen)
+        {
+            if (Method == null || !Seen.Add(Method))
+                return false;
+            if (Rollers.Contains(Method))
+                return true;
+
+            List<CodeInstruction> Code;
+            try
+            {
+                Code = PatchProcessor.GetOriginalInstructions(Method);
+            }
+            catch
+            {
+                /* Can't read it (no body, or native): a wrapped method is wrapped as before, a callee is left out */
+                return Seen.Count == 1;
+            }
+
+            foreach (CodeInstruction Instruction in Code)
+            {
+                if (Instruction.operand is FieldInfo Field && PoolFields.Contains(Field))
+                    return true;
+                if (Depth > 0 && Instruction.operand is MethodBase Called && Called.DeclaringType?.Assembly == typeof(DataManager).Assembly)
+                {
+                    /* A coroutine started here rolls in its own steps */
+                    MethodBase Next = Called is MethodInfo Info && Info.ReturnType == typeof(IEnumerator) ? AccessTools.EnumeratorMoveNext(Info) ?? Called : Called;
+                    if (ReachesPools(Next, Rollers, Depth - 1, Seen))
+                        return true;
+                }
+            }
+            return false;
         }
 
         /* HOST ***************************************************************/

@@ -260,6 +260,7 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.HostPools.Initialize();
         COTLMP.Game.RoomRandom.Initialize();
         COTLMP.Game.ConnectionQuality.Initialize();
+        COTLMP.Game.RunRecovery.Initialize();
         COTLMP.Debug.TestHarness.Initialize();
 
         /* Log to the debugger that our mod is loaded */

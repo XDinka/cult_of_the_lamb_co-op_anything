@@ -39,6 +39,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
+    /// <item><c>-cotlmp-autochoice=N</c>: N s after both stand in the cult, vote on answers: the host asks and goes with the partner's vote, then the joining player asks, tries to answer alone and gets the host's decision instead (dialog voting test)</item>
+    /// <item><c>-cotlmp-crashafter=N</c>: in a shared dungeon run, take a sword, a curse and a tarot card, then kill our own process N s later, the way a crash would (run recovery test)</item>
     /// <item><c>-cotlmp-netshots</c>: with -cotlmp-shots, save a frame the first time each kind of bad connection icon shows</item>
     /// <item><c>-cotlmp-netflood</c>: every 3 s send the partner a 20 KB packet and a burst of 300 small ones of a kind they ignore (network stress test; pair it with -cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE for a bad connection)</item>
     /// <item><c>-cotlmp-drawtest</c>: in each shared dungeon room draw 3 tarot cards the way a chest would and log them (host pools test); the host also gets extra unlocks in memory so the two saves differ</item>
@@ -58,6 +60,8 @@ namespace COTLMP.Debug
         private static bool AutoShoot;
         private static bool DrawTest;
         private static bool NetFlood, NetShots;
+        private static float CrashAfter;
+        private static float AutoChoice;
         private static int FloodSent;
 
         private static string Tag => $"[QA {(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}]";
@@ -83,6 +87,10 @@ namespace COTLMP.Debug
                     NetFlood = true;
                 else if (Arg.Equals("-cotlmp-netshots", StringComparison.OrdinalIgnoreCase))
                     NetShots = true;
+                else if (Arg.StartsWith("-cotlmp-autochoice=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-autochoice=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoChoice);
+                else if (Arg.StartsWith("-cotlmp-crashafter=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-crashafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out CrashAfter);
                 else if (Arg.Equals("-cotlmp-drawtest", StringComparison.OrdinalIgnoreCase))
                     DrawTest = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
@@ -130,9 +138,10 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(EnterDungeon());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(HitEnemies());
+            /* The voting test takes its own frames */
             if (!string.IsNullOrEmpty(ShotsDir) && NetShots)
                 Plugin.MonoInstance.StartCoroutine(NetIconShots());
-            else if (!string.IsNullOrEmpty(ShotsDir))
+            else if (!string.IsNullOrEmpty(ShotsDir) && AutoChoice <= 0)
                 Plugin.MonoInstance.StartCoroutine(Shots());
             if (AutoDie > 0)
                 Plugin.MonoInstance.StartCoroutine(DieOnce());
@@ -144,6 +153,10 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(Draw());
             if (NetFlood)
                 Plugin.MonoInstance.StartCoroutine(Flood());
+            if (CrashAfter > 0)
+                Plugin.MonoInstance.StartCoroutine(CrashLater());
+            if (AutoChoice > 0)
+                Plugin.MonoInstance.StartCoroutine(VoteOnChoices());
             if (AutoKill)
                 Plugin.MonoInstance.StartCoroutine(Rescue());
         }
@@ -238,6 +251,134 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
+        /// Both sides of the dialog voting test, by role.
+        /// </summary>
+        private static IEnumerator VoteOnChoices()
+        {
+            while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            yield return new WaitForSecondsRealtime(AutoChoice);
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+
+            /* Round 1: the host asks, the joining player votes for the second answer, the host goes with it */
+            if (Host)
+            {
+                Ask("host");
+                yield return Until(() => COTLMP.Game.Dialogs.OpenWheel != null && COTLMP.Game.Dialogs.PartnerVoteNow >= 0, 30f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 1: the partner voted {COTLMP.Game.Dialogs.PartnerVoteNow}");
+                yield return new WaitForSecondsRealtime(1f);
+                Shot("choice-host-sees-vote");
+                yield return new WaitForSecondsRealtime(1f);
+                ClickOwn(COTLMP.Game.Dialogs.PartnerVoteNow);
+            }
+            else
+            {
+                yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0, 40f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 1: the host's answers are up ({COTLMP.Game.Dialogs.RemoteChoiceCount})");
+                yield return new WaitForSecondsRealtime(1f);
+                COTLMP.Game.Dialogs.PickRemote(1);
+                yield return new WaitForSecondsRealtime(1f);
+                Shot("choice-client-voted");
+            }
+
+            yield return new WaitForSecondsRealtime(12f);
+
+            /* Round 2: the joining player asks and picks the first answer, the host decides on the second */
+            if (!Host)
+            {
+                Ask("client");
+                yield return Until(() => COTLMP.Game.Dialogs.OpenWheel != null, 20f);
+                yield return new WaitForSecondsRealtime(1f);
+                ClickOwn(0);
+                Plugin.Logger?.LogWarning($"{Tag} Round 2: clicked answer 0, wheel still open: {COTLMP.Game.Dialogs.OpenWheel != null}");
+                yield return new WaitForSecondsRealtime(1f);
+                Shot("choice-client-waits");
+            }
+            else
+            {
+                yield return Until(() => COTLMP.Game.Dialogs.RemoteChoiceCount > 0 && COTLMP.Game.Dialogs.PartnerVoteNow >= 0, 40f);
+                Plugin.Logger?.LogWarning($"{Tag} Round 2: the partner's answers are up, they voted {COTLMP.Game.Dialogs.PartnerVoteNow}");
+                yield return new WaitForSecondsRealtime(1f);
+                Shot("choice-host-decides");
+                COTLMP.Game.Dialogs.PickRemote(1);
+            }
+        }
+
+        private static void Ask(string Who)
+        {
+            GameObject Me = PlayerFarming.Instance.gameObject;
+            var Entries = new System.Collections.Generic.List<MMTools.ConversationEntry>
+            {
+                new(Me, "Co-op choice test: which one?", "talk", "", null, "Lamb")
+            };
+            var Responses = new System.Collections.Generic.List<MMTools.Response>
+            {
+                new("A", () => Plugin.Logger?.LogWarning($"{Tag} Answer callback A ({Who} asked)"), "Multiplayer/UI/StartServer"),
+                new("B", () => Plugin.Logger?.LogWarning($"{Tag} Answer callback B ({Who} asked)"), "Multiplayer/UI/LeaveServer")
+            };
+            Plugin.Logger?.LogWarning($"{Tag} Asking a question with two answers");
+            MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, Responses, null));
+        }
+
+        /// <summary>
+        /// Clicks one of our own answers the way the mouse does
+        /// </summary>
+        private static void ClickOwn(int Answer)
+        {
+            var Wheel = COTLMP.Game.Dialogs.OpenWheel;
+            var Options = Wheel != null ? HarmonyLib.Traverse.Create(Wheel).Field("_options").GetValue<MMTools.DialogueWheel.DialogueOption[]>() : null;
+            if (Options == null || Answer < 0 || Answer >= Options.Length)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} No answer {Answer} to click");
+                return;
+            }
+            Options[Answer].Button.onClick.Invoke();
+        }
+
+        private static void Shot(string Name)
+        {
+            if (string.IsNullOrEmpty(ShotsDir))
+                return;
+            string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{Name}.png");
+            ScreenCapture.CaptureScreenshot(File);
+            Plugin.Logger?.LogWarning($"{Tag} Saved {File}");
+        }
+
+        private static IEnumerator Until(Func<bool> Condition, float Seconds)
+        {
+            float Start = Time.realtimeSinceStartup;
+            while (!Condition() && Time.realtimeSinceStartup - Start < Seconds)
+                yield return null;
+        }
+
+        /// <summary>
+        /// Gears up in a shared run, then dies the way a crash does: no goodbye, nothing saved.
+        /// </summary>
+        private static IEnumerator CrashLater()
+        {
+            while (COTLMP.Game.RunRecovery.Status != "kept" || PlayerFarming.Instance == null)
+                yield return null;
+
+            PlayerFarming Player = PlayerFarming.Instance;
+            Player.playerWeapon.SetWeapon(EquipmentType.Sword, 2);
+            Player.playerSpells.SetSpell(EquipmentType.Fireball, 1);
+            TrinketManager.AddTrinket(new TarotCards.TarotCard(TarotCards.Card.MovementSpeed, 0), Player);
+            Plugin.Logger?.LogWarning($"{Tag} Geared up: {Player.currentWeapon} {Player.currentWeaponLevel}, {Player.currentCurse}, {Player.RunTrinkets.Count} cards");
+
+            yield return new WaitForSecondsRealtime(CrashAfter);
+            Plugin.Logger?.LogWarning($"{Tag} Crashing on purpose in {COTLMP.Game.CoopSync.CurrentPlace()} {Gear()}");
+            System.Diagnostics.Process.GetCurrentProcess().Kill();
+        }
+
+        private static string Gear()
+        {
+            PlayerFarming Player = PlayerFarming.Instance;
+            if (Player == null)
+                return "gear=-";
+            return $"gear={Player.currentWeapon}:{Player.currentWeaponLevel}/{Player.currentCurse}/{Player.RunTrinkets.Count}cards/{Player.health?.HP}hp";
+        }
+
+        /// <summary>
         /// Floods the partner with data they don't use: one big packet and a burst of small ones.
         /// </summary>
         private static IEnumerator Flood()
@@ -275,6 +416,7 @@ namespace COTLMP.Debug
                 Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
                 Line.Append($" dialog={COTLMP.Game.Dialogs.LinesSent}/{COTLMP.Game.Dialogs.LinesShown} camtargets={GameManager.GetInstance()?.CamFollowTarget?.targets.Count}:{(GameManager.GetInstance()?.CamFollowTarget?.targets.Count > 0 ? GameManager.GetInstance().CamFollowTarget.targets[0].gameObject?.name : "-")}");
                 Line.Append($" hazards={COTLMP.Game.HazardSync.Sent}/{COTLMP.Game.HazardSync.Shown}/{COTLMP.Game.HazardSync.Missing} moved={COTLMP.Game.HazardSync.Moved} pools={COTLMP.Game.HostPools.Received}/{COTLMP.Game.HostPools.Scopes}");
+                Line.Append($" recovery={COTLMP.Game.RunRecovery.Status} {Gear()}");
                 Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
@@ -686,7 +828,12 @@ namespace COTLMP.Debug
                     var Current = MMTools.MMConversation.CURRENT_CONVERSATION;
                     bool Last = Current?.Entries != null && MMTools.MMConversation.Position >= Current.Entries.Count - 1;
                     if (Last && Current.Responses != null && Current.Responses.Count > 0)
+                    {
+                        /* The voting test answers on its own */
+                        if (AutoChoice > 0)
+                            continue;
                         Answer.Invoke(Conversation, new object[] { 0 });
+                    }
                     else
                         Next.Invoke(Conversation, new object[] { true });
                     Plugin.Logger?.LogWarning($"{Tag} Advanced a conversation to line {MMTools.MMConversation.Position}");

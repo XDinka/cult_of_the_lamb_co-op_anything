@@ -330,6 +330,8 @@ namespace COTLMP.Ui
 
             COTLMP.Ui.SayChat.Shutdown();
             COTLMP.Network.SteamBridge.Shutdown();
+            /* Leaving on purpose (or the host leaving): no going back to this run after a restart */
+            COTLMP.Game.RunRecovery.Forget();
             COTLMP.Game.PlayerManager.DeleteAllPlayers();
             MonoSingleton<UIManager>.Instance.ForceDisableSaving = false;
 

@@ -32,6 +32,11 @@ namespace COTLMPServer
     public sealed class Server : IDisposable
     {
         public readonly int Port;
+
+        /// <summary>
+        /// How many players are connected, the host's own game included
+        /// </summary>
+        public int PlayerCount => players.Count;
         public readonly string serverName;
         public readonly GameMode gameMode;
         public event EventHandler<ServerStoppedArgs> ServerStopped;
@@ -180,7 +185,10 @@ namespace COTLMPServer
         /// <param name="endPoint">
         /// The endpoint of the player
         /// </param>
-        private async Task DisconnectPlayer(IPEndPoint endPoint, string message = null)
+        /// <param name="tell">
+        /// Whether to send the endpoint the disconnect message (not to a player coming back on it)
+        /// </param>
+        private async Task DisconnectPlayer(IPEndPoint endPoint, string message = null, bool tell = true)
         {
             Message msg = new Message(MessageType.Disconnect, 1, message == null ? null : Encoding.UTF8.GetBytes(message));
             if (players.TryRemove(endPoint, out var removed))
@@ -193,7 +201,10 @@ namespace COTLMPServer
                     ids[removed.ID] = false;
                 }
             }
-            await Send(endPoint, msg.Serialize());
+            if (tell)
+                await Send(endPoint, msg.Serialize());
+            if (removed == null)
+                return;
             await SendToBiome(removed.Biome, MessageType.PlayerLeft, BitConverter.GetBytes(BitConverter.IsLittleEndian ? removed.ID : Utils.ReverseEndianness(removed.ID)), null);
         }
 
@@ -298,8 +309,21 @@ namespace COTLMPServer
                         {
                             case MessageType.Handshake:
                             {
-                                if (message.Sequence != 1 || plr != null)
+                                if (message.Sequence != 1)
                                     throw new InvalidDataException();
+
+                                /*
+                                 * The same address greeting us again: that player's game restarted (a crash
+                                 * says no goodbye) and the Steam bridge gives a returning SteamID the same
+                                 * socket. Let the old one go at once instead of after the 30 s timeout,
+                                 * which would hold its slot and turn the new handshake away.
+                                 */
+                                if (plr != null)
+                                {
+                                    logger?.LogInfo($"{plr.Username} ({result.RemoteEndPoint}) is back, dropping the old connection");
+                                    await DisconnectPlayer(result.RemoteEndPoint, "Reconnected", tell: false);
+                                    plr = null;
+                                }
 
                                 var data = HandshakeClient.Deserialize(message.Data);
 
@@ -485,11 +509,12 @@ namespace COTLMPServer
                     }
                     catch (Exception e) when (e is InvalidDataException || e is ArgumentNullException)
                     {
-                        try
-                        {
-                            await DisconnectPlayer(result.RemoteEndPoint, "Client sent invalid data");
-                        }
-                        catch { }
+                        /*
+                         * A packet we can't read is skipped, not a reason to drop the player: one bad
+                         * packet must not end a session. Strangers that never joined are ignored anyway.
+                         */
+                        if (++handlerErrors <= 20)
+                            logger?.LogWarning($"Skipped invalid data from {result.RemoteEndPoint}: {e.Message}");
                     }
                     catch (SocketException e)
                     {

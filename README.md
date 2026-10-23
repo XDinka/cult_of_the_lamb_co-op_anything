@@ -35,11 +35,14 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Game over only when both are down | works in the automated test |
 | Rooms one player cleared are cleared for the other (no second fight), wounds and kills carry over | works in the automated test |
 | The partner's conversations show at the bottom of your screen, camera on them, you keep control | works in the automated test |
+| Dialog choices are voted on: the partner's answers show for you too, each player's mark (1 or 2) next to the answer they picked, the host decides (the joining player answers alone if the host isn't in the room or doesn't pick within 30 s) | works in the automated test (both directions) |
 | Enemy attacks of the room owner (shots incl. homing, beams, bombs, warning circles, other pooled attacks) show for the other player and move exactly as the owner's | works in the automated test (forced shots) |
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
 | Followers, base, rituals | not synced, each player has their own |
 | Leaving / host stopping keeps you in your own game | works |
+| Leaving and joining again mid-run: same run, same rooms and rolls | works in the automated test |
+| Back into the run after a crash: the game loads your save, joins the host, enters the same run, puts back weapon, curse, relic, tarot cards and health, and teleports you to the host's room | works in the automated test (first floor; later floors untested) |
 | Bad connection icon: ping 120+ ms yellow bars, 200+ ms red; packet loss 5 %+ (15 %+ red); unplugged cable when the partner stops answering | works in the automated test (simulated bad connection) |
 | Holds up on a bad connection: 5 % loss, 80±40 ms delay, 4 s drop-outs every 25 s, floods of large and many small messages | works in the automated test (200 s dungeon run, no disconnects, 0 errors) |
 
@@ -114,6 +117,18 @@ paths from environment variables (see the top of each).
 - **Connection icon.** Pings go to the partner twice a second the way the co-op data goes; the round
   trip is the ping, the ones that don't come back are the loss. The icon only shows while the
   connection has been bad for 2 s, or at once when the partner stops answering. See `ConnectionQuality.cs`.
+- **Choices.** When the answer wheel comes up, its answers go to the partner, who sees them above
+  the line and votes with the mouse or the 1-4 keys. Votes show as the player's number next to the
+  answer. In the joining player's conversation a click is a vote until the host picks, and the host's
+  pick is clicked for them. See `Dialogs.cs`.
+- **Rejoining.** A player who (re)joins says hello; the host answers with its run (even after the
+  run is too old to be adopted by a newcomer), every room cleared in it and what is known of its
+  enemies' health. A handshake from an address already in the game replaces the old connection at
+  once, so a restarted game doesn't wait for the 30 s timeout.
+- **Crash recovery.** While the joining player is in a shared run, `BepInEx/config/cotlmp-rejoin.json`
+  keeps the host, lobby, save slot, run, floor, room and equipment (rewritten every 2 s). On the next
+  start it is read and deleted at once, then used as above. Leaving the session, quitting the game
+  or finishing the run deletes it, so only a crash brings you back. See `RunRecovery.cs`.
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 
@@ -125,7 +140,11 @@ copies of the game on one PC host, join, walk, enter a dungeon and fight unatten
 `-cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE` makes the loopback link behave like a bad
 connection (reliable packets delayed for resends and drop-outs, unreliable ones lost),
 `-cotlmp-netflood` floods the partner with large and small messages, and `-cotlmp-netshots` with
-`-cotlmp-shots=DIR` saves a frame of each connection icon.
+`-cotlmp-shots=DIR` saves a frame of each connection icon. `-cotlmp-autochoice=N` runs the voting test,
+`-cotlmp-crashafter=N` kills the joining copy mid-run (with `CLIENT_RESTART="-cotlmp-autoenter"`
+`run-pair.sh` starts it again), and `-cotlmp-endafter=N -cotlmp-rejoin=1` leaves and joins again.
+`dotnet run --project tests/ServerChecks` checks the server alone: large relays, junk packets and a
+player coming back on the same address.
 
 ## License
 
@@ -146,3 +165,6 @@ friends», затем пригласить друга. В подземелье �
 Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
 (друг не отвечает).
+Выбор в диалогах решается голосованием: варианты видят оба, метка игрока (1 или 2) стоит у его
+варианта, окончательно решает хост. Если игра у друга вылетела посреди забега, после перезапуска
+она сама загрузит сохранение, подключится к хосту и вернёт его в тот же забег с тем же снаряжением.

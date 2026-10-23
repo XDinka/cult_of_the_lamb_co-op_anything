@@ -75,7 +75,13 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/JoinFailed", "Couldn't reach your friend", false),
             new("Multiplayer/Steam/HostLeft", "Your friend stopped hosting", false),
             new("Multiplayer/Steam/Left", "You left your friend's game", false),
-            new("Multiplayer/Steam/Stopped", "Stopped hosting", false)
+            new("Multiplayer/Steam/Stopped", "Stopped hosting", false),
+
+            /* Back into the run after a crash */
+            new("Multiplayer/Recovery/Returning", "Going back to your friend's run", false),
+            new("Multiplayer/Recovery/Restored", "Back in the run", false),
+            new("Multiplayer/Recovery/RunOver", "Your friend's run is over", false),
+            new("Multiplayer/Recovery/Failed", "Couldn't go back to your friend's run", false)
         ];
     }
 }

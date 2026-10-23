@@ -64,6 +64,23 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// Sends every room cleared in a run again, for a player who (re)joined.
+        /// </summary>
+        public static void SendAll(int Run)
+        {
+            if (!ClearedByRun.TryGetValue(Run, out var Rooms))
+                return;
+            foreach (string Place in Rooms)
+            {
+                CoopSync.Send(CoopSync.Kind.RoomCleared, Writer =>
+                {
+                    Writer.Write(Run);
+                    Writer.Write(Place);
+                });
+            }
+        }
+
+        /// <summary>
         /// The partner completed a room.
         /// </summary>
         public static void OnRelay(BinaryReader Reader)

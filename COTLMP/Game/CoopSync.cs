@@ -66,7 +66,9 @@ namespace COTLMP.Game
             HazardGone = 14,
             /* ConnectionQuality */
             NetPing = 15,
-            NetPong = 16
+            NetPong = 16,
+            /* A player (re)joined: the others send what they know of the shared run */
+            Hello = 17
         }
 
         /// <summary>
@@ -246,6 +248,10 @@ namespace COTLMP.Game
                     CoopLife.OnRelay((Kind)Data[0], Reader);
                     break;
 
+                case Kind.Hello:
+                    OnHello(From);
+                    break;
+
                 case Kind.NetPing:
                 case Kind.NetPong:
                     ConnectionQuality.OnRelay((Kind)Data[0], Reader);
@@ -283,6 +289,44 @@ namespace COTLMP.Game
         }
 
         /* RUNS ***************************************************************/
+
+        /// <summary>
+        /// The partner's current run, as they last announced it (0 before any)
+        /// </summary>
+        internal static int PartnerRun => PartnerRunId;
+        internal static int PartnerLocation => PartnerRunLocation;
+
+        /// <summary>
+        /// Tells the others we just joined, so they send what we missed (or forgot in a crash).
+        /// </summary>
+        internal static void SayHello()
+        {
+            Send(Kind.Hello, Writer => Writer.Write((byte)1));
+        }
+
+        /// <summary>
+        /// A player joined or came back: our run (even past the adoption window, they may be
+        /// returning to it), the rooms cleared in it and what is known of its enemies' health.
+        /// </summary>
+        private static void OnHello(uint From)
+        {
+            Plugin.Logger?.LogInfo($"[COOP] Player {From} joined, sending them run {RunId}");
+            if (RunId == 0)
+                return;
+
+            AnnounceRun();
+            ClearedRooms.SendAll(RunId);
+
+            /* Ours and theirs, the lower fraction wins as when it arrives */
+            Dictionary<string, float> Known = new(ForRun(RunId));
+            foreach (var Pair in SentFraction)
+            {
+                if (!Known.TryGetValue(Pair.Key, out float Value) || Pair.Value < Value)
+                    Known[Pair.Key] = Pair.Value;
+            }
+            foreach (var Pair in Known)
+                Outgoing[Pair.Key] = Pair.Value;
+        }
 
         /// <summary>
         /// A run starts: join the partner's run if they just started one in the same place,

@@ -7,6 +7,7 @@
 
 /* IMPORTS ********************************************************************/
 
+using MMTools;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -29,6 +30,9 @@ namespace COTLMP.Game
     /// <item>5 % of packets or more lost: three packets with one missing and the percentage, 15 % or more: red;</item>
     /// <item>no answer for 3 s: an unplugged cable.</item>
     /// </list>
+    /// A loading screen stops a game for seconds, which would look like a dead connection. So a
+    /// player about to load tells the other one, the answers a frozen game gives late say so, and
+    /// such pings count neither as lost nor towards the ping.
     /// </remarks>
     internal static class ConnectionQuality
     {
@@ -48,7 +52,23 @@ namespace COTLMP.Game
             public uint Number;
             public float At;
             public bool Answered;
+            /* Held up by a loading screen on either side: not the connection's fault */
+            public bool Excused;
         }
+
+        /// <summary>
+        /// A frame this long is a loading screen or a hitch, not the network
+        /// </summary>
+        private const float StallFrame = 0.25f;
+        private const float StallGrace = 3f;
+        private const float BusyFor = 20f;
+
+        /* When our game last stood still, and until when the partner said they are loading */
+        private static float LastStall = -100f;
+        private static float PartnerBusyUntil = -1f;
+
+        private static bool WeStalledRecently => Time.realtimeSinceStartup - LastStall < StallGrace;
+        private static bool PartnerBusy => Time.realtimeSinceStartup < PartnerBusyUntil;
 
         private static readonly List<Sent> Pings = new();
         private static readonly float[] Samples = new float[5];
@@ -79,6 +99,24 @@ namespace COTLMP.Game
             GameObject Icon = new("COTLMP Connection Icon");
             Object.DontDestroyOnLoad(Icon);
             Icon.AddComponent<ConnectionIcon>();
+            MMTransition.OnBeginTransition += SayBusy;
+        }
+
+        /// <summary>
+        /// We are about to load: the partner shouldn't take our silence for a broken connection.
+        /// Sent twice, since pings go unreliable.
+        /// </summary>
+        private static void SayBusy()
+        {
+            if (!CoopSync.InSession)
+                return;
+            LastStall = Time.realtimeSinceStartup;
+            for (int Copy = 0; Copy < 2; Copy++)
+                CoopSync.Send(CoopSync.Kind.NetPing, Writer =>
+                {
+                    Writer.Write(0u);
+                    Writer.Write(0u);
+                });
         }
 
         private static IEnumerator Loop()
@@ -88,7 +126,8 @@ namespace COTLMP.Game
             {
                 yield return Wait;
 
-                if (!CoopSync.InSession)
+                /* Nothing to measure while hosting alone (nobody joined yet, or the partner left) */
+                if (!CoopSync.InSession || !PartnerConnected)
                 {
                     Reset();
                     continue;
@@ -106,6 +145,16 @@ namespace COTLMP.Game
                 Update(Now);
             }
         }
+
+        /// <summary>
+        /// Someone else is in the session. On the host the server knows; a joined player has the host.
+        /// </summary>
+        /// <remarks>
+        /// A partner whose game crashed stays connected until the server's timeout, so their silence
+        /// shows as a broken connection until then, which is what it is.
+        /// </remarks>
+        private static bool PartnerConnected =>
+            !Plugin.GlobalsInternal.IsServerCreator || (COTLMP.Ui.PauseMenuPatches.Server?.PlayerCount ?? 0) >= 2;
 
         private static void Reset()
         {
@@ -125,16 +174,17 @@ namespace COTLMP.Game
             int Due = 0, Lost = 0;
             foreach (Sent Ping in Pings)
             {
-                if (Now - Ping.At < LostAfter)
+                if (Now - Ping.At < LostAfter || Ping.Excused || Mathf.Abs(Ping.At - LastStall) < LostAfter + 1f)
                     continue;
                 ++Due;
                 if (!Ping.Answered)
                     ++Lost;
             }
-            Loss = Due > 0 ? (float)Lost / Due : 0f;
+            /* Before the first answer there is no partner to lose packets to */
+            Loss = Due > 0 && LastAnswer >= 0f ? (float)Lost / Due : 0f;
 
             /* A partner that never answered (an older mod, or nobody there yet) isn't a broken connection */
-            Broken = LastAnswer >= 0f && Now - LastAnswer > BrokenAfter;
+            Broken = LastAnswer >= 0f && Now - LastAnswer > BrokenAfter && !PartnerBusy && !WeStalledRecently;
         }
 
         /// <summary>
@@ -147,13 +197,26 @@ namespace COTLMP.Game
 
             if (Type == CoopSync.Kind.NetPing)
             {
+                /* No sender: the partner is about to load */
+                if (From == 0)
+                {
+                    PartnerBusyUntil = Time.realtimeSinceStartup + BusyFor;
+                    return;
+                }
+
+                /* Say if our game stood still, so the late answer isn't blamed on the connection */
+                bool Stalled = WeStalledRecently;
                 CoopSync.Send(CoopSync.Kind.NetPong, Writer =>
                 {
                     Writer.Write(From);
                     Writer.Write(Number);
+                    Writer.Write(Stalled);
                 });
                 return;
             }
+
+            /* Older mods send no flag */
+            bool TheyStalled = Reader.BaseStream.Position < Reader.BaseStream.Length && Reader.ReadBoolean();
 
             /* Someone else's ping coming back */
             if (From != Nonce)
@@ -164,9 +227,16 @@ namespace COTLMP.Game
             if (Ping == null || Ping.Answered)
                 return;
 
-            Ping.Answered = Now - Ping.At < LostAfter;
             LastAnswer = Now;
             Broken = false;
+            PartnerBusyUntil = -1f;
+
+            if (TheyStalled || WeStalledRecently)
+            {
+                Ping.Excused = true;
+                return;
+            }
+            Ping.Answered = Now - Ping.At < LostAfter;
 
             Samples[NextSample] = (Now - Ping.At) * 1000f;
             NextSample = (NextSample + 1) % Samples.Length;
@@ -201,14 +271,17 @@ namespace COTLMP.Game
 
             private void Update()
             {
+                if (Time.unscaledDeltaTime > StallFrame || MMTransition.IsPlaying)
+                    LastStall = Time.realtimeSinceStartup;
+
                 /* Notice a drop-out between pings too */
-                if (CoopSync.InSession && LastAnswer >= 0f && Time.realtimeSinceStartup - LastAnswer > BrokenAfter)
+                if (CoopSync.InSession && PartnerConnected && LastAnswer >= 0f && Time.realtimeSinceStartup - LastAnswer > BrokenAfter && !PartnerBusy && !WeStalledRecently)
                     Broken = true;
             }
 
             private void OnGUI()
             {
-                if (!CoopSync.InSession || Event.current.type != EventType.Repaint)
+                if (!CoopSync.InSession || !PartnerConnected || Event.current.type != EventType.Repaint)
                     return;
 
                 bool HighPing = !Broken && PingMs >= YellowPing;
