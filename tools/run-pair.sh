@@ -54,12 +54,14 @@ for G in "$G1" "$G2"; do
     rm -f "$G/BepInEx/LogOutput.log" "$G/BepInEx/config/cotlmp-rejoin.json"
 done
 
-WIN="-screen-fullscreen 0 -screen-width 960 -screen-height 540"
+# Small windows side by side (WIN_W x WIN_H, the client WIN_X to the right of the host)
+WIN_W=${WIN_W:-800}; WIN_H=${WIN_H:-450}; WIN_X=${WIN_X:-860}
+WIN="-screen-fullscreen 0 -screen-width $WIN_W -screen-height $WIN_H"
 LOGS=$(winpath "$OUT")
-launch "$G1" "$WIN -logFile $LOGS\\host-player.log -cotlmp-fakesteam=1 -cotlmp-autohost -cotlmp-report -cotlmp-quitafter=600 ${HOST_EXTRA:-}"
+launch "$G1" "$WIN -logFile $LOGS\\host-player.log -cotlmp-window=0,0,$WIN_W,$WIN_H -cotlmp-fakesteam=1 -cotlmp-autohost -cotlmp-report -cotlmp-quitafter=600 ${HOST_EXTRA:-}"
 if ! wait_for "$G1/BepInEx/LogOutput.log" "StartHosting returned True" 150; then echo "HOST DID NOT START"; fi
 
-launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-fakesteam=2 -cotlmp-join=1 -cotlmp-autoenter -cotlmp-report -cotlmp-quitafter=600 $EXTRA"
+launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 -cotlmp-join=1 -cotlmp-autoenter -cotlmp-report -cotlmp-quitafter=600 $EXTRA"
 if ! wait_for "$G2/BepInEx/LogOutput.log" "Joined host" 150; then echo "CLIENT DID NOT CONNECT"; fi
 wait_for "$G2/BepInEx/LogOutput.log" "QA client\].* scene=Base Biome 1 .*local=" 90
 
@@ -75,7 +77,7 @@ for _ in $(seq 1 $HOLD); do
         RESTARTED=1
         echo "client copy is gone, starting it again"
         cp "$G2/BepInEx/LogOutput.log" "$OUT/client-crashed-bepinex.log"
-        launch "$G2" "$WIN -logFile $LOGS\\client2-player.log -cotlmp-fakesteam=2 -cotlmp-report -cotlmp-quitafter=600 $CLIENT_RESTART"
+        launch "$G2" "$WIN -logFile $LOGS\\client2-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 -cotlmp-report -cotlmp-quitafter=600 $CLIENT_RESTART"
     fi
 done
 

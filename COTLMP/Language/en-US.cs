@@ -77,6 +77,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/Left", "You left your friend's game", false),
             new("Multiplayer/Steam/Stopped", "Stopped hosting", false),
 
+            /* The map between floors */
+            new("Multiplayer/Map/WaitingForHost", "Waiting for the host to choose the way", false),
+
             /* Back into the run after a crash */
             new("Multiplayer/Recovery/Returning", "Going back to your friend's run", false),
             new("Multiplayer/Recovery/Restored", "Back in the run", false),

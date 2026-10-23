@@ -36,6 +36,10 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-autodungeon=N</c>: N seconds after the session starts, start a run and enter the first dungeon</item>
     /// <item><c>-cotlmp-autokill</c>: in a dungeon, hit the nearest enemy every second (shared enemy health test)</item>
     /// <item><c>-cotlmp-autodie=N</c>: N seconds after entering a dungeon, die once (knockout test); the other copy walks over to revive</item>
+    /// <item><c>-cotlmp-window=X,Y,W,H</c>: keep the game in a W x H window at X,Y (the game's own settings would make it full screen again on load)</item>
+    /// <item><c>-cotlmp-tarottest</c>: in the first dungeon room both have, a tarot reader deals two cards to the host, then to the joining copy (shared tarot test)</item>
+    /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
+    /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host picks the last way out, the joining copy clicks the first (it only waits) and is taken where the host went (map sync test)</item>
     /// <item><c>-cotlmp-solo</c>: the host fights and moves on without waiting for the partner (cleared-room test); the joining copy walks the host's trail</item>
     /// <item><c>-cotlmp-autotalk=N</c>: N seconds after both stand in one dungeon room, hold a short conversation (dialog sync test)</item>
     /// <item><c>-cotlmp-autoshoot</c>: while running a shared room, fire an enemy projectile at the partner every 3 s (projectile sync test)</item>
@@ -56,6 +60,10 @@ namespace COTLMP.Debug
         private static string ShotsDir;
         private static float AutoDie;
         private static bool Solo;
+        private static bool NextFloor;
+        private static bool TarotTest;
+        private static bool AutoCut;
+        private static int[] WindowRect;
         private static float AutoTalk;
         private static bool AutoShoot;
         private static bool DrawTest;
@@ -97,6 +105,18 @@ namespace COTLMP.Debug
                     AutoShoot = true;
                 else if (Arg.Equals("-cotlmp-solo", StringComparison.OrdinalIgnoreCase))
                     Solo = true;
+                else if (Arg.Equals("-cotlmp-nextfloor", StringComparison.OrdinalIgnoreCase))
+                    NextFloor = true;
+                else if (Arg.Equals("-cotlmp-tarottest", StringComparison.OrdinalIgnoreCase))
+                    TarotTest = true;
+                else if (Arg.Equals("-cotlmp-autocut", StringComparison.OrdinalIgnoreCase))
+                    AutoCut = true;
+                else if (Arg.StartsWith("-cotlmp-window=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] Parts = Arg.Substring("-cotlmp-window=".Length).Split(',');
+                    if (Parts.Length == 4)
+                        WindowRect = Array.ConvertAll(Parts, Part => int.TryParse(Part, out int Value) ? Value : 0);
+                }
                 else if (Arg.StartsWith("-cotlmp-autodie=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autodie=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDie);
                 else if (Arg.StartsWith("-cotlmp-shots=", StringComparison.OrdinalIgnoreCase))
@@ -122,6 +142,14 @@ namespace COTLMP.Debug
             Application.runInBackground = true;
             Plugin.Logger?.LogWarning($"[QA] Test switches on: autohost={AutoHost} autoenter={AutoEnter} autowalk={AutoWalk} report={Report} quitafter={QuitAfter}");
 
+            if (WindowRect != null)
+                Plugin.MonoInstance.StartCoroutine(KeepWindow());
+            if (NextFloor && AutoEnter)
+                Plugin.MonoInstance.StartCoroutine(ClickMaps());
+            if (TarotTest)
+                Plugin.MonoInstance.StartCoroutine(DrawTarot());
+            if (AutoCut)
+                Plugin.MonoInstance.StartCoroutine(CutThings());
             if (AutoHost || AutoEnter)
                 Plugin.MonoInstance.StartCoroutine(EnterCult(AutoHost));
             if (AutoHost || AutoEnter)
@@ -455,7 +483,7 @@ namespace COTLMP.Debug
                 yield return Wait;
 
                 Line.Clear();
-                Line.Append($"{Tag} place={COTLMP.Game.CoopSync.CurrentPlace()} seed={COTLMP.Game.CoopSync.LastSeed} enemies={Health.team2.Count} seen={COTLMP.Game.CoopSync.EnemiesSeen} hpsent={COTLMP.Game.CoopSync.HitsSent} hpapplied={COTLMP.Game.CoopSync.HitsApplied} killsapplied={COTLMP.Game.CoopSync.KillsApplied}");
+                Line.Append($"{Tag} place={COTLMP.Game.CoopSync.CurrentPlace()} seed={COTLMP.Game.CoopSync.LastSeed}/{MMBiomeGeneration.BiomeGenerator.Instance?.Seed} enemies={Health.team2.Count} seen={COTLMP.Game.CoopSync.EnemiesSeen} hpsent={COTLMP.Game.CoopSync.HitsSent} hpapplied={COTLMP.Game.CoopSync.HitsApplied} killsapplied={COTLMP.Game.CoopSync.KillsApplied}");
                 Line.Append($" own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} snapsent={COTLMP.Game.RoomSync.SnapshotsSent} snapapplied={COTLMP.Game.RoomSync.SnapshotsApplied} puppethits={COTLMP.Game.RoomSync.PuppetHitsSent} hitstaken={COTLMP.Game.RoomSync.HitsTaken} removed={COTLMP.Game.RoomSync.EnemiesRemoved} followed={COTLMP.Game.RoomSync.FollowedCount} visible={CountVisibleEnemies()} pickups={COTLMP.Game.SharedPickups.Sent}/{COTLMP.Game.SharedPickups.Received}/{COTLMP.Game.SharedPickups.Removed}");
                 Line.Append($" knockouts={COTLMP.Game.CoopLife.KnockOuts} revives={COTLMP.Game.CoopLife.Revives} down={COTLMP.Game.CoopLife.WeAreDown} partnerdown={COTLMP.Game.CoopLife.PartnerDown}");
                 Line.Append($" cleared={COTLMP.Game.ClearedRooms.Sent}/{COTLMP.Game.ClearedRooms.Applied}/{COTLMP.Game.ClearedRooms.EnemiesHidden}");
@@ -464,6 +492,9 @@ namespace COTLMP.Debug
                 Line.Append($" recovery={COTLMP.Game.RunRecovery.Status} {Gear()}");
                 Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
                 Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
+                Line.Append($" props={PropSync.Sent}/{PropSync.Received}/{PropSync.Applied}/{PropSync.Missing}/{PropSync.AppliedOnEntry} propmatch={PropSync.ByNumber}/{PropSync.BySpawn}/{PropSync.ByNearest}");
+                Line.Append($" tarot={SharedTarot.Sent}/{SharedTarot.Received}/{SharedTarot.Applied} time={TimeManager.CurrentGameTime:F0}:{TimeManager.CurrentPhase} gap={TimeSync.Gap:F1} timesync={TimeSync.Sent}/{TimeSync.Received}/{TimeSync.Skips}");
+                Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.ClicksHeld} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
                 Line.Append($" myskin={COTLMP.Game.Appearance.LocalSkin()} goat={(PlayerFarming.Instance != null && PlayerFarming.Instance.IsGoat)} puppetskin={COTLMP.Game.PlayerManager.GetSkin(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)}");
                 Line.Append($" scene={SceneManager.GetActiveScene().name} session={Plugin.GlobalsInternal.InGameSession} online={COTLMP.Network.Network.IsConnected} relay={COTLMP.Network.SteamBridge.Active} ts={Time.timeScale:F2} netlocal={COTLMP.Network.Network.HasLocalPlayer} sent={COTLMP.Network.Network.SentPositions} recv={COTLMP.Network.Network.ReceivedPositions}");
                 if (PlayerFarming.Instance != null)
@@ -547,9 +578,16 @@ namespace COTLMP.Debug
                     if (Solo && Partner != Mine)
                         yield return new WaitForSecondsRealtime(6f);
 
-                    if (Partner == null || Mine == null || Partner == Mine || !Partner.Contains("@") || !Mine.Contains("@") ||
-                        Partner.Substring(0, Partner.IndexOf('@')) != Mine.Substring(0, Mine.IndexOf('@')))
+                    if (Partner == null || Mine == null || Partner == Mine || !Partner.Contains("@") || !Mine.Contains("@"))
                         continue;
+
+                    /* The host went on to the next floor: after them */
+                    if (Partner.Substring(0, Partner.IndexOf('@')) != Mine.Substring(0, Mine.IndexOf('@')))
+                    {
+                        if (NextFloor)
+                            yield return GoToNextFloor(Room, false);
+                        continue;
+                    }
                     string[] P = Partner.Substring(Partner.IndexOf('@') + 1).Split(',');
                     Vector2Int? Step = NextStep(Room, new Vector2Int(int.Parse(P[0]), int.Parse(P[1])));
                     if (!Step.HasValue)
@@ -581,6 +619,11 @@ namespace COTLMP.Debug
                 else if (Room.E_Room != null && Room.E_Room.Connected && Room.E_Room.Room != null && !Room.E_Room.Room.Visited) Way = new Vector2Int(1, 0);
                 else if (Room.S_Room != null && Room.S_Room.Connected && Room.S_Room.Room != null && !Room.S_Room.Room.Visited) Way = new Vector2Int(0, -1);
                 else if (Room.W_Room != null && Room.W_Room.Connected && Room.W_Room.Room != null && !Room.W_Room.Room.Visited) Way = new Vector2Int(-1, 0);
+                if (!Way.HasValue && NextFloor)
+                {
+                    yield return GoToNextFloor(Room, true);
+                    continue;
+                }
                 if (!Way.HasValue)
                 {
                     Plugin.Logger?.LogWarning($"{Tag} No unvisited room next to {Room.x},{Room.y}");
@@ -825,6 +868,203 @@ namespace COTLMP.Debug
                 if (Time.frameCount % 60 == 0)
                     Plugin.Logger?.LogWarning($"{Tag} Reviving the partner, bar {COTLMP.Game.CoopLife.ReviveProgress:F2}");
             }
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr Window, IntPtr After, int X, int Y, int Width, int Height, uint Flags);
+
+        /// <summary>
+        /// Puts the game back in its small window whenever its settings made it bigger, and where it belongs on the desktop
+        /// </summary>
+        private static IEnumerator KeepWindow()
+        {
+            const uint NoSize = 0x1, NoZOrder = 0x4, NoActivate = 0x10;
+            var Wait = new WaitForSecondsRealtime(2f);
+            bool Placed = false;
+
+            while (true)
+            {
+                if (Screen.fullScreenMode != FullScreenMode.Windowed || Screen.width != WindowRect[2] || Screen.height != WindowRect[3])
+                {
+                    Screen.SetResolution(WindowRect[2], WindowRect[3], FullScreenMode.Windowed);
+                    Placed = false;
+                    yield return null;
+                }
+                if (!Placed)
+                {
+                    IntPtr Window = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                    if (Window != IntPtr.Zero)
+                        Placed = SetWindowPos(Window, IntPtr.Zero, WindowRect[0], WindowRect[1], 0, 0, NoSize | NoZOrder | NoActivate);
+                }
+                yield return Wait;
+            }
+        }
+
+        /// <summary>
+        /// The joining copy clicks the first way on whenever a map comes up (the host's puppet at
+        /// the door brings it up too), before the host's pick is taken for it
+        /// </summary>
+        private static IEnumerator ClickMaps()
+        {
+            Lamb.UI.UIAdventureMapOverlayController Clicked = null;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(0.25f);
+                Lamb.UI.UIAdventureMapOverlayController Overlay = MapSync.Open;
+                if (Overlay == null || Overlay == Clicked)
+                    continue;
+                yield return new WaitForSecondsRealtime(0.5f);
+                Clicked = Overlay;
+                global::Map.Node Current = Overlay.Map?.GetCurrentNode();
+                if (MapSync.Open != Overlay || Current == null || Current.outgoing.Count == 0)
+                    continue;
+                global::Map.Point Choice = Current.outgoing[0];
+                Lamb.UI.AdventureMapNode Shown = Overlay.NodeFromPoint(Choice);
+                Plugin.Logger?.LogWarning($"{Tag} Clicking node {Choice.x},{Choice.y} ({Shown?.MapNode?.nodeType}) of {Current.outgoing.Count} ways on, map from the host {MapSync.FollowingHost}");
+                if (Shown != null)
+                    Overlay.OnNodeChosen(Shown);
+                yield return new WaitForSecondsRealtime(0.5f);
+                Shot($"map-client-{GameManager.CurrentDungeonFloor}-{Time.frameCount}");
+            }
+        }
+
+        /// <summary>
+        /// A reader in the room the two first share deals two cards, to the host first
+        /// </summary>
+        private static IEnumerator DrawTarot()
+        {
+            while (PlayerFarming.Instance == null || !CoopSync.InSession || CoopSync.CurrentRun == 0 || !AnyRemotePlayer() ||
+                   MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom == null || MMTransition.IsPlaying)
+                yield return new WaitForSecondsRealtime(1f);
+            yield return new WaitForSecondsRealtime(Plugin.GlobalsInternal.IsServerCreator ? 3f : 8f);
+
+            GameObject Holder = new("COTLMP Test Tarot Reader");
+            Holder.SetActive(false);
+            Holder.transform.position = new Vector3(1.5f, 2.5f, 0f);
+            Interaction_Tarot Reader = Holder.AddComponent<Interaction_Tarot>();
+            Reader.playerFarming = PlayerFarming.Instance;
+            var GetCard = typeof(Interaction_Tarot).GetMethod("GetCard", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var First = (TarotCards.TarotCard)GetCard.Invoke(Reader, new object[] { true });
+            var Second = (TarotCards.TarotCard)GetCard.Invoke(Reader, new object[] { First == null || Array.IndexOf(TarotCards.CorruptedCards, First.CardType) < 0 });
+            Plugin.Logger?.LogWarning($"{Tag} Tarot test at {CoopSync.CurrentPlace()}: {First?.CardType} {First?.UpgradeIndex}, {Second?.CardType} {Second?.UpgradeIndex}");
+            UnityEngine.Object.Destroy(Holder);
+        }
+
+        /// <summary>
+        /// Cuts the nearest neutral thing (grass mostly) as a hit would, while the partner is in the room
+        /// </summary>
+        private static IEnumerator CutThings()
+        {
+            var Wait = new WaitForSecondsRealtime(2f);
+            while (true)
+            {
+                yield return Wait;
+                if (PlayerFarming.Instance == null || MMTransition.IsPlaying || !AnyRemotePlayer() || !CoopSync.InSession)
+                    continue;
+                Health Nearest = null;
+                float Best = float.MaxValue;
+                foreach (Health Thing in Health.neutralTeam)
+                {
+                    if (Thing == null || !Thing.enabled || Thing.HP <= 0f || Thing.isPlayer || !Thing.gameObject.activeInHierarchy)
+                        continue;
+                    float Distance = Vector2.Distance(Thing.transform.position, PlayerFarming.Instance.transform.position);
+                    if (Distance < Best)
+                    {
+                        Best = Distance;
+                        Nearest = Thing;
+                    }
+                }
+                if (Nearest == null)
+                    continue;
+                Plugin.Logger?.LogWarning($"{Tag} Cutting {Nearest.gameObject.name} at {Format(Nearest.transform.position)}");
+                Nearest.DealDamage(Nearest.HP + 1f, PlayerFarming.Instance.gameObject, Nearest.transform.position, false, Health.AttackTypes.Melee, false, (Health.AttackFlags)0);
+            }
+        }
+
+        private static bool HasNextLayer(MMBiomeGeneration.BiomeRoom Room)
+        {
+            foreach (var Link in new[] { Room.N_Room, Room.E_Room, Room.S_Room, Room.W_Room })
+            {
+                if (Link != null && Link.ConnectionType == MMRoomGeneration.GenerateRoom.ConnectionTypes.NextLayer)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// One step towards the floor's exit, or through it: the map comes up, the host picks the
+        /// last way on, the joining copy clicks the first (which only waits for the host's pick)
+        /// </summary>
+        private static IEnumerator GoToNextFloor(MMBiomeGeneration.BiomeRoom Room, bool Host)
+        {
+            MMBiomeGeneration.BiomeRoom Exit = MMBiomeGeneration.BiomeGenerator.Instance?.Rooms?.Find(HasNextLayer);
+            if (Exit == null)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} No way to the next floor on this one");
+                yield return new WaitForSecondsRealtime(5f);
+                yield break;
+            }
+            if (Exit != Room)
+            {
+                Vector2Int? Step = NextStep(Room, new Vector2Int(Exit.x, Exit.y));
+                if (!Step.HasValue)
+                    yield break;
+                Vector2Int Gap = Step.Value;
+                Plugin.Logger?.LogWarning($"{Tag} Heading for the exit at {Exit.x},{Exit.y}: {Gap} from {Room.x},{Room.y}");
+                MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Gap));
+                yield break;
+            }
+
+            Door Way = Door.Doors.Find(Item => Item != null && Item.isActiveAndEnabled && Item.ConnectionType == MMRoomGeneration.GenerateRoom.ConnectionTypes.NextLayer);
+            if (Way == null || PlayerFarming.Instance == null)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} No door to the next floor in the exit room");
+                yield return new WaitForSecondsRealtime(5f);
+                yield break;
+            }
+            int Floor = GameManager.CurrentDungeonFloor;
+            Plugin.Logger?.LogWarning($"{Tag} Through the door to the next floor from floor {Floor}");
+            typeof(Door).GetMethod("OnTriggerEnter2D", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+                .Invoke(Way, new object[] { PlayerFarming.Instance.circleCollider2D });
+
+            float Waited = 0f;
+            while (MapSync.Open == null && Waited < 20f)
+            {
+                yield return new WaitForSecondsRealtime(0.5f);
+                Waited += 0.5f;
+            }
+            Lamb.UI.UIAdventureMapOverlayController Overlay = MapSync.Open;
+            if (Overlay == null)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} No map came up");
+                yield break;
+            }
+
+            yield return new WaitForSecondsRealtime(3f);
+            global::Map.Node Current = Overlay.Map?.GetCurrentNode();
+            if (Host && MapSync.Open == Overlay && Current != null && Current.outgoing.Count > 0)
+            {
+                global::Map.Point Choice = Host ? Current.outgoing[Current.outgoing.Count - 1] : Current.outgoing[0];
+                Lamb.UI.AdventureMapNode Shown = Overlay.NodeFromPoint(Choice);
+                Plugin.Logger?.LogWarning($"{Tag} Clicking node {Choice.x},{Choice.y} ({Shown?.MapNode?.nodeType}) of {Current.outgoing.Count} ways on, map from the host {MapSync.FollowingHost}");
+                if (Shown != null)
+                    Overlay.OnNodeChosen(Shown);
+            }
+
+            Waited = 0f;
+            while (GameManager.CurrentDungeonFloor == Floor && Waited < 60f)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                Waited += 1f;
+            }
+            while (MMTransition.IsPlaying && Waited < 90f)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                Waited += 1f;
+            }
+            yield return new WaitForSecondsRealtime(3f);
+            global::Map.Node Now = global::Map.MapManager.Instance?.CurrentNode;
+            Plugin.Logger?.LogWarning($"{Tag} Next floor: floor {GameManager.CurrentDungeonFloor} node {Now?.point.x},{Now?.point.y} {Now?.nodeType} modifier {(Now?.Modifier != null ? Now.Modifier.name : "-")} seed {MMBiomeGeneration.BiomeGenerator.Instance?.Seed} place {CoopSync.CurrentPlace()}");
         }
 
         /// <summary>

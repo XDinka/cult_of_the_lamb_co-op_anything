@@ -33,13 +33,17 @@ which provides the player puppets, the UDP protocol and the integrated server.
 | Shared pickups: what one picks up, both get | works in the automated test |
 | Knocked out instead of dead while the partner fights on; stand next to them for 3 s to revive, or clear the room | works in the automated test |
 | Game over only when both are down | works in the automated test |
+| The map between floors is the host's for both; the host picks the way, the joining player waits on the map and is taken there (they pick alone only when the host isn't in the run). The next floor gets the same seed | works in the automated test (two floors, the joining player's clicks wait and go where the host went) |
 | Rooms one player cleared are cleared for the other (no second fight), wounds and kills carry over | works in the automated test |
 | The partner's conversations show at the bottom of your screen, camera on them, you keep control | works in the automated test |
-| Dialog choices are voted on: the partner's answers show for you too, each player's mark (1 or 2) next to the answer they picked, the host decides (the joining player answers alone if the host isn't in the room or doesn't pick within 30 s) | works in the automated test (both directions) |
+| Dialog choices: both see the answers, the game's co-op icons (red Lamb, blue Goat) show which answer each player is on, the host's pick counts for both (the joining player answers alone only when the host isn't in the room) | works in the automated test (both directions) |
 | Enemy attacks of the room owner (shots incl. homing, beams, bombs, warning circles, other pooled attacks) show for the other player and move exactly as the owner's | works in the automated test (forced shots) |
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
-| Followers, base, rituals | not synced, each player has their own |
+| The tarot reader in a dungeon deals both players the same two cards | works in the automated test |
+| Time of day is the host's for both (the joining player's clock runs faster, waits or skips forward, never back) | works in the automated test (clocks within a few game minutes) |
+| Grass, bushes, pots, barrels, rocks and critters broken by one player break for the other, also in rooms entered later | works in the automated test (host's breaks: 52 of 55 repeated, 3 had already broken on the other side) |
+| Followers, base, rituals | not synced, each player has their own (the clock follows the host) |
 | Leaving / host stopping keeps you in your own game | works |
 | Leaving and joining again mid-run: same run, same rooms and rolls | works in the automated test |
 | Back into the run after a crash: the game loads your save, joins the host, enters the same run, puts back weapon, curse, relic, tarot cards and health, and teleports you to the host's room | works in the automated test (first floor; later floors untested) |
@@ -104,6 +108,13 @@ paths from environment variables (see the top of each).
 - **Host's pools.** The host sends its weapon, curse, tarot and relic pools and a few counters; the
   joining player's game uses them only for the length of each reward roll, then gets its own back
   (anything added during a roll is kept). See `HostPools.cs`.
+- **The map between floors.** The game builds a run's map from a seed and from the player's save
+  (objectives, unlocks and inventory decide some nodes), so two saves never get the same one. The
+  host builds it when the run's first room is up and sends every node; the joining player's game
+  takes it instead of building its own. At the end of a floor the joining player sees the map with
+  "Waiting for the host to choose the way" until the host has picked, then goes to the host's node,
+  as the host had it (a shuffle on the host's side is carried over). The next floor's seed is set
+  from the run and the floor. See `MapSync.cs`.
 - **Same rolls.** Before each chest, podium, tarot or interaction roll, Unity's random state is set
   from the room seed, the run and what is rolled. Chest drops stay with whoever opened that chest.
   See `RoomRandom.cs`.
@@ -118,9 +129,10 @@ paths from environment variables (see the top of each).
   trip is the ping, the ones that don't come back are the loss. The icon only shows while the
   connection has been bad for 2 s, or at once when the partner stops answering. See `ConnectionQuality.cs`.
 - **Choices.** When the answer wheel comes up, its answers go to the partner, who sees them above
-  the line and votes with the mouse or the 1-4 keys. Votes show as the player's number next to the
-  answer. In the joining player's conversation a click is a vote until the host picks, and the host's
-  pick is clicked for them. See `Dialogs.cs`.
+  the line and points with the mouse or the 1-4 keys. Each player's co-op icon (the game's red Lamb
+  and blue Goat rings) stands above the answer they are on, in the wheel and in the overlay. The
+  host's pick is the answer in either player's conversation: in the joining player's own
+  conversation a click only points, and the host's pick is clicked for them. See `Dialogs.cs`.
 - **Rejoining.** A player who (re)joins says hello; the host answers with its run (even after the
   run is too old to be adopted by a newcomer), every room cleared in it and what is known of its
   enemies' health. A handshake from an address already in the game replaces the old connection at
@@ -129,6 +141,16 @@ paths from environment variables (see the top of each).
   keeps the host, lobby, save slot, run, floor, room and equipment (rewritten every 2 s). On the next
   start it is read and deleted at once, then used as above. Leaving the session, quitting the game
   or finishing the run deletes it, so only a crash brings you back. See `RunRecovery.cs`.
+- **Tarot readings.** A reader's cards come from the player's save (cards found, held or met this run,
+  fleece, season) and a save without a reading yet gets the Lovers first, so a seed can't make them
+  match. Whoever draws first sends the two cards and the other reading deals those. See `SharedTarot.cs`.
+- **Time of day.** The host sends its clock every 2 s; the joining player's clock runs twice as fast
+  when a little behind, stands still when a little ahead and skips forward like sleeping when far off.
+  Their cult lives through the skipped hours; the day count stays each save's own. See `TimeSync.cs`.
+- **Broken things.** Whatever with health dies in a dungeon room (grass, pots, critters) and rubble
+  walked into is sent by name, its number among the things of that name in the room and where it
+  stood when the room came up; the other game breaks its copy without loot. Kept per run, so a room
+  entered later comes up broken the same way. See `PropSync.cs`.
 - **Pickups and looks.** `SharedPickups.cs` and `Appearance.cs` (fleece number in the handshake,
   1003 is the Goat as in the game).
 
@@ -140,7 +162,9 @@ copies of the game on one PC host, join, walk, enter a dungeon and fight unatten
 `-cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE` makes the loopback link behave like a bad
 connection (reliable packets delayed for resends and drop-outs, unreliable ones lost),
 `-cotlmp-netflood` floods the partner with large and small messages, and `-cotlmp-netshots` with
-`-cotlmp-shots=DIR` saves a frame of each connection icon. `-cotlmp-autochoice=N` runs the voting test,
+`-cotlmp-shots=DIR` saves a frame of each connection icon. `-cotlmp-autochoice=N` runs the dialog choice test, `-cotlmp-nextfloor` takes both through the floor's
+exit and the map to the next floor, `-cotlmp-tarottest` deals tarot to both, `-cotlmp-autocut` cuts grass
+next to the host, `-cotlmp-window=X,Y,W,H` keeps a copy in a small window (`run-pair.sh` puts them side by side),
 `-cotlmp-crashafter=N` kills the joining copy mid-run (with `CLIENT_RESTART="-cotlmp-autoenter"`
 `run-pair.sh` starts it again), and `-cotlmp-endafter=N -cotlmp-rejoin=1` leaves and joins again.
 `dotnet run --project tests/ServerChecks` checks the server alone: large relays, junk packets and a
@@ -165,6 +189,8 @@ friends», затем пригласить друга. В подземелье �
 Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
 (друг не отвечает).
-Выбор в диалогах решается голосованием: варианты видят оба, метка игрока (1 или 2) стоит у его
-варианта, окончательно решает хост. Если игра у друга вылетела посреди забега, после перезапуска
+Карты у гадалки одинаковые, время суток как у хоста, сломанная трава, горшки и камни ломаются у обоих.
+Карта между этажами общая (карта хоста), путь выбирает хост: друг видит карту и ждёт, потом
+попадает туда же. Выбор в диалогах: варианты видят оба, значок игрока (красный Ягнёнок, синий Козёл) стоит над
+вариантом, на который он указывает, выбирает хост. Если игра у друга вылетела посреди забега, после перезапуска
 она сама загрузит сохранение, подключится к хосту и вернёт его в тот же забег с тем же снаряжением.

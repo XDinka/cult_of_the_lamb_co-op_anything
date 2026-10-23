@@ -259,6 +259,9 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.HazardSync.Initialize();
         COTLMP.Game.HostPools.Initialize();
         COTLMP.Game.RoomRandom.Initialize();
+        COTLMP.Game.MapSync.Initialize();
+        COTLMP.Game.TimeSync.Initialize();
+        COTLMP.Game.PropSync.Initialize();
         COTLMP.Game.ConnectionQuality.Initialize();
         COTLMP.Game.RunRecovery.Initialize();
         COTLMP.Debug.TestHarness.Initialize();

@@ -68,7 +68,15 @@ namespace COTLMP.Game
             NetPing = 15,
             NetPong = 16,
             /* A player (re)joined: the others send what they know of the shared run */
-            Hello = 17
+            Hello = 17,
+            /* MapSync */
+            Map = 18,
+            /* SharedTarot */
+            TarotDraw = 19,
+            /* TimeSync */
+            Time = 20,
+            /* PropSync */
+            PropBroken = 21
         }
 
         /// <summary>
@@ -252,6 +260,22 @@ namespace COTLMP.Game
                     OnHello(From);
                     break;
 
+                case Kind.Map:
+                    MapSync.OnRelay(Reader);
+                    break;
+
+                case Kind.TarotDraw:
+                    SharedTarot.OnRelay(Reader);
+                    break;
+
+                case Kind.Time:
+                    TimeSync.OnRelay(Reader);
+                    break;
+
+                case Kind.PropBroken:
+                    PropSync.OnRelay(Reader);
+                    break;
+
                 case Kind.NetPing:
                 case Kind.NetPong:
                     ConnectionQuality.OnRelay((Kind)Data[0], Reader);
@@ -316,6 +340,8 @@ namespace COTLMP.Game
 
             AnnounceRun();
             ClearedRooms.SendAll(RunId);
+            MapSync.SendAll();
+            PropSync.SendAll(RunId);
 
             /* Ours and theirs, the lower fraction wins as when it arrives */
             Dictionary<string, float> Known = new(ForRun(RunId));
@@ -626,6 +652,21 @@ namespace COTLMP.Game
 
                 int Seed = Mix(RunId, (int)__instance.DungeonLocation, GameManager.CurrentDungeonLayer, GameManager.CurrentDungeonFloor);
                 DataManager.RandomSeed = new System.Random(Seed);
+            }
+
+            /// <summary>
+            /// The next floor is drawn from the same random source: set it from the floor the map led to
+            /// </summary>
+            [HarmonyPatch(typeof(BiomeGenerator), nameof(BiomeGenerator.Regenerate))]
+            [HarmonyPrefix]
+            private static void BiomeRegenerate(BiomeGenerator __instance)
+            {
+                if (!InSession || RunId == 0 || __instance.TestStartingLayer)
+                    return;
+
+                int Seed = Mix(RunId, (int)__instance.DungeonLocation, GameManager.CurrentDungeonLayer, GameManager.CurrentDungeonFloor, GameManager.DungeonEndlessLevel);
+                DataManager.RandomSeed = new System.Random(Seed);
+                Plugin.Logger?.LogInfo($"[COOP] Next floor: layer {GameManager.CurrentDungeonLayer} floor {GameManager.CurrentDungeonFloor} (run {RunId})");
             }
 
             [HarmonyPatch(typeof(BiomeGenerator), "Start")]
