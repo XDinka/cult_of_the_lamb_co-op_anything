@@ -105,7 +105,11 @@ namespace COTLMP.Game
             /* FoxSync */
             FoxTalk = 40,
             /* MapCrowns */
-            MapCursor = 41
+            MapCursor = 41,
+            /* SharedScenes */
+            SceneStep = 42,
+            /* CultRecruits */
+            Recruit = 43
         }
 
         /// <summary>
@@ -389,6 +393,14 @@ namespace COTLMP.Game
 
                 case Kind.MapCursor:
                     MapCrowns.OnRelay(Reader);
+                    break;
+
+                case Kind.SceneStep:
+                    SharedScenes.OnRelay(Reader);
+                    break;
+
+                case Kind.Recruit:
+                    CultRecruits.OnRelay(Reader);
                     break;
 
                 case Kind.PropBroken:

@@ -636,6 +636,8 @@ namespace COTLMP.Game
             if (Kind == Item.Follower)
             {
                 FollowerInfo Info = (FollowerInfo)Value;
+                /* A newcomer the partner recruited: the one waiting here goes first */
+                CultRecruits.TakeAway(Info.ID);
                 DataManager.Instance.Followers.Add(Info);
                 if (Info.Location == FollowerLocation.Base && SceneManager.GetActiveScene().name == BaseScene)
                     FollowerManager.SpawnFollower(Info, At);

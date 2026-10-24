@@ -57,6 +57,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-hudtrace</c>: log every time the HUD is hidden or shown, with who asked</item>
+    /// <item><c>-cotlmp-recruittest</c>: a newcomer at the gate for both; the host recruits it while the friend tries to talk to it; both log how many of that follower they have</item>
+    /// <item><c>-cotlmp-scenetest</c>: in a dungeon room both copies play the same conversation, the host reads on slowly and answers the second answer, the friend tries to rush it and answer the first (shared scenes test)</item>
     /// <item><c>-cotlmp-templetest</c>: the host builds a temple and gets three followers and bones; the friend goes in, preaches a sermon, holds a holiday and closes the altar through its menus</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
     /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
@@ -85,7 +87,7 @@ namespace COTLMP.Debug
         private static bool Solo;
         private static bool NextFloor;
         private static bool NoMapClick;
-        private static bool AnimTest, CultTest, TempleTest;
+        private static bool AnimTest, CultTest, TempleTest, SceneTest, RecruitTest;
         private static bool PauseTest, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
@@ -169,6 +171,10 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
+                    SceneTest = true;
+                else if (Arg.Equals("-cotlmp-recruittest", StringComparison.OrdinalIgnoreCase))
+                    RecruitTest = true;
                 else if (Arg.Equals("-cotlmp-hudtrace", StringComparison.OrdinalIgnoreCase))
                     TraceHud();
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
@@ -220,6 +226,10 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(ChangeCult());
             if (TempleTest)
                 Plugin.MonoInstance.StartCoroutine(TempleRun());
+            if (SceneTest)
+                Plugin.MonoInstance.StartCoroutine(SceneTogether());
+            if (RecruitTest)
+                Plugin.MonoInstance.StartCoroutine(RecruitTogether());
             if (PauseTest)
                 Plugin.MonoInstance.StartCoroutine(OpenPauseMenus());
             if (NextFloor && AutoEnter && !NoMapClick)
@@ -960,6 +970,108 @@ namespace COTLMP.Debug
             };
             Plugin.Logger?.LogWarning($"{Tag} Starting a test conversation");
             MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, null, null));
+        }
+
+        /// <summary>
+        /// Both copies play the same conversation in one dungeon room, the friend's a little later:
+        /// the host reads on every 2 s and answers the second answer, the friend tries to read on
+        /// every 0.3 s and to answer the first
+        /// </summary>
+        private static IEnumerator SceneTogether()
+        {
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 6f : 7f);
+
+            GameObject Me = PlayerFarming.Instance.gameObject;
+            var Entries = new List<MMTools.ConversationEntry>
+            {
+                new(Me, "Scene test line one", "talk", "", null, "Lamb"),
+                new(Me, "Scene test line two", "talk", "", null, "Lamb"),
+                new(Me, "Scene test line three", "talk", "", null, "Lamb"),
+                new(Me, "Scene test line four", "talk", "", null, "Lamb")
+            };
+            int Picked = -1;
+            var Responses = new List<MMTools.Response>
+            {
+                new("Scene test answer one", () => Picked = 0, "Scene test answer one"),
+                new("Scene test answer two", () => Picked = 1, "Scene test answer two")
+            };
+            float Started = Time.unscaledTime;
+            Plugin.Logger?.LogWarning($"{Tag} Scene test: starting");
+            MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, Responses, null));
+            var Next = AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked");
+            var Answer = AccessTools.Method(typeof(MMTools.MMConversation), "OnGiveAnswer");
+            int Last = -2;
+            while (MMTools.MMConversation.isPlaying && Time.unscaledTime - Started < 40f)
+            {
+                yield return new WaitForSecondsRealtime(Host ? 2f : 0.3f);
+                var Box = MMTools.MMConversation.mmConversation;
+                if (Box == null)
+                    continue;
+                if (MMTools.MMConversation.Position != Last)
+                {
+                    Last = MMTools.MMConversation.Position;
+                    Plugin.Logger?.LogWarning($"{Tag} Scene test: at line {Last} after {Time.unscaledTime - Started:F1} s");
+                }
+                if (Box.DialogueWheel != null && Box.DialogueWheel.gameObject.activeSelf)
+                    Answer.Invoke(Box, new object[] { Host ? 1 : 0 });
+                else
+                {
+                    Box.TextPlayer?.SkipTypewriter();
+                    Next.Invoke(Box, null);
+                }
+            }
+            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}");
+        }
+
+        /// <summary>
+        /// A newcomer at the gate for both: the host starts recruiting it, the friend tries to talk to
+        /// it meanwhile (refused), the host recruits it; each logs how many of that follower it has
+        /// </summary>
+        private static IEnumerator RecruitTogether()
+        {
+            while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer() ||
+                   (!Plugin.GlobalsInternal.IsServerCreator && !HostSave.Playing))
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 8f : 2f);
+            Vector3 Gate = PlayerFarming.Instance.transform.position + new Vector3(2.5f, 0f);
+            FollowerRecruit Recruit = null;
+            if (Host)
+            {
+                Recruit = FollowerManager.CreateNewRecruit(FollowerLocation.Base, Gate);
+                Plugin.Logger?.LogWarning($"{Tag} Recruit test: a newcomer {Recruit?.Follower?.Brain?.Info?.ID} at the gate");
+            }
+            else
+            {
+                /* As the base comes up with a newcomer in the save's list */
+                yield return Until(() => DataManager.Instance.Followers_Recruit.Count > 0, 40f);
+                Recruit = FollowerManager.SpawnExistingRecruit(Gate);
+                Plugin.Logger?.LogWarning($"{Tag} Recruit test: the newcomer {Recruit?.Follower?.Brain?.Info?.ID} stands here too");
+            }
+            int Id = Recruit?.Follower?.Brain?.Info?.ID ?? -1;
+            yield return new WaitForSecondsRealtime(Host ? 6f : 7f);
+            if (Host)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} Recruit test: recruiting, ours to do {COTLMP.Game.CultRecruits.Start(Recruit)}");
+                yield return new WaitForSecondsRealtime(3f);
+                Recruit?.InstantRecruit();
+            }
+            else
+            {
+                bool Allowed = Recruit != null && COTLMP.Game.CultRecruits.Start(Recruit);
+                Plugin.Logger?.LogWarning($"{Tag} Recruit test: we try to talk to it while the host recruits: {(Allowed ? "allowed" : "refused")}");
+            }
+            for (int Round = 0; Round < 6; Round++)
+            {
+                yield return new WaitForSecondsRealtime(4f);
+                int Bodies = Follower.Followers.Count(Each => Each?.Brain?.Info != null && Each.Brain.Info.ID == Id);
+                int Waiting = UnityEngine.Object.FindObjectsOfType<FollowerRecruit>().Count(Each => Each?.Follower?.Brain?.Info != null && Each.Follower.Brain.Info.ID == Id);
+                int Listed = DataManager.Instance.Followers.Count(Info => Info?.ID == Id);
+                Plugin.Logger?.LogWarning($"{Tag} Recruit test: follower {Id}: {Bodies} in the cult, {Waiting} waiting, {Listed} listed, {DataManager.Instance.Followers_Recruit.Count} newcomers, taken away {COTLMP.Game.CultRecruits.TakenAway}, refused {COTLMP.Game.CultRecruits.Refused}");
+            }
         }
 
         private static IEnumerator DieOnce()
