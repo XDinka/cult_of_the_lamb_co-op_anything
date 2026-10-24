@@ -335,6 +335,33 @@ namespace COTLMP.Game
             return null;
         }
 
+        /// <summary>
+        /// The sync check found the two sides don't agree whose game runs a follower: the side that
+        /// owns its check says again (see CultSync's check)
+        /// </summary>
+        /// <param name="Id">The follower</param>
+        /// <param name="ExtraThere">The other side has it among the ones it thinks we run</param>
+        internal static void Settle(int Id, bool ExtraThere)
+        {
+            if (Plugin.GlobalsInternal.IsServerCreator)
+            {
+                if (ExtraThere && Friends.ContainsKey(Id))
+                {
+                    Plugin.Logger?.LogInfo($"[COOP] Sync check: follower {Id} isn't in the friend's hands any more, back to ours");
+                    Free(Id, null, 0);
+                }
+                else if (!ExtraThere && !Friends.ContainsKey(Id))
+                {
+                    Send(Id, Hand.Host);
+                }
+                return;
+            }
+            if (Friends.ContainsKey(Id) && !ExtraThere)
+                Send(Id, Hand.Friend);
+            else if (!Friends.ContainsKey(Id) && ExtraThere)
+                Send(Id, Hand.Host);
+        }
+
         /* BOTH SIDES *********************************************************/
 
         internal static void OnHands(BinaryReader Reader)

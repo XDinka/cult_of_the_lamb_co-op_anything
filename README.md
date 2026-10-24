@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.6, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.7, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.6, pre-release.**
+**Version 0.2.7, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.6.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.7.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -95,6 +95,7 @@ You play as the Goat, as in the game's own co-op.</td>
 | Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
 | The friend's hands in the cult: a follower the friend talks to, or gathers for a sermon or ritual, runs in the friend's game for that while and goes back to the host's with its orders (sleep, a job, prison); one player talks to a follower at a time | works in the automated test (an order to sleep, a follower gathered and let go); a real sermon in a temple not tested yet |
 | The cult's data: doctrines, rituals and their cooldowns, faith, the last sermon's day, quests; not what is each player's own or a run's | works in the automated test |
+| A sync check every 4 s: what still differs two checks in a row is taken from its owner (the host, or the friend for followers in their hands) and logged with what differed; once a minute the log says what the sync cost | works in the automated test (a lost rename, sermon day, stone, a missing and an extra torch all fixed) |
 | Trees, rocks and berry bushes: each hit shows for the player who watches (shake, bar, stump, smoke), the loot drops only for the one who hit | works in the automated test (a tree chopped, a rock broken, followers picking berries) |
 | The friend plays on the host's save: joins from the main menu without a save of their own; leaving (or the host stopping) takes them back to the main menu and the host's save is forgotten | works in the automated test (join, leave, join again) |
 | The host keeps playing their own game when the friend leaves or they stop hosting | works |
@@ -116,7 +117,7 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.6, предрелиз.
+Версия 0.2.7, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
@@ -128,7 +129,7 @@ You play as the Goat, as in the game's own co-op.</td>
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
 (друг не отвечает).
 Культ общий: последователи, постройки, ресурсы, доктрины, ритуалы и время у обоих как у хоста, что строит или тратит друг, видит и хост.
-С последователем говорит один игрок; последователь, с которым говорит друг или которого он собрал на проповедь или ритуал, на это время живёт в игре друга, а потом возвращается к хосту с его приказами.
+Раз в 4 секунды игры сверяют культ по хэшам и чинят расхождения, каждое пишется в лог. С последователем говорит один игрок; последователь, с которым говорит друг или которого он собрал на проповедь или ритуал, на это время живёт в игре друга, а потом возвращается к хосту с его приказами.
 Карты у гадалки одинаковые, сломанная трава, горшки и камни ломаются у обоих.
 Карта между этажами общая (карта хоста): кто первым выбрал путь, туда идут оба. По этажу каждый
 ходит сам, комнаты, где побывал партнёр, открываются и на вашей мини-карте. Удары, перекаты и
@@ -246,6 +247,11 @@ paths from environment variables (see the top of each).
   game ticks it and moves it between places, the host's copy is in manual control and mirrors it. Back
   at the host's game it picks its next task from its data (orders are data: override task, role).
   One player talks to a follower at a time. See `CultHands.cs`.
+- **The check.** Every fourth look at the cult the owner sends a hash per group (followers, structures,
+  data, inventory) of what that look sent, in the same ordered stream, so the other side, having taken
+  all of it, can compare. A group that differs is listed per object; what differs two checks in a row
+  is asked for and comes whole from the owner (or as gone). Hashes are FNV-1a over the game's own
+  MessagePack bytes, a follower without where it stands. See `CultCheck.cs`.
 - **Trees, rocks, bushes.** Hits go as they land (a few times a second) and the other side takes them
   as the game does, without loot; a rock or tree gone before its last hit arrived goes the game's way
   too. See `CultResources.cs`.

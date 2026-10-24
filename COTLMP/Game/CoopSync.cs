@@ -89,7 +89,12 @@ namespace COTLMP.Game
             /* CultHands */
             CultHands = 30,
             /* CultResources */
-            CultHit = 31
+            CultHit = 31,
+            /* CultCheck */
+            CultCheck = 32,
+            CultCheckAsk = 33,
+            CultCheckList = 34,
+            CultFixAsk = 35
         }
 
         /// <summary>
@@ -184,8 +189,13 @@ namespace COTLMP.Game
             Writer.Write((byte)Type);
             Body(Writer);
             Writer.Flush();
+            if (Type >= Kind.CultReady)
+                CultBytes += Stream.Length;
             COTLMP.Network.Network.SendRelay(Stream.ToArray());
         }
+
+        /* Bytes the cult's sync sent, for its load in the log */
+        internal static long CultBytes;
 
         /// <summary>
         /// Handles co-op sync data from another player, on the main thread.
@@ -315,6 +325,22 @@ namespace COTLMP.Game
 
                 case Kind.CultHit:
                     CultResources.OnHits(Reader);
+                    break;
+
+                case Kind.CultCheck:
+                    CultSync.OnCheck(Reader);
+                    break;
+
+                case Kind.CultCheckAsk:
+                    CultSync.OnCheckAsk(Reader);
+                    break;
+
+                case Kind.CultCheckList:
+                    CultSync.OnCheckList(Reader);
+                    break;
+
+                case Kind.CultFixAsk:
+                    CultSync.OnFixAsk(Reader);
                     break;
 
                 case Kind.PropBroken:

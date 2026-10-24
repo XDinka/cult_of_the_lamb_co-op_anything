@@ -14,6 +14,7 @@ using Spine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -45,7 +46,7 @@ namespace COTLMP.Game
     /// while, see <see cref="CultHands"/>.
     /// </remarks>
     [HarmonyPatch]
-    internal static class CultSync
+    internal static partial class CultSync
     {
         private enum Item : byte
         {
@@ -62,7 +63,9 @@ namespace COTLMP.Game
             /* A whole object, new to the other side */
             Whole = 1,
             /* The object is gone */
-            Gone = 2
+            Gone = 2,
+            /* All of an object's members, from its owner, for a check that found it differed */
+            Fix = 3
         }
 
         private const string BaseScene = "Base Biome 1";
@@ -118,6 +121,7 @@ namespace COTLMP.Game
             Plugin.MonoInstance.StartCoroutine(Scan());
             Plugin.MonoInstance.StartCoroutine(SendTime());
             Plugin.MonoInstance.StartCoroutine(SendPoses());
+            Plugin.MonoInstance.StartCoroutine(LogLoad());
             GameObject Driver = new("COTLMP Cult Sync");
             UnityEngine.Object.DontDestroyOnLoad(Driver);
             Driver.AddComponent<PoseDriver>();
@@ -160,8 +164,10 @@ namespace COTLMP.Game
             CultHands.Reset();
             Agreed.Clear();
             AgreedData.Clear();
+            DataLast.Clear();
             Poses.Clear();
             LastInventory = null;
+            ResetCheck();
         }
 
         /* OBJECTS ************************************************************/
@@ -228,6 +234,28 @@ namespace COTLMP.Game
 
         private static List<MemberInfo> CultData;
 
+        /* The cult's simple data (numbers, flags, text) as it was when last packed: unchanged, it isn't
+           packed again, which spares the garbage of packing a thousand members every look */
+        private static readonly Dictionary<string, object> DataLast = new();
+
+        /// <summary>
+        /// A data member as the game saves it: the agreed bytes when a simple one hasn't changed since
+        /// </summary>
+        /// <param name="Remember">Ours to keep as packed (the look and the baseline, which agree on it)</param>
+        /// <param name="Fresh">Pack it whatever</param>
+        private static byte[] DataBytes(MemberInfo Member, bool Remember, bool Fresh = false)
+        {
+            object Now = Get(Member, DataManager.Instance);
+            Type Of = MemberType(Member);
+            bool Simple = Of.IsPrimitive || Of.IsEnum || Of == typeof(string);
+            if (Simple && !Fresh && DataLast.TryGetValue(Member.Name, out object Was) && Equals(Was, Now) && AgreedData.TryGetValue(Member.Name, out byte[] Known))
+                return Known;
+            byte[] Packed = HostSave.Pack(Of, Now);
+            if (Simple && Remember)
+                DataLast[Member.Name] = Now;
+            return Packed;
+        }
+
         /// <summary>
         /// DataManager's members that are the cult's
         /// </summary>
@@ -275,13 +303,13 @@ namespace COTLMP.Game
             foreach (var (Kind, Id, Value) in Objects())
                 Agreed[Key(Kind, Id)] = HostSave.Pack(TypeOf(Kind), Value);
             foreach (MemberInfo Member in DataMembers())
-                AgreedData[Member.Name] = HostSave.Pack(MemberType(Member), Get(Member, DataManager.Instance));
+                AgreedData[Member.Name] = DataBytes(Member, true, Fresh: true);
             LastInventory = Inventory();
         }
 
         /// <summary>
         /// Once a second: what changed in our cult since both sides last agreed goes to the other.
-        /// A few objects a frame, so a big cult doesn't stall the game.
+        /// A couple of milliseconds a frame, so a big cult doesn't stall the game.
         /// </summary>
         private static IEnumerator Scan()
         {
@@ -291,27 +319,37 @@ namespace COTLMP.Game
                 yield return Wait;
                 if (!Ready || !(Mirror || Hosting) || MMTransition.IsPlaying || DataManager.Instance == null)
                     continue;
+                long Slice = Stopwatch.GetTimestamp();
+                BeginPass();
 
                 /* What was agreed when we looked: a partner's object arriving while we look isn't one we lost */
                 HashSet<string> Seen = new(), Before = new(Agreed.Keys);
-                int Done = 0;
                 foreach (var (Kind, Id, Value) in Objects().ToList())
                 {
                     Seen.Add(Key(Kind, Id));
+                    Doing = Key(Kind, Id);
+
+                    /* Structures change seldom: every other look (always on a check's) */
+                    if (Kind == Item.Structure && !Full)
+                        continue;
 
                     /* Gone while we look (the partner's doing): not new here */
                     if (DataManager.Instance == null || Find(Kind, Id) != Value)
                         continue;
                     try
                     {
-                        Compare(Kind, Id, Value);
+                        RecordObject(Kind, Id, Value, Compare(Kind, Id, Value));
                     }
                     catch (Exception e)
                     {
                         PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing {Key(Kind, Id)} failed: {e.Message}");
                     }
-                    if (++Done % 25 == 0)
+                    if (Elapsed(Slice) > FrameBudget)
+                    {
+                        Spent(Slice);
                         yield return null;
+                        Slice = Stopwatch.GetTimestamp();
+                    }
                 }
                 if (!Ready)
                     continue;
@@ -322,13 +360,17 @@ namespace COTLMP.Game
                 bool InCult = SceneManager.GetActiveScene().name == BaseScene;
                 bool Back = InCult && !DataFresh;
                 DataFresh = InCult;
-                foreach (MemberInfo Member in InCult ? DataMembers() : new List<MemberInfo>())
+                List<MemberInfo> DataList = InCult && Full ? DataMembers() : new List<MemberInfo>();
+                for (int Index = 0; Index < DataList.Count; Index++)
                 {
+                    MemberInfo Member = DataList[Index];
                     if (DataManager.Instance == null)
                         break;
+                    Doing = Member.Name;
                     try
                     {
-                        byte[] Packed = HostSave.Pack(MemberType(Member), Get(Member, DataManager.Instance));
+                        byte[] Packed = DataBytes(Member, true);
+                        RecordData(Index, Packed);
                         if (!AgreedData.TryGetValue(Member.Name, out byte[] Was) || !Same(Was, Packed))
                         {
                             AgreedData[Member.Name] = Packed;
@@ -340,8 +382,12 @@ namespace COTLMP.Game
                     {
                         PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing the cult's {Member.Name} failed: {e.Message}");
                     }
-                    if (++Done % 100 == 0)
+                    if (Elapsed(Slice) > FrameBudget)
+                    {
+                        Spent(Slice);
                         yield return null;
+                        Slice = Stopwatch.GetTimestamp();
+                    }
                 }
                 if (!Ready)
                     continue;
@@ -350,15 +396,17 @@ namespace COTLMP.Game
                     SendMembers(Item.Data, 0, Changed);
                     SendGone(Before, Seen);
                     ScanInventory();
+                    EndPass(Back);
                 }
                 catch (Exception e)
                 {
                     PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing the cult failed: {e}");
                 }
+                Spent(Slice);
             }
         }
 
-        private static void Compare(Item Kind, int Id, object Value)
+        private static byte[] Compare(Item Kind, int Id, object Value)
         {
             string Name = Key(Kind, Id);
             byte[] Whole = HostSave.Pack(TypeOf(Kind), Value);
@@ -368,10 +416,10 @@ namespace COTLMP.Game
             {
                 Agreed[Name] = Whole;
                 SendWhole(Kind, Id, Whole);
-                return;
+                return Whole;
             }
             if (Same(Was, Whole))
-                return;
+                return Whole;
 
             /* Which members changed: against the object as last agreed */
             object Old = HostSave.Unpack(TypeOf(Kind), Was);
@@ -384,6 +432,7 @@ namespace COTLMP.Game
             }
             Agreed[Name] = Whole;
             SendMembers(Kind, Id, Changed);
+            return Whole;
         }
 
         /// <summary>
@@ -406,14 +455,14 @@ namespace COTLMP.Game
             }
         }
 
-        private static void SendMembers(Item Kind, int Id, List<(string, byte[])> Changed)
+        private static void SendMembers(Item Kind, int Id, List<(string, byte[])> Changed, Op Type = Op.Members)
         {
             if (Changed.Count == 0)
                 return;
             MembersSent += Changed.Count;
             CoopSync.Send(CoopSync.Kind.CultData, Writer =>
             {
-                Writer.Write((byte)Op.Members);
+                Writer.Write((byte)Type);
                 Writer.Write((byte)Kind);
                 Writer.Write(Id);
                 Writer.Write((ushort)Changed.Count);
@@ -484,10 +533,18 @@ namespace COTLMP.Game
                 switch (Type)
                 {
                     case Op.Members when Kind == Item.Data:
-                        ApplyData(Reader);
+                        ApplyData(Reader, false);
                         break;
                     case Op.Members:
-                        ApplyMembers(Kind, Id, Name, Reader);
+                        ApplyMembers(Kind, Id, Name, Reader, false);
+                        break;
+                    case Op.Fix when Kind == Item.Data:
+                        ++FixesTaken;
+                        ApplyData(Reader, true);
+                        break;
+                    case Op.Fix:
+                        ++FixesTaken;
+                        ApplyMembers(Kind, Id, Name, Reader, true);
                         break;
                     case Op.Whole:
                         ApplyWhole(Kind, Id, Name, Reader);
@@ -503,8 +560,9 @@ namespace COTLMP.Game
             }
         }
 
-        private static void ApplyMembers(Item Kind, int Id, string Name, BinaryReader Reader)
+        private static void ApplyMembers(Item Kind, int Id, string Name, BinaryReader Reader, bool Fix)
         {
+            List<string> Differed = new();
             object Value = Find(Kind, Id);
             int Count = Reader.ReadUInt16();
 
@@ -518,6 +576,8 @@ namespace COTLMP.Game
                 byte[] Packed = Reader.ReadBytes(Reader.ReadInt32());
                 if (Value == null || !ByName.TryGetValue(Member, out MemberInfo Info))
                     continue;
+                if (Fix && !Same(HostSave.Pack(MemberType(Info), Get(Info, Value)), Packed))
+                    Differed.Add(Member);
                 object Taken = HostSave.Unpack(MemberType(Info), Packed);
 
                 /* Another place: the follower goes there as the game moves followers, the move sets it */
@@ -536,10 +596,13 @@ namespace COTLMP.Game
                 Agreed[Name] = HostSave.Pack(TypeOf(Kind), Value);
             if (Dress)
                 FollowerManager.FindFollowerByID(Id)?.UpdateOutfit();
+            if (Fix)
+                Plugin.Logger?.LogInfo($"[COOP] Sync check: {Name} differed from the partner's in {(Differed.Count > 0 ? string.Join(", ", Differed) : "nothing any more")}, took theirs");
         }
 
-        private static void ApplyData(BinaryReader Reader)
+        private static void ApplyData(BinaryReader Reader, bool Fix)
         {
+            List<string> Differed = new();
             int Count = Reader.ReadUInt16();
             Dictionary<string, MemberInfo> ByName = DataMembers().ToDictionary(Member => Member.Name);
             for (int Index = 0; Index < Count; Index++)
@@ -548,12 +611,18 @@ namespace COTLMP.Game
                 byte[] Packed = Reader.ReadBytes(Reader.ReadInt32());
                 if (!ByName.TryGetValue(Member, out MemberInfo Info))
                     continue;
+                if (Fix && !Same(HostSave.Pack(MemberType(Info), Get(Info, DataManager.Instance)), Packed))
+                    Differed.Add(Member);
                 Set(Info, DataManager.Instance, HostSave.Unpack(MemberType(Info), Packed));
                 AgreedData[Member] = Packed;
+                if (DataLast.ContainsKey(Member))
+                    DataLast[Member] = Get(Info, DataManager.Instance);
                 ++DataApplied;
                 if (DataSeen.Add(Member))
                     Plugin.Logger?.LogInfo($"[COOP] The partner's cult data: {Member}");
             }
+            if (Fix)
+                Plugin.Logger?.LogInfo($"[COOP] Sync check: the cult's data differed from the partner's in {(Differed.Count > 0 ? string.Join(", ", Differed) : "nothing any more")}, took theirs");
         }
 
         private static void ApplyWhole(Item Kind, int Id, string Name, BinaryReader Reader)
@@ -673,6 +742,22 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// A pickup made there is counted by the cult's one inventory, not added again by the shared pickups
+        /// </summary>
+        internal static bool CountsPickupsIn(string Place) => Ready && (Mirror || Hosting) && Place == BaseScene;
+
+        /// <summary>
+        /// Items the shared pickups added here for the partner's pickup elsewhere: not the friend's own
+        /// doing, so not sent to the host as such (the host has them already)
+        /// </summary>
+        internal static void NotOurs(int Type, int Quantity)
+        {
+            if (!Mirror || LastInventory == null)
+                return;
+            LastInventory[Type] = (LastInventory.TryGetValue(Type, out int Count) ? Count : 0) + Quantity;
+        }
+
+        /// <summary>
         /// The host: our inventory, whenever it changed. The friend: what changed on our side since
         /// the host's last one (our own actions: their world doesn't run here)
         /// </summary>
@@ -737,24 +822,31 @@ namespace COTLMP.Game
             if (!Ready || DataManager.Instance == null)
                 return;
 
-            /* The host's inventory is the inventory */
+            /* The host's inventory is the inventory, plus what we changed and haven't sent yet (it goes
+               with our next look, so it mustn't be lost here) */
             if (Whole && Mirror)
             {
                 Dictionary<int, int> Ours = Inventory();
-                HashSet<int> Listed = new();
+                Dictionary<int, int> Host = new();
                 foreach (var (Type, Quantity) in Entries)
+                    Host[Type] = Quantity;
+                Dictionary<int, int> Wanted = new(Host);
+                if (LastInventory != null && SceneManager.GetActiveScene().name == BaseScene)
                 {
-                    Listed.Add(Type);
-                    int Have = Ours.TryGetValue(Type, out int Held) ? Held : 0;
-                    if (Have != Quantity)
-                        global::Inventory.ChangeItemQuantity(Type, Quantity - Have);
+                    foreach (int Type in Ours.Keys.Union(LastInventory.Keys))
+                    {
+                        int Pending = (Ours.TryGetValue(Type, out int Now) ? Now : 0) - (LastInventory.TryGetValue(Type, out int Was) ? Was : 0);
+                        if (Pending != 0)
+                            Wanted[Type] = (Wanted.TryGetValue(Type, out int Base) ? Base : 0) + Pending;
+                    }
                 }
-                foreach (var Pair in Ours)
+                foreach (int Type in Wanted.Keys.Union(Ours.Keys).ToList())
                 {
-                    if (!Listed.Contains(Pair.Key) && Pair.Value != 0)
-                        global::Inventory.ChangeItemQuantity(Pair.Key, -Pair.Value);
+                    int Change = (Wanted.TryGetValue(Type, out int Want) ? Want : 0) - (Ours.TryGetValue(Type, out int Have) ? Have : 0);
+                    if (Change != 0)
+                        global::Inventory.ChangeItemQuantity(Type, Change);
                 }
-                LastInventory = Inventory();
+                LastInventory = Host;
                 ++ItemsApplied;
                 return;
             }
@@ -808,9 +900,11 @@ namespace COTLMP.Game
                     PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Starting the host's part of the day failed: {e.Message}");
                 }
 
-                /* What the game did on its own for the new part of the day isn't the friend's doing */
+                /* What the game did on its own for the new part of the day isn't the friend's doing:
+                   the items it gave and the cult's data it set (the weather's timing) aren't sent */
                 if (LastInventory != null)
                     LastInventory = Inventory();
+                DataFresh = false;
             }
             DataManager.Instance.CurrentDayIndex = Day;
             DataManager.Instance.CurrentPhaseIndex = Phase;

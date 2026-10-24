@@ -25,6 +25,8 @@ namespace COTLMP.Game
     /// In the game's own co-op the two lambs share one inventory. Here every player has their own
     /// save, so a pickup is added to both inventories. If the partner is in the same room, their
     /// copy of the item (the nearest pickup of the same type) disappears, so it isn't picked up twice.
+    /// In the cult the inventory is one already (see <see cref="CultSync"/>): what is picked up there
+    /// only leaves the floor on the other side, it counts once.
     /// </remarks>
     internal static class SharedPickups
     {
@@ -81,7 +83,11 @@ namespace COTLMP.Game
             ApplyingRemote = true;
             try
             {
-                Inventory.AddItem(Type, Quantity);
+                if (!CultSync.CountsPickupsIn(Place))
+                {
+                    Inventory.AddItem(Type, Quantity);
+                    CultSync.NotOurs(Type, Quantity);
+                }
                 ++Received;
 
                 if (Place == CoopSync.CurrentPlace())

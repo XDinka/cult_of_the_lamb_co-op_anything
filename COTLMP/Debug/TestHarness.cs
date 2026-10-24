@@ -438,7 +438,6 @@ namespace COTLMP.Debug
                 yield return null;
         }
 
-        /// <summary>
         private static string Gear()
         {
             PlayerFarming Player = PlayerFarming.Instance;
@@ -1005,9 +1004,24 @@ namespace COTLMP.Debug
                     FollowerManager.SpawnFollower(New, Here + new Vector3(-2f - Count, 1f));
                     Plugin.Logger?.LogWarning($"{Tag} Cult test: new follower {New.Name} ({New.ID})");
                 }
+                yield return new WaitForSecondsRealtime(3f);
+                yield return Plugin.MonoInstance.StartCoroutine(PickUpAtFeet(2));
+
+                /* A tree by the friend, hit by us: the friend's frames show how it looks to the one who watches */
+                yield return new WaitForSecondsRealtime(5f);
+                Vector3 Friend = COTLMP.Game.PlayerManager.GetAnyPuppetPosition() ?? Here;
+                Structures_Tree Chopped = StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base)
+                    .Where(Brain => !Brain.TreeChopped && !Brain.Data.IsSapling).OrderBy(Brain => (Brain.Data.Position - Friend).sqrMagnitude).FirstOrDefault();
+                for (int Swing = 0; Chopped != null && !Chopped.TreeChopped && Swing < 30; Swing++)
+                {
+                    Chopped.TreeHit(1f);
+                    yield return new WaitForSecondsRealtime(0.6f);
+                }
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: chopped tree {Chopped?.Data?.ID} by the friend");
             }
             else
             {
+                Plugin.MonoInstance.StartCoroutine(WatchTree());
                 Inventory.ChangeItemQuantity(InventoryItem.ITEM_TYPE.STONE, 4);
                 Plugin.Logger?.LogWarning($"{Tag} Cult test: +4 stone");
                 yield return new WaitForSecondsRealtime(3f);
@@ -1051,12 +1065,47 @@ namespace COTLMP.Debug
         /// The friend's hands in the host's cult: a talk ending in an order to sleep, the cult's data,
         /// a follower gathered for a sermon and let go
         /// </summary>
+        /// <summary>
+        /// Items dropped at our feet and picked up as the game picks them up: counted once for both
+        /// </summary>
+        private static IEnumerator PickUpAtFeet(int Count)
+        {
+            for (int Index = 0; Index < Count; Index++)
+            {
+                InventoryItem.Spawn(InventoryItem.ITEM_TYPE.MUSHROOM_SMALL, 1, PlayerFarming.Instance.transform.position, 0f);
+                yield return new WaitForSecondsRealtime(1f);
+            }
+            Plugin.Logger?.LogWarning($"{Tag} Cult test: dropped {Count} mushrooms at our feet, now {Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.MUSHROOM_SMALL)}");
+        }
+
+        /// <summary>
+        /// The friend's frames of the host's hits on a tree: we stand by it and watch
+        /// </summary>
+        private static IEnumerator WatchTree()
+        {
+            Structures_Tree Hit = null;
+            while (Hit == null)
+            {
+                Hit = StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base).FirstOrDefault(Brain => Brain.Data.Progress > 0f && !Brain.TreeChopped);
+                yield return null;
+            }
+            PlayerFarming.Instance.transform.position = Hit.Data.Position + new Vector3(1.5f, -1.5f);
+            for (int Frame = 0; Frame < 30; Frame++)
+            {
+                Shot($"tree-{Frame:D2}");
+                yield return new WaitForSecondsRealtime(0.3f);
+            }
+        }
+
         private static IEnumerator UseHands()
         {
+            yield return Plugin.MonoInstance.StartCoroutine(PickUpAtFeet(3));
             /* A tree and a rock, hit by hand: the host sees each hit and the stump */
             Vector3 Here = PlayerFarming.Instance.transform.position;
+            /* The tree nearest the host, for the host's frames of it */
+            Vector3 Near = COTLMP.Game.PlayerManager.GetAnyPuppetPosition() ?? Here;
             Structures_Tree Tree = StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base)
-                .Where(Brain => !Brain.TreeChopped && !Brain.Data.IsSapling).OrderBy(Brain => (Brain.Data.Position - Here).sqrMagnitude).FirstOrDefault();
+                .Where(Brain => !Brain.TreeChopped && !Brain.Data.IsSapling).OrderBy(Brain => (Brain.Data.Position - Near).sqrMagnitude).FirstOrDefault();
             for (int Swing = 0; Tree != null && !Tree.TreeChopped && Swing < 30; Swing++)
             {
                 Tree.TreeHit(1f);
@@ -1083,6 +1132,14 @@ namespace COTLMP.Debug
                 yield return new WaitForSecondsRealtime(4f);
                 AccessTools.Method(typeof(interaction_FollowerInteraction), "OnFollowerCommandFinalized")
                     ?.Invoke(Talk, new object[] { new[] { FollowerCommands.Sleep } });
+
+                /* The command wheel closes the talk when a player picks; picked here, we close it */
+                yield return new WaitForSecondsRealtime(1f);
+                var Wheel = Lamb.UI.UIManager.GetActiveMenu<Lamb.UI.FollowerInteractionWheel.UIFollowerInteractionWheelOverlayController>();
+                Wheel?.Hide();
+                if (AccessTools.Field(typeof(interaction_FollowerInteraction), "Activated")?.GetValue(Talk) is true)
+                    AccessTools.Method(typeof(interaction_FollowerInteraction), "Close", new[] { typeof(bool), typeof(bool), typeof(bool) })
+                        ?.Invoke(Talk, new object[] { true, true, false });
                 Plugin.Logger?.LogWarning($"{Tag} Cult test: told {Talked.Brain.Info.ID} to sleep, override {Talked.Brain.CurrentOverrideTaskType}");
             }
             else
@@ -1100,11 +1157,49 @@ namespace COTLMP.Debug
                 .Select(Info => FollowerBrain.FindBrainByID(Info.ID)).FirstOrDefault(Brain => Brain != null);
             if (Gathered == null)
                 yield break;
-            Gathered.HardSwapToTask(new FollowerTask_AttendTeaching());
+            try
+            {
+                Gathered.HardSwapToTask(new FollowerTask_AttendTeaching());
+            }
+            catch (Exception e)
+            {
+                /* The test's cult has no temple to go to */
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: gathering without a temple: {e.Message}");
+            }
             Plugin.Logger?.LogWarning($"{Tag} Cult test: {Gathered.Info.Name} ({Gathered.Info.ID}) gathered for a sermon, in our hands: {CultHands.FriendRuns(Gathered.Info.ID)}");
             yield return new WaitForSecondsRealtime(25f);
-            Gathered.CompleteCurrentTask();
+            try
+            {
+                Gathered.CompleteCurrentTask();
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} Cult test: letting go without a temple: {e.Message}");
+            }
             Plugin.Logger?.LogWarning($"{Tag} Cult test: {Gathered.Info.ID} let go at {Gathered.Location}");
+            yield return new WaitForSecondsRealtime(5f);
+
+            /* Changes lost on the way: the sync check has to find each and take the host's */
+            FollowerInfo Renamed = DataManager.Instance.Followers.FirstOrDefault(Info => Info?.Name == "Synced");
+            if (Renamed != null)
+                Renamed.Name = "Diverged";
+            DataManager.Instance.PreviousSermonDayIndex = 99;
+            Inventory.ChangeItemQuantity(InventoryItem.ITEM_TYPE.STONE, 3);
+            StructureBrain Torch = StructureManager.GetAllStructuresOfType(StructureBrain.TYPES.DECORATION_TORCH).FirstOrDefault();
+            if (Torch != null)
+            {
+                foreach (Structure Built in Structure.Structures.ToList())
+                {
+                    if (Built != null && Built.Brain == Torch)
+                        UnityEngine.Object.Destroy(Built.gameObject);
+                }
+                Torch.Remove();
+            }
+            StructuresData Extra = StructuresData.GetInfoByType(StructureBrain.TYPES.DECORATION_TORCH, 0);
+            StructureManager.BuildStructure(FollowerLocation.Base, Extra, Here + new Vector3(4f, 2f), Extra.Bounds);
+            yield return null;
+            CultSync.LoseChangesForTest();
+            Plugin.Logger?.LogWarning($"{Tag} Cult test: lost a rename, the sermon day, 3 stone, torch {Torch?.Data?.ID} and an extra torch {Extra.ID} on the way");
         }
 
         private static string CultState()
@@ -1116,8 +1211,9 @@ namespace COTLMP.Debug
                    $"structures={StructureManager.StructuresDataAtLocation(FollowerLocation.Base).Count} beds={StructureManager.GetAllStructuresOfType(StructureBrain.TYPES.BED).Count} " +
                    $"torches={StructureManager.GetAllStructuresOfType(StructureBrain.TYPES.DECORATION_TORCH).Count} followers={Followers.Count}:{string.Join(",", Followers.Select(Info => Info?.Name))} " +
                    $"bodies={FollowerManager.FollowersAtLocation(FollowerLocation.Base).Count} temple={Interaction_Temple.Instance != null} " +
-                   $"trees={StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base).Count} rocks={StructureManager.GetAllStructuresOfType<Structures_Rubble>(FollowerLocation.Base).Count} hits={CultResources.HitsSent}/{CultResources.HitsApplied} " +
+                   $"mushrooms={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.MUSHROOM_SMALL)} trees={StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base).Count} rocks={StructureManager.GetAllStructuresOfType<Structures_Rubble>(FollowerLocation.Base).Count} hits={CultResources.HitsSent}/{CultResources.HitsApplied} " +
                    $"sermonday={DataManager.Instance.PreviousSermonDayIndex} feast={DataManager.Instance.LastFeastDeclared:F0} " +
+                   $"checks={CultSync.ChecksSent}/{CultSync.ChecksTaken}/{CultSync.GroupsDiffered}/{CultSync.FixesAsked}/{CultSync.FixesSent}/{CultSync.FixesTaken} load={CultSync.LoadMsPerSecond:F2}/{CultSync.WorstFrameMs:F2}/{CultSync.KBPerSecond:F2} " +
                    $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount} data={CultSync.DataApplied} " +
                    $"tasks={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{FollowerBrain.FindBrainByID(Info?.ID ?? 0)?.CurrentTaskType}:{Info?.Location}:{Info?.CurrentOverrideTaskType}"))}";
         }

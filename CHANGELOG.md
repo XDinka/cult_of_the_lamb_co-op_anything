@@ -3,6 +3,56 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.2.7 (2026-10-24)
+
+**Fixes**
+- Items duplicated in the cult: a pickup was counted twice, by the shared pickups made for dungeons
+  and by the cult's one inventory. In the cult only the inventory counts it now; the shared pickups
+  just take the other side's copy off the floor.
+- Items could get lost: the host's inventory arriving at the friend's overwrote what the friend had
+  picked up and not sent yet. That now stays and goes with the friend's next look.
+- What the friend's game changes on its own at a new part of the day (the weather's timing) is no
+  longer sent to the host as the friend's doing.
+
+**A sync check on top of the sync**
+- Every 4 s the owner of a part of the cult (the host, or the friend for the followers in their hands)
+  sends one hash per group: followers, structures, the cult's data, the inventory. The other side
+  hashes its own, 2 ms a frame at most; a group that differs gets the owner's list of hashes per
+  object; an object that still differs on the next check is asked for, and the owner sends it whole
+  or says it's gone. Changes still on their way differ once and aren't touched. See `CultCheck.cs`.
+- Every fix is logged with what differed. From the test, after a rename, the sermon day, 3 stone and
+  a torch were lost on the way on purpose:
+
+  ```
+  [COOP] Sync check 22: F3 Differs, S96 MissingHere, S97 ExtraHere, D291 Differs two checks in a row, asking the host
+  [COOP] Sync check: F3 differed from the partner's in _name, took theirs
+  [COOP] The partner built DECORATION_TORCH (96)
+  [COOP] The partner's DECORATION_TORCH (97) is gone, ours too
+  [COOP] Sync check: the cult's data differed from the partner's in PreviousSermonDayIndex, took theirs
+  ```
+- It also found real differences: a follower arriving at the friend's had its needs (hunger, rest,
+  social) and clothes set by the friend's game when it appeared; now fixed by the check.
+
+**Load, measured and lowered**
+- Once a minute the log says what the sync cost: milliseconds a second, the worst frame, KB/s, the
+  game's garbage collections, checks and fixes; a frame over 50 ms is logged with what it was doing.
+- Simple cult data (numbers, flags, text) is compared without packing it, and structures and the
+  cult's data are looked at every other second: from about 11 to 3.3 to 4.4 ms of work a second
+  (~0.06 ms a frame), the worst frame from 6 to 22 ms down to 2.5 ms, about 0.5 KB/s. The 230 to 270 ms
+  frames were garbage collections landing in the sync's work; none since.
+
+  ```
+  [COOP] Cult sync, last minute: 3.45 ms a second, worst frame 2.41 ms, 0.47 KB/s sent, 1 garbage collections in the game; checks 64 sent, ...
+  ```
+
+**Seen in the game:** the host chops a tree; this is the friend's screen (the host is the Lamb by the
+tree, the tree goes down to its stump):
+
+![The host's hits on a tree, on the friend's screen](Media/changelog/0.2.7-tree-hits.gif)
+
+**Known:** on a new save the game's own first-follower conversation also starts on the friend's side
+for a moment; to be fixed with the shared opening in 0.3.0.
+
 ## 0.2.6 (2026-10-24)
 
 **The friend's hands in the cult**
