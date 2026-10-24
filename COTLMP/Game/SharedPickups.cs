@@ -139,7 +139,7 @@ namespace COTLMP.Game
             [HarmonyPrefix]
             private static void PickMeUp(PickUp __instance, out bool __state)
             {
-                __state = __instance != null && !(bool)CollectedField.GetValue(__instance);
+                __state = __instance != null && !(bool)CollectedField.GetValue(__instance) && !GhostLoot.IsGhost(__instance);
             }
 
             [HarmonyPatch(typeof(PickUp), nameof(PickUp.PickMeUp))]

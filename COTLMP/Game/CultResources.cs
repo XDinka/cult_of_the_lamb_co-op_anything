@@ -115,15 +115,18 @@ namespace COTLMP.Game
             if (Delta <= 0f)
                 return;
             Replaying = true;
+            /* The loot shows flying to the partner who hit it, see GhostLoot */
+            GameObject Partner = GhostLoot.PartnerHere();
+            GhostLoot.Begin(Partner);
             try
             {
                 switch (Brain)
                 {
                     case Structures_Tree Tree:
-                        Tree.TreeHit(Delta, dropLoot: false);
+                        Tree.TreeHit(Delta, dropLoot: Partner != null);
                         break;
                     case Structures_BerryBush Bush:
-                        Bush.PickBerries(Delta, dropLoot: false);
+                        Bush.PickBerries(Delta, dropLoot: Partner != null);
                         break;
                     case Structures_Rubble Rock when Progress >= Rock.RemovalDurationInGameMinutes:
                         Break(Rock);
@@ -143,6 +146,7 @@ namespace COTLMP.Game
             }
             finally
             {
+                GhostLoot.End();
                 Replaying = false;
             }
             CultSync.Agree(Brain.Data);
@@ -158,6 +162,20 @@ namespace COTLMP.Game
             Rock.RemovalProgress = Rock.RemovalDurationInGameMinutes;
             AudioManager.Instance?.PlayOneShot(SoundConstants.GetBreakSoundPathForMaterial(SoundConstants.SoundMaterial.Stone), At);
             BiomeConstants.Instance?.EmitSmokeExplosionVFX(At);
+            /* The stone the game would drop, flying to the partner who broke it */
+            GameObject Partner = GhostLoot.PartnerHere();
+            if (Partner != null && Rock.Data != null)
+            {
+                GhostLoot.Begin(Partner);
+                try
+                {
+                    InventoryItem.Spawn(Rock.Data.LootToDrop, Mathf.Max(1, Rock.RubbleDropAmount), At);
+                }
+                finally
+                {
+                    GhostLoot.End();
+                }
+            }
         }
 
         /// <summary>

@@ -392,15 +392,28 @@ namespace COTLMP.Game
                     return;
                 }
 
-                foreach (DropLootOnDeath Drop in Thing.GetComponentsInChildren<DropLootOnDeath>())
-                    Drop.enabled = false;
-                foreach (DropMultipleLootOnDeath Drop in Thing.GetComponentsInChildren<DropMultipleLootOnDeath>())
-                    Drop.enabled = false;
-                Thing.invincible = false;
-                if (Thing.DealDamage(Thing.HP + 1f, Thing.gameObject, Thing.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill))
+                /* Its loot flies to the partner who broke it, see GhostLoot; with no partner here there is none */
+                GameObject Partner = GhostLoot.PartnerHere();
+                if (Partner == null)
                 {
-                    Item.Done = true;
-                    ++Applied;
+                    foreach (DropLootOnDeath Drop in Thing.GetComponentsInChildren<DropLootOnDeath>())
+                        Drop.enabled = false;
+                    foreach (DropMultipleLootOnDeath Drop in Thing.GetComponentsInChildren<DropMultipleLootOnDeath>())
+                        Drop.enabled = false;
+                }
+                Thing.invincible = false;
+                GhostLoot.Begin(Partner);
+                try
+                {
+                    if (Thing.DealDamage(Thing.HP + 1f, Thing.gameObject, Thing.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill))
+                    {
+                        Item.Done = true;
+                        ++Applied;
+                    }
+                }
+                finally
+                {
+                    GhostLoot.End();
                 }
             }
             catch (Exception e)
@@ -549,7 +562,7 @@ namespace COTLMP.Game
             [HarmonyPostfix]
             private static void Spawned(PickUp __result)
             {
-                if (ApplyingRemote && __result != null)
+                if (ApplyingRemote && __result != null && !GhostLoot.IsGhost(__result) && GhostLoot.PartnerHere() == null)
                     RemoteDrops.Add(__result);
             }
         }
