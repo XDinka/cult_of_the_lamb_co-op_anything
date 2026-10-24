@@ -629,6 +629,23 @@ namespace COTLMP.Game
                 }
             }
 
+            /// <summary>
+            /// The other player's puppet doesn't look for things to interact with: its prompts
+            /// would show on our screen (the partner sees theirs in their own game)
+            /// </summary>
+            [HarmonyPatch(typeof(Interactor), "Update")]
+            [HarmonyPrefix]
+            private static bool PuppetInteractor(Interactor __instance)
+            {
+                PlayerFarming farming = __instance.GetComponent<PlayerFarming>();
+                if (farming == null || !players.Contains(farming))
+                    return true;
+                if (__instance.indicator != null && __instance.indicator.gameObject.activeSelf)
+                    __instance.indicator.gameObject.SetActive(false);
+                __instance.CurrentInteraction = null;
+                return false;
+            }
+
             private static bool AnyPuppet()
             {
                 foreach (PlayerFarming farming in players)

@@ -83,6 +83,7 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/Left", "You left your friend's game", false),
             new("Multiplayer/Steam/Stopped", "Stopped hosting", false),
             new("Multiplayer/Steam/LeaveFirst", "Stop hosting to join your friend", false),
+            new("Multiplayer/Cult/FollowerBusy", "Someone is already talking to this follower", false),
 
             /* The map between floors */
             new("Multiplayer/Map/WaitingForHost", "Waiting for the host to choose the way", false),

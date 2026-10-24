@@ -37,8 +37,12 @@ namespace COTLMP.Game
     /// values, so the same change made on both sides lands once);</item>
     /// <item>new and gone followers and structures, as whole objects;</item>
     /// <item>the inventory: the host's is the inventory, the friend sends what their own actions
-    /// add or spend.</item>
+    /// add or spend;</item>
+    /// <item>the rest of the cult's data (doctrines, rituals done and when, faith, sermons, quests),
+    /// member by member as for followers, but for what is each player's own or a run's.</item>
     /// </list>
+    /// Followers the friend has in hand (talking, sermons, rituals) run in the friend's game for that
+    /// while, see <see cref="CultHands"/>.
     /// </remarks>
     [HarmonyPatch]
     internal static class CultSync
@@ -46,7 +50,9 @@ namespace COTLMP.Game
         private enum Item : byte
         {
             Follower = 0,
-            Structure = 1
+            Structure = 1,
+            /* The rest of the cult's data: DataManager's members */
+            Data = 2
         }
 
         private enum Op : byte
@@ -67,8 +73,30 @@ namespace COTLMP.Game
         /* Members kept per side or streamed apart: where a follower stands */
         private static readonly HashSet<string> OwnMembers = new() { "LastPosition", "SavedFollowerTaskDestination" };
 
+        /* A follower's looks: the body is dressed again when they change */
+        private static readonly HashSet<string> Looks = new() { "Outfit", "Necklace", "Hat", "Clothing", "ClothingVariant", "SkinName", "SkinColour", "SkinVariation", "Customisation", "ShowingNecklace" };
+
+        /* DataManager's members that aren't the cult's: shared otherwise (followers, structures, items,
+           the clock), each player's own (looks, hearts, the run in progress) or this game's (saving, Twitch) */
+        private static readonly HashSet<string> NotCult = new()
+        {
+            "Followers", "items", "itemsDungeon", "CurrentDayIndex", "CurrentPhaseIndex", "CurrentGameTime", "TimeInGame", "KillsInGame",
+            "AllowSaving", "DisableSaving", "PauseGameTime", "SaveUniqueID", "CheatHistory", "InGameOver", "GameOver", "DisplayGameOverWarning",
+            "PlayerFleece", "PlayerVisualFleece", "PlayerScaleModifier", "PlayerIsASpirit", "PlayerEaten", "PlayerStartingBlackSouls",
+            "FollowersRecruitedInNodes", "FollowersRecruitedThisNode", "LastDungeonSeeds", "DungeonObjectives", "DungeonBossFight",
+            "WeaponPool", "CursePool", "ForcedStartingWeapon", "ForcedStartingCurse", "ForcingPlayerWeaponDLC", "WeaponSelectionPositions",
+            "FollowingPlayerAnimals", "CachePreviousRun", "DiedLastRun", "LastRunResults", "DLCDungeonNodeCurrent", "CurrentDLCDungeonID",
+            "CurrentDLCNodeType", "SimpleInventoryItem", "StructureID", "IsMiniBoss", "PreviousMiniBoss", "ChestRewardCount", "EnemiesKilled",
+            "playerDamageReceived", "EnemyHealthMultiplier", "BossHealthMultiplier", "CurseFeverMultiplier", "SpecialAttackDamageMultiplier",
+            "EnemiesInNextRoomHaveModifiers", "EnemiesDropGoldDuringRun", "EnemiesDropBombOnDeath", "NoRollInNextCombatRoom", "NoHeartDrops",
+            "NextChestGold", "CurrentRoomCoordinates", "RoomVariant", "TakenBossDamage", "RedHeartsTemporarilyRemoved", "BlackSouls",
+            "BlackSoulTarget", "PlayerEaten_COOP", "WorldMapCurrentSelection", "PlayerDeathDay"
+        };
+        private static readonly string[] NotCultStarts = { "dungeon", "DUNGEON_", "PLAYER_", "COOP_PLAYER_", "Twitch", "playerDeaths", "CurrentRun" };
+        private static readonly string[] NotCultEnds = { "ThisRun", "OnRun", "Run" };
+
         /* Counters for the test harness report */
-        internal static int MembersSent, MembersApplied, WholeSent, WholeApplied, GoneSent, GoneApplied, ItemsSent, ItemsApplied, PosesApplied, TimeApplied;
+        internal static int MembersSent, MembersApplied, DataApplied, WholeSent, WholeApplied, GoneSent, GoneApplied, ItemsSent, ItemsApplied, PosesApplied, TimeApplied;
 
         /// <summary>
         /// The friend's side: we play in the host's world
@@ -78,7 +106,9 @@ namespace COTLMP.Game
         /// <summary>
         /// The host's side, with a friend on our save who has it loaded
         /// </summary>
-        private static bool Hosting => Plugin.GlobalsInternal.IsServerCreator && CoopSync.InSession && PartnerReady;
+        internal static bool Hosting => Plugin.GlobalsInternal.IsServerCreator && CoopSync.InSession && PartnerReady;
+
+        internal static bool IsReady => Ready;
 
         private static bool PartnerReady;
         private static bool Ready;
@@ -127,7 +157,9 @@ namespace COTLMP.Game
         internal static void Reset()
         {
             Ready = PartnerReady = false;
+            CultHands.Reset();
             Agreed.Clear();
+            AgreedData.Clear();
             Poses.Clear();
             LastInventory = null;
         }
@@ -139,7 +171,14 @@ namespace COTLMP.Game
         /// </summary>
         private static readonly Dictionary<string, byte[]> Agreed = new();
 
-        private static string Key(Item Kind, int Id) => $"{(char)('F' + (int)Kind * 13)}{Id}";
+        /* The same for the cult's data, per member, and the members the partner changed so far (for the log) */
+        private static readonly Dictionary<string, byte[]> AgreedData = new();
+        private static readonly HashSet<string> DataSeen = new();
+
+        /* We looked at the cult's data in the cult last time too */
+        private static bool DataFresh;
+
+        private static string Key(Item Kind, int Id) => $"{(Kind == Item.Follower ? 'F' : 'S')}{Id}";
 
         private static IEnumerable<(Item Kind, int Id, object Value)> Objects()
         {
@@ -187,6 +226,23 @@ namespace COTLMP.Game
             return Found;
         }
 
+        private static List<MemberInfo> CultData;
+
+        /// <summary>
+        /// DataManager's members that are the cult's
+        /// </summary>
+        private static List<MemberInfo> DataMembers()
+        {
+            return CultData ??= Members(typeof(DataManager)).Where(Member =>
+            {
+                string Name = Member.Name;
+                Type Of = MemberType(Member);
+                return !NotCult.Contains(Name) && !NotCultStarts.Any(Start => Name.StartsWith(Start, StringComparison.Ordinal)) &&
+                       !NotCultEnds.Any(End => Name.EndsWith(End, StringComparison.Ordinal)) &&
+                       Of != typeof(StructuresData) && Of != typeof(List<StructuresData>);
+            }).ToList();
+        }
+
         private static Type MemberType(MemberInfo Member) => Member is FieldInfo Field ? Field.FieldType : ((PropertyInfo)Member).PropertyType;
 
         private static object Get(MemberInfo Member, object Of) => Member is FieldInfo Field ? Field.GetValue(Of) : ((PropertyInfo)Member).GetValue(Of);
@@ -218,6 +274,8 @@ namespace COTLMP.Game
         {
             foreach (var (Kind, Id, Value) in Objects())
                 Agreed[Key(Kind, Id)] = HostSave.Pack(TypeOf(Kind), Value);
+            foreach (MemberInfo Member in DataMembers())
+                AgreedData[Member.Name] = HostSave.Pack(MemberType(Member), Get(Member, DataManager.Instance));
             LastInventory = Inventory();
         }
 
@@ -234,11 +292,16 @@ namespace COTLMP.Game
                 if (!Ready || !(Mirror || Hosting) || MMTransition.IsPlaying || DataManager.Instance == null)
                     continue;
 
-                HashSet<string> Seen = new();
+                /* What was agreed when we looked: a partner's object arriving while we look isn't one we lost */
+                HashSet<string> Seen = new(), Before = new(Agreed.Keys);
                 int Done = 0;
                 foreach (var (Kind, Id, Value) in Objects().ToList())
                 {
                     Seen.Add(Key(Kind, Id));
+
+                    /* Gone while we look (the partner's doing): not new here */
+                    if (DataManager.Instance == null || Find(Kind, Id) != Value)
+                        continue;
                     try
                     {
                         Compare(Kind, Id, Value);
@@ -252,9 +315,40 @@ namespace COTLMP.Game
                 }
                 if (!Ready)
                     continue;
+
+                /* The cult's data, a hundred members a frame, in the cult only: back from a run, what the
+                   run changed is this player's, so it is taken as agreed, not sent */
+                List<(string, byte[])> Changed = new();
+                bool InCult = SceneManager.GetActiveScene().name == BaseScene;
+                bool Back = InCult && !DataFresh;
+                DataFresh = InCult;
+                foreach (MemberInfo Member in InCult ? DataMembers() : new List<MemberInfo>())
+                {
+                    if (DataManager.Instance == null)
+                        break;
+                    try
+                    {
+                        byte[] Packed = HostSave.Pack(MemberType(Member), Get(Member, DataManager.Instance));
+                        if (!AgreedData.TryGetValue(Member.Name, out byte[] Was) || !Same(Was, Packed))
+                        {
+                            AgreedData[Member.Name] = Packed;
+                            if (!Back)
+                                Changed.Add((Member.Name, Packed));
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing the cult's {Member.Name} failed: {e.Message}");
+                    }
+                    if (++Done % 100 == 0)
+                        yield return null;
+                }
+                if (!Ready)
+                    continue;
                 try
                 {
-                    SendGone(Seen);
+                    SendMembers(Item.Data, 0, Changed);
+                    SendGone(Before, Seen);
                     ScanInventory();
                 }
                 catch (Exception e)
@@ -289,6 +383,31 @@ namespace COTLMP.Game
                     Changed.Add((Member.Name, Packed));
             }
             Agreed[Name] = Whole;
+            SendMembers(Kind, Id, Changed);
+        }
+
+        /// <summary>
+        /// A follower's data goes now, not with the next look (the friend's hands give it back after it)
+        /// </summary>
+        internal static void Flush(int Id)
+        {
+            if (!Ready || DataManager.Instance == null)
+                return;
+            FollowerInfo Info = DataManager.Instance.Followers.Find(Follower => Follower != null && Follower.ID == Id);
+            if (Info == null)
+                return;
+            try
+            {
+                Compare(Item.Follower, Id, Info);
+            }
+            catch (Exception e)
+            {
+                PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Sharing follower {Id} failed: {e.Message}");
+            }
+        }
+
+        private static void SendMembers(Item Kind, int Id, List<(string, byte[])> Changed)
+        {
             if (Changed.Count == 0)
                 return;
             MembersSent += Changed.Count;
@@ -310,11 +429,11 @@ namespace COTLMP.Game
         /// <summary>
         /// Gone here: gone there
         /// </summary>
-        private static void SendGone(HashSet<string> Seen)
+        private static void SendGone(HashSet<string> Before, HashSet<string> Seen)
         {
-            foreach (string Name in Agreed.Keys.ToList())
+            foreach (string Name in Before)
             {
-                if (Seen.Contains(Name))
+                if (Seen.Contains(Name) || !Agreed.ContainsKey(Name))
                     continue;
                 Agreed.Remove(Name);
                 Item Kind = Name[0] == 'F' ? Item.Follower : Item.Structure;
@@ -364,6 +483,9 @@ namespace COTLMP.Game
             {
                 switch (Type)
                 {
+                    case Op.Members when Kind == Item.Data:
+                        ApplyData(Reader);
+                        break;
                     case Op.Members:
                         ApplyMembers(Kind, Id, Name, Reader);
                         break;
@@ -389,6 +511,7 @@ namespace COTLMP.Game
             /* What both agree on takes the partner's members only: a change of ours not sent yet stays ours to send */
             object Shared = Agreed.TryGetValue(Name, out byte[] Was) ? HostSave.Unpack(TypeOf(Kind), Was) : null;
             Dictionary<string, MemberInfo> ByName = Members(TypeOf(Kind)).ToDictionary(Member => Member.Name);
+            bool Dress = false;
             for (int Index = 0; Index < Count; Index++)
             {
                 string Member = Reader.ReadString();
@@ -396,15 +519,41 @@ namespace COTLMP.Game
                 if (Value == null || !ByName.TryGetValue(Member, out MemberInfo Info))
                     continue;
                 object Taken = HostSave.Unpack(MemberType(Info), Packed);
-                Set(Info, Value, Taken);
+
+                /* Another place: the follower goes there as the game moves followers, the move sets it */
+                if (Kind == Item.Follower && Member == "Location" && FollowerBrain.FindBrainByID(Id) != null)
+                    CultHands.MoveTo(Id, (FollowerLocation)Taken);
+                else
+                    Set(Info, Value, Taken);
                 if (Shared != null)
                     Set(Info, Shared, HostSave.Unpack(MemberType(Info), Packed));
+                Dress |= Kind == Item.Follower && Looks.Contains(Member);
                 ++MembersApplied;
             }
             if (Shared != null)
                 Agreed[Name] = HostSave.Pack(TypeOf(Kind), Shared);
             else if (Value != null)
                 Agreed[Name] = HostSave.Pack(TypeOf(Kind), Value);
+            if (Dress)
+                FollowerManager.FindFollowerByID(Id)?.UpdateOutfit();
+        }
+
+        private static void ApplyData(BinaryReader Reader)
+        {
+            int Count = Reader.ReadUInt16();
+            Dictionary<string, MemberInfo> ByName = DataMembers().ToDictionary(Member => Member.Name);
+            for (int Index = 0; Index < Count; Index++)
+            {
+                string Member = Reader.ReadString();
+                byte[] Packed = Reader.ReadBytes(Reader.ReadInt32());
+                if (!ByName.TryGetValue(Member, out MemberInfo Info))
+                    continue;
+                Set(Info, DataManager.Instance, HostSave.Unpack(MemberType(Info), Packed));
+                AgreedData[Member] = Packed;
+                ++DataApplied;
+                if (DataSeen.Add(Member))
+                    Plugin.Logger?.LogInfo($"[COOP] The partner's cult data: {Member}");
+            }
         }
 
         private static void ApplyWhole(Item Kind, int Id, string Name, BinaryReader Reader)
@@ -463,6 +612,16 @@ namespace COTLMP.Game
             });
         }
 
+        /// <summary>
+        /// What we did to a structure as the partner had done it is what both agree on
+        /// </summary>
+        internal static void Agree(StructuresData Data)
+        {
+            string Name = Key(Item.Structure, Data.ID);
+            if (Agreed.ContainsKey(Name))
+                Agreed[Name] = HostSave.Pack(typeof(StructuresData), Data);
+        }
+
         private static void ApplyGone(Item Kind, int Id, string Name)
         {
             Agreed.Remove(Name);
@@ -479,6 +638,14 @@ namespace COTLMP.Game
             {
                 if (!StructureBrain.TryFindBrainByID(Id, out StructureBrain Brain) || Brain == null)
                     return;
+                if (CultResources.Finish(Brain))
+                {
+                    ++GoneApplied;
+                    return;
+                }
+
+                /* Gone by the partner's hand: what it drops when broken dropped there */
+                Brain.ForceRemoved = true;
                 foreach (Structure Built in Structure.Structures.ToList())
                 {
                     if (Built != null && Built.Brain == Brain)
@@ -655,6 +822,7 @@ namespace COTLMP.Game
 
         private struct Pose
         {
+            public FollowerLocation Location;
             public Vector3 Position;
             public float ScaleX;
             public string Animation;
@@ -664,20 +832,24 @@ namespace COTLMP.Game
 
         private static readonly Dictionary<int, Pose> Poses = new();
 
+        /// <summary>
+        /// The followers our game runs, where they stand: the host's all but those in the friend's
+        /// hands, the friend's those
+        /// </summary>
         private static IEnumerator SendPoses()
         {
             var Wait = new WaitForSecondsRealtime(PoseEvery);
             while (true)
             {
                 yield return Wait;
-                if (!Hosting || SceneManager.GetActiveScene().name != BaseScene || MMTransition.IsPlaying)
-                    continue;
-                List<Follower> Here = FollowerManager.FollowersAtLocation(FollowerLocation.Base);
-                if (Here == null || Here.Count == 0)
+                if (!Ready || !(Hosting || (Mirror && CultHands.FriendCount > 0)) || SceneManager.GetActiveScene().name != BaseScene || MMTransition.IsPlaying)
                     continue;
                 try
                 {
-                    List<Follower> Shown = Here.Where(Body => Body != null && Body.Brain?.Info != null && Body.gameObject.activeInHierarchy).ToList();
+                    List<Follower> Shown = FollowerManager.ActiveLocationFollowers().Where(Body => Body != null && Body.Brain?.Info != null &&
+                        Body.gameObject.activeInHierarchy && CultHands.FriendRuns(Body.Brain.Info.ID) == Mirror).ToList();
+                    if (Shown.Count == 0)
+                        continue;
                     CoopSync.Send(CoopSync.Kind.CultPoses, Writer =>
                     {
                         Writer.Write((ushort)Shown.Count);
@@ -685,6 +857,7 @@ namespace COTLMP.Game
                         {
                             TrackEntry Track = Body.Spine?.AnimationState?.GetCurrent(1) ?? Body.Spine?.AnimationState?.GetCurrent(0);
                             Writer.Write(Body.Brain.Info.ID);
+                            Writer.Write((byte)Body.Brain.Location);
                             Writer.Write(Body.transform.position.x);
                             Writer.Write(Body.transform.position.y);
                             Writer.Write(Body.Spine?.Skeleton?.ScaleX ?? 1f);
@@ -709,6 +882,7 @@ namespace COTLMP.Game
                 int Id = Reader.ReadInt32();
                 Poses[Id] = new Pose
                 {
+                    Location = (FollowerLocation)Reader.ReadByte(),
                     Position = new Vector3(Reader.ReadSingle(), Reader.ReadSingle(), 0f),
                     ScaleX = Reader.ReadSingle(),
                     Animation = Reader.ReadString(),
@@ -719,20 +893,25 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Moves our copies of the host's followers to where the host's stand, doing what they do
+        /// Moves our copies of the followers the other game runs to where they stand there, doing what
+        /// they do there
         /// </summary>
         private sealed class PoseDriver : MonoBehaviour
         {
             private void LateUpdate()
             {
-                if (!Mirror || !Ready || Poses.Count == 0 || SceneManager.GetActiveScene().name != BaseScene)
+                if (!(Mirror || Hosting) || !Ready || Poses.Count == 0 || SceneManager.GetActiveScene().name != BaseScene)
                     return;
+                float Now = Time.unscaledTime;
                 foreach (var Pair in Poses)
                 {
-                    Follower Body = FollowerManager.FindFollowerByID(Pair.Key);
-                    if (Body == null)
-                        continue;
+                    /* Only theirs to run, and only as they are now: a follower changing hands waits for news */
                     Pose Wanted = Pair.Value;
+                    if (CultHands.FriendRuns(Pair.Key) != Hosting || Now - Wanted.At > 1f)
+                        continue;
+                    Follower Body = FollowerManager.FindFollowerByID(Pair.Key);
+                    if (Body == null || Body.Brain == null || Body.Brain.Location != Wanted.Location)
+                        continue;
                     Vector3 Position = Body.transform.position;
                     Vector3 Target = new(Wanted.Position.x, Wanted.Position.y, Position.z);
                     Body.transform.position = (Target - Position).sqrMagnitude > 9f ? Target : Vector3.Lerp(Position, Target, Mathf.Clamp01(Time.unscaledDeltaTime * 12f));
@@ -755,9 +934,20 @@ namespace COTLMP.Game
 
         /* THE FRIEND'S WORLD DOESN'T RUN *************************************/
 
+        /// <summary>
+        /// The friend's world doesn't run: the host's does. Only the followers in the friend's hands
+        /// do, and followers move where the host's game moved them.
+        /// </summary>
         [HarmonyPatch(typeof(TimeManager), nameof(TimeManager.Simulate))]
         [HarmonyPrefix]
-        private static bool Simulate() => !Mirror;
+        private static bool Simulate(float deltaGameTime)
+        {
+            if (!Mirror)
+                return true;
+            if (Ready && deltaGameTime > 0f)
+                CultHands.RunOurs(deltaGameTime);
+            return false;
+        }
     }
 }
 

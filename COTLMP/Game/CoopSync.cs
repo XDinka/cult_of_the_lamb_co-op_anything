@@ -85,7 +85,11 @@ namespace COTLMP.Game
             CultData = 26,
             CultItems = 27,
             CultTime = 28,
-            CultPoses = 29
+            CultPoses = 29,
+            /* CultHands */
+            CultHands = 30,
+            /* CultResources */
+            CultHit = 31
         }
 
         /// <summary>
@@ -303,6 +307,14 @@ namespace COTLMP.Game
 
                 case Kind.CultPoses:
                     CultSync.OnPoses(Reader);
+                    break;
+
+                case Kind.CultHands:
+                    CultHands.OnHands(Reader);
+                    break;
+
+                case Kind.CultHit:
+                    CultResources.OnHits(Reader);
                     break;
 
                 case Kind.PropBroken:
