@@ -112,6 +112,12 @@ namespace COTLMP.Game
             HealthPlayer Health = Puppet?.health;
             if (Health == null || Values == null || Values[1] <= 0f)
                 return;
+            /* Down or out, their hearts are empty whatever their game shows (a game over refills them) */
+            if (CoopLife.PartnerFallen)
+            {
+                Values = (float[])Values.Clone();
+                Values[0] = Values[2] = Values[3] = Values[4] = Values[6] = Values[7] = 0f;
+            }
             if (Health.totalHP == Values[1] && Health.HP == Values[0] && Health.BlueHearts == Values[2] && Health.BlackHearts == Values[3] &&
                 Health.SpiritHearts == Values[4] && Health.TotalSpiritHearts == Values[5] && Health.FireHearts == Values[6] && Health.IceHearts == Values[7])
                 return;

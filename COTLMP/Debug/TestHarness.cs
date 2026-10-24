@@ -57,6 +57,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-hudtrace</c>: log every time the HUD is hidden or shown, with who asked</item>
+    /// <item><c>-cotlmp-dieonrevive</c>: with the other copy's -cotlmp-autodie, we die halfway through getting them up (both down test)</item>
+    /// <item><c>-cotlmp-bosstest</c>: from the first dungeon room both go to the land's leader (the floor made again with the leader's room), the host a moment first; both read its talk on (the friend faster) and log the scene and the leader's health</item>
     /// <item><c>-cotlmp-recruittest</c>: a newcomer at the gate for both; the host recruits it while the friend tries to talk to it; both log how many of that follower they have</item>
     /// <item><c>-cotlmp-scenetest</c>: in a dungeon room both copies play the same conversation, the host reads on slowly and answers the second answer, the friend tries to rush it and answer the first (shared scenes test)</item>
     /// <item><c>-cotlmp-templetest</c>: the host builds a temple and gets three followers and bones; the friend goes in, preaches a sermon, holds a holiday and closes the altar through its menus</item>
@@ -87,7 +89,7 @@ namespace COTLMP.Debug
         private static bool Solo;
         private static bool NextFloor;
         private static bool NoMapClick;
-        private static bool AnimTest, CultTest, TempleTest, SceneTest, RecruitTest;
+        private static bool AnimTest, CultTest, TempleTest, SceneTest, RecruitTest, BossTest, DieOnRevive;
         private static bool PauseTest, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
@@ -175,6 +177,10 @@ namespace COTLMP.Debug
                     SceneTest = true;
                 else if (Arg.Equals("-cotlmp-recruittest", StringComparison.OrdinalIgnoreCase))
                     RecruitTest = true;
+                else if (Arg.Equals("-cotlmp-bosstest", StringComparison.OrdinalIgnoreCase))
+                    BossTest = true;
+                else if (Arg.Equals("-cotlmp-dieonrevive", StringComparison.OrdinalIgnoreCase))
+                    DieOnRevive = true;
                 else if (Arg.Equals("-cotlmp-hudtrace", StringComparison.OrdinalIgnoreCase))
                     TraceHud();
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
@@ -230,6 +236,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(SceneTogether());
             if (RecruitTest)
                 Plugin.MonoInstance.StartCoroutine(RecruitTogether());
+            if (BossTest)
+                Plugin.MonoInstance.StartCoroutine(FightLeader());
             if (PauseTest)
                 Plugin.MonoInstance.StartCoroutine(OpenPauseMenus());
             if (NextFloor && AutoEnter && !NoMapClick)
@@ -1074,6 +1082,69 @@ namespace COTLMP.Debug
             }
         }
 
+        /// <summary>
+        /// Both copies go to the land's leader (the Leshy in the first land): the floor is made again
+        /// with the leader's room first, the host's a moment before the friend's, as players never
+        /// arrive at once; both log the scene, the conversation and the leader's health as it goes
+        /// </summary>
+        private static IEnumerator FightLeader()
+        {
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 8f : 9.5f);
+            MMBiomeGeneration.BiomeGenerator Generator = MMBiomeGeneration.BiomeGenerator.Instance;
+            Plugin.Logger?.LogWarning($"{Tag} Boss test: going to the leader's room {Generator?.LeaderRoomPath}");
+            if (Generator == null || string.IsNullOrEmpty(Generator.LeaderRoomPath))
+                yield break;
+            PlayerFarming.Instance.health.invincible = true;
+            Generator.OverrideRooms = new List<MMBiomeGeneration.BiomeGenerator.OverrideRoom>
+            {
+                new()
+                {
+                    North = MMRoomGeneration.GenerateRoom.ConnectionTypes.DoorRoom,
+                    South = MMRoomGeneration.GenerateRoom.ConnectionTypes.Entrance,
+                    Generated = MMBiomeGeneration.BiomeGenerator.FixedRoom.Generate.DontGenerate,
+                    PrefabPath = Generator.LeaderRoomPath
+                }
+            };
+            Generator.Regenerate(null);
+            yield return new WaitForSecondsRealtime(1f);
+            while (MMTransition.IsPlaying || Generator.CurrentRoom == null)
+                yield return null;
+            yield return new WaitForSecondsRealtime(2f);
+            MMBiomeGeneration.BiomeRoom Lair = Generator.Rooms.FirstOrDefault(Room => Room != null && (Room.IsBoss || Room.GameObjectPath == Generator.LeaderRoomPath));
+            Plugin.Logger?.LogWarning($"{Tag} Boss test: rooms {string.Join(", ", Generator.Rooms.Select(Room => $"{Room.x},{Room.y}{(Room.IsBoss ? "!" : "")}"))}; the leader's {Lair?.x},{Lair?.y}");
+            if (Lair != null && Lair != Generator.CurrentRoom)
+                MMBiomeGeneration.BiomeGenerator.ChangeRoom(Lair.x, Lair.y);
+            float Since = Time.unscaledTime;
+            string Last = null;
+            while (Time.unscaledTime - Since < 150f)
+            {
+                yield return new WaitForSecondsRealtime(2f);
+                Health Leader = null;
+                foreach (Health Enemy in Health.team2)
+                {
+                    if (Enemy != null && (Leader == null || Enemy.totalHP > Leader.totalHP))
+                        Leader = Enemy;
+                }
+                string State = $"place={COTLMP.Game.CoopSync.CurrentPlace()} letterbox={LetterBox.IsPlaying} talk={MMTools.MMConversation.isPlaying}:{MMTools.MMConversation.Position} " +
+                               $"leader={Leader?.name}:{Leader?.HP:F0}/{Leader?.totalHP:F0} enemies={Health.team2.Count} own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} state={PlayerFarming.Instance?.state?.CURRENT_STATE}";
+                if (State != Last)
+                    Plugin.Logger?.LogWarning($"{Tag} Boss test {Time.unscaledTime - Since:F0}s: {State}");
+                Last = State;
+                /* Read on as a player would, the friend faster than the host */
+                var Box = MMTools.MMConversation.mmConversation;
+                if (MMTools.MMConversation.isPlaying && Box != null)
+                {
+                    Box.TextPlayer?.SkipTypewriter();
+                    AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked").Invoke(Box, null);
+                    if (!Host)
+                        AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked").Invoke(Box, null);
+                }
+            }
+        }
+
         private static IEnumerator DieOnce()
         {
             /* Counted from the first moment both stand in one dungeon room */
@@ -1163,6 +1234,17 @@ namespace COTLMP.Debug
                 PlayerFarming.Instance.transform.position = Downed.Value + new Vector3(0.6f, 0f, 0f);
                 if (Time.frameCount % 60 == 0)
                     Plugin.Logger?.LogWarning($"{Tag} Reviving the partner, bar {COTLMP.Game.CoopLife.ReviveProgress:F2}");
+                /* -cotlmp-dieonrevive: we fall halfway through getting them up */
+                if (DieOnRevive && COTLMP.Game.CoopLife.ReviveProgress > 0.5f)
+                {
+                    DieOnRevive = false;
+                    PlayerFarming Player = PlayerFarming.Instance;
+                    Plugin.Logger?.LogWarning($"{Tag} Falling while getting the partner up");
+                    Player.health.invincible = false;
+                    Player.health.untouchable = false;
+                    Player.health.HP = 0.5f;
+                    Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+                }
             }
         }
 

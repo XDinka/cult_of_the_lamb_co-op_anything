@@ -49,14 +49,20 @@ namespace COTLMP.Game
         private static Life Partner = Life.Alive;
         private static float PartnerChanged;
 
-        /* Revive bar: ours over the downed partner, or theirs over us */
+        /* Revive bar: ours over the downed partner, or theirs over us, and when theirs last moved */
         private static float Progress, PartnerProgress;
-        private static float LastProgressSent;
+        private static float LastProgressSent, PartnerProgressAt;
+
+        /* Both down: our lamb is on its way out, nothing may stand it up again meanwhile */
+        private static bool Dying;
+        private static float DyingSince;
+        private static readonly System.Reflection.MethodInfo GameOnDie = AccessTools.Method(typeof(PlayerController), "OnDie");
 
         /* Counters for the test harness report */
         internal static int KnockOuts, Revives, ForcedDeaths;
 
         internal static bool PartnerDown => Partner == Life.Down;
+        internal static bool PartnerFallen => Partner != Life.Alive;
         internal static bool WeAreDown => Mine == Life.Down;
         internal static float ReviveProgress => Progress;
 
@@ -106,17 +112,20 @@ namespace COTLMP.Game
                     Plugin.Logger?.LogInfo($"[COOP] The partner is {Value}");
                     PlayerManager.SetPuppetsDown(Value == Life.Down);
                     Progress = 0f;
+                    if (Value != Life.Alive)
+                        PartnerProgress = 0f;
 
                     /* They fell for good while we were down: the run is over for both */
                     if (Value == Life.Dead && Mine == Life.Down)
-                        Plugin.MonoInstance.StartCoroutine(DieForReal());
+                        StartDying();
                     break;
                 }
 
                 case CoopSync.Kind.Revive:
                 {
                     float Value = Reader.ReadSingle();
-                    PartnerProgress = Value;
+                    PartnerProgress = Partner == Life.Alive ? Value : 0f;
+                    PartnerProgressAt = Time.realtimeSinceStartup;
                     if (Value >= 1f && Mine == Life.Down)
                         GetUp();
                     break;
@@ -146,24 +155,60 @@ namespace COTLMP.Game
             }
         }
 
+        private static void StartDying()
+        {
+            if (Dying)
+                return;
+            Dying = true;
+            DyingSince = Time.realtimeSinceStartup;
+            Plugin.MonoInstance.StartCoroutine(DieForReal());
+        }
+
         private static IEnumerator DieForReal()
         {
             /* Let the knockout animation settle, the game refuses damage during custom animations */
             yield return new WaitForSeconds(1.2f);
 
             PlayerFarming Player = PlayerFarming.Instance;
-            if (Player == null || Player.health == null || !Player.IsKnockedOut)
+            if (Player == null || Player.health == null || Mine == Life.Dead)
+            {
+                Dying = false;
                 yield break;
+            }
 
             Plugin.Logger?.LogInfo("[COOP] Both of us are down, the run ends");
             ++ForcedDeaths;
-            Player.IsKnockedOut = false;
-            Player.health.invincible = false;
-            Player.health.untouchable = false;
-            Player.state.LockStateChanges = false;
-            Player.state.CURRENT_STATE = StateMachine.State.Idle;
-            Player.health.HP = Mathf.Min(Player.health.HP, 0.5f);
-            Player.health.DealDamage(Player.health.CurrentHP + 1f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+            try
+            {
+                Player.IsKnockedOut = false;
+                Player.health.invincible = false;
+                Player.health.untouchable = false;
+                Player.state.LockStateChanges = false;
+                Player.state.CURRENT_STATE = StateMachine.State.Idle;
+                Player.health.HP = Mathf.Min(Player.health.HP, 0.5f);
+                Player.health.DealDamage(Player.health.CurrentHP + 1f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+            }
+            catch (Exception e)
+            {
+                PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Dying with the partner failed: {e.Message}");
+            }
+            yield return new WaitForSeconds(0.5f);
+
+            /* The hit didn't take (a revive's grace, an animation): go the game's own way to game over */
+            if (Mine != Life.Dead && Player != null && Player.playerController != null)
+            {
+                Plugin.Logger?.LogInfo("[COOP] The last hit didn't take, ending the run the game's way");
+                try
+                {
+                    Player.health.HP = 0f;
+                    GameOnDie.Invoke(Player.playerController, new object[] { null, Player.transform.position, Player.health, Health.AttackTypes.Melee, Health.AttackFlags.ForceKill });
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Ending the run failed: {e}");
+                }
+            }
+            Dying = false;
         }
 
         /// <summary>
@@ -186,8 +231,16 @@ namespace COTLMP.Game
                     }
 
                     PlayerFarming Player = PlayerFarming.Instance;
-                    if (Player != null && Mine == Life.Down && !Player.IsKnockedOut)
+                    if (Player != null && Mine == Life.Down && !Player.IsKnockedOut && !Dying)
                         SetMine(Life.Alive);
+
+                    /* The partner is gone for good while we are down: we go too (again, if a try failed) */
+                    if (Partner == Life.Dead && Mine == Life.Down && !Dying && Time.realtimeSinceStartup - DyingSince > 3f)
+                        StartDying();
+
+                    /* Their bar stopped coming (they fell, the connection dropped): it isn't filling */
+                    if (PartnerProgress > 0f && Time.realtimeSinceStartup - PartnerProgressAt > 1.5f)
+                        PartnerProgress = 0f;
 
                     if (Time.realtimeSinceStartup >= NextAnnounce)
                     {
