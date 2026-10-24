@@ -260,6 +260,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(NetIconShots());
             else if (!string.IsNullOrEmpty(ShotsDir) && AutoChoice <= 0)
                 Plugin.MonoInstance.StartCoroutine(Shots());
+            if (!string.IsNullOrEmpty(ShotsDir))
+                Plugin.MonoInstance.StartCoroutine(MapShots());
             if (AutoDie > 0)
                 Plugin.MonoInstance.StartCoroutine(DieOnce());
             if (AutoHurt > 0)
@@ -314,6 +316,8 @@ namespace COTLMP.Debug
             /* The same for the difficulty a fresh save asks for on arrival (it covers the screen) */
             DataManager.Instance.DifficultyChosen = true;
             Plugin.MonoInstance.StartCoroutine(SkipDifficulty());
+            /* As loading a save does (the friend's copy gets it with the host's save) */
+            DifficultyManager.ForceDifficulty(DataManager.Instance.MetaData.Difficulty);
             if (RunCount >= 0)
             {
                 DataManager.Instance.dungeonRun = RunCount;
@@ -521,7 +525,9 @@ namespace COTLMP.Debug
             PlayerFarming Player = PlayerFarming.Instance;
             if (Player == null)
                 return "gear=-";
-            return $"gear={Player.currentWeapon}:{Player.currentWeaponLevel}/{Player.currentCurse}/{Player.RunTrinkets.Count}cards/{Player.health?.HP}hp";
+            string Hearts(HealthPlayer Health) => Health == null ? "-" : $"{Health.HP}/{Health.totalHP}+b{Health.BlueHearts}+k{Health.BlackHearts}+s{Health.SpiritHearts}";
+            PlayerFarming Puppet = Enumerable.Range(0, InternalData.MaxPlayersPerServerInternal).Select(Id => PlayerManager.GetPuppet((uint)Id)).FirstOrDefault(Each => Each != null);
+            return $"gear={Player.currentWeapon}:{Player.currentWeaponLevel}/{Player.currentCurse}/{Player.RunTrinkets.Count}cards/{Player.health?.HP}hp hearts={Hearts(Player.health)} puppethearts={Hearts(Puppet?.health)}";
         }
 
         /// <summary>
@@ -1154,6 +1160,23 @@ namespace COTLMP.Debug
         /// <summary>
         /// Both sides of the cult test, by role
         /// </summary>
+        /// <summary>
+        /// A frame of every map between floors, with both crowns on it
+        /// </summary>
+        private static IEnumerator MapShots()
+        {
+            for (int Count = 1; Count <= 4; Count++)
+            {
+                while (COTLMP.Game.MapSync.Shown == null)
+                    yield return new WaitForSecondsRealtime(0.2f);
+                yield return new WaitForSecondsRealtime(1.6f);
+                Plugin.Logger?.LogWarning($"{Tag} Map {Count}: partner {COTLMP.Game.MapCrowns.PartnerState}, crowns shown {COTLMP.Game.MapCrowns.Shown}, sent {COTLMP.Game.MapCrowns.Sent}, got {COTLMP.Game.MapCrowns.Received}");
+                Shot($"map-{Count}");
+                while (COTLMP.Game.MapSync.Shown != null)
+                    yield return new WaitForSecondsRealtime(0.2f);
+            }
+        }
+
         /* THE HUD TRACE ******************************************************/
 
         private static void TraceHud()

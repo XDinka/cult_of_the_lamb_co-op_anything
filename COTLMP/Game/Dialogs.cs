@@ -310,7 +310,7 @@ namespace COTLMP.Game
                 return None;
             }
 
-            private static Sprite Get(bool IsGoat)
+            internal static Sprite Get(bool IsGoat)
             {
                 Sprite Known = IsGoat ? Goat : Lamb;
                 if (Known != null)

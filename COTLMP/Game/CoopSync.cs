@@ -103,7 +103,9 @@ namespace COTLMP.Game
             /* IntroCoop */
             IntroCrown = 39,
             /* FoxSync */
-            FoxTalk = 40
+            FoxTalk = 40,
+            /* MapCrowns */
+            MapCursor = 41
         }
 
         /// <summary>
@@ -383,6 +385,10 @@ namespace COTLMP.Game
 
                 case Kind.FoxTalk:
                     FoxSync.OnTalk(Reader);
+                    break;
+
+                case Kind.MapCursor:
+                    MapCrowns.OnRelay(Reader);
                     break;
 
                 case Kind.PropBroken:

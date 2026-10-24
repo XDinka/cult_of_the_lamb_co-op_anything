@@ -261,6 +261,7 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.RoomRandom.Initialize();
         COTLMP.Game.MapSync.Initialize();
         COTLMP.Game.MiniMapSync.Initialize();
+        COTLMP.Game.MapCrowns.Initialize();
         COTLMP.Game.PuppetSync.Initialize();
         COTLMP.Game.HostSave.Initialize();
         COTLMP.Game.CultSync.Initialize();

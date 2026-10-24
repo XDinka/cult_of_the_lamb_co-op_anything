@@ -95,6 +95,14 @@ namespace COTLMP.Game
 
         internal static bool FollowingHost => Following;
 
+        /// <summary>
+        /// The map on screen, picking or not, and which map of the run it is
+        /// </summary>
+        internal static UIAdventureMapOverlayController Shown =>
+            OpenMap != null && OpenMap.gameObject.activeInHierarchy ? OpenMap : null;
+
+        internal static int MapIndex => MapRun == CoopSync.CurrentRun ? MapCount : 0;
+
         public static void Initialize()
         {
             BiomeGenerator.OnBiomeChangeRoom += BuildEarly;
