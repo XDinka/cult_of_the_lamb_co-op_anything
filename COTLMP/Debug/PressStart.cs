@@ -31,7 +31,8 @@ namespace COTLMP.Debug
         {
             if (!On || __result != GamePad.None || Time.realtimeSinceStartup < 20f || Time.frameCount % 2 == 0)
                 return;
-            if (SessionManager.instance == null || SessionManager.instance.HasStarted)
+            /* Only on the title screen: once the menu shows, a press would pick its buttons */
+            if (SessionManager.instance == null || SessionManager.instance.HasStarted || COTLMP.Ui.OnlineMenu.Shown)
                 return;
             __result = new RewiredGamePad(0);
         }

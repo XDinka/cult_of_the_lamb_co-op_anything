@@ -228,7 +228,8 @@ namespace COTLMP.Game
                         Plugin.Logger?.LogInfo($"[COOP] Player {From} is in run {Id} in {(FollowerLocation)Location}");
 
                     /* Our own run coming back after they adopted it, or a repeat of what we know */
-                    if (Id == RunId || (Id == PartnerRunId && Location == PartnerRunLocation))
+                    /* 0 is no run (a game that hasn't started one yet) */
+                    if (Id == 0 || Id == RunId || (Id == PartnerRunId && Location == PartnerRunLocation))
                         break;
                     PartnerRunLocation = Location;
                     PartnerRunId = Id;
@@ -461,7 +462,7 @@ namespace COTLMP.Game
             if (!InSession)
                 return;
 
-            if (PartnerRunLocation == (int)Location && Time.realtimeSinceStartup - PartnerRunTime < AdoptWindow)
+            if (PartnerRunId != 0 && PartnerRunLocation == (int)Location && Time.realtimeSinceStartup - PartnerRunTime < AdoptWindow)
             {
                 RunId = PartnerRunId;
                 RunLocation = (int)Location;
