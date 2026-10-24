@@ -17,6 +17,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -55,6 +56,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-takeupdate</c>: an update offered is taken at once, the installer runs without its window</item>
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
+    /// <item><c>-cotlmp-hudtrace</c>: log every time the HUD is hidden or shown, with who asked</item>
     /// <item><c>-cotlmp-templetest</c>: the host builds a temple and gets three followers and bones; the friend goes in, preaches a sermon, holds a holiday and closes the altar through its menus</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
     /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
@@ -167,6 +169,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-hudtrace", StringComparison.OrdinalIgnoreCase))
+                    TraceHud();
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
                     PauseTest = true;
                 else if (Arg.Equals("-cotlmp-pausenoplayer", StringComparison.OrdinalIgnoreCase))
@@ -783,6 +787,7 @@ namespace COTLMP.Debug
                 Last = Place;
                 yield return new WaitForSecondsRealtime(5f);
                 string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{++Count}.png");
+                System.IO.Directory.CreateDirectory(ShotsDir);
                 ScreenCapture.CaptureScreenshot(File);
                 Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}");
             }
@@ -1149,6 +1154,59 @@ namespace COTLMP.Debug
         /// <summary>
         /// Both sides of the cult test, by role
         /// </summary>
+        /* THE HUD TRACE ******************************************************/
+
+        private static void TraceHud()
+        {
+            var Patcher = new Harmony("cotlmp.hudtrace");
+            foreach (string Name in new[] { "Hide", "Show" })
+                Patcher.Patch(AccessTools.Method(typeof(HUD_Manager), Name), prefix: new HarmonyMethod(typeof(TestHarness), nameof(HudCalled)));
+            Patcher.Patch(AccessTools.Method(typeof(Health_Manager), nameof(Health_Manager.Init)), prefix: new HarmonyMethod(typeof(TestHarness), nameof(HudCalled)));
+            foreach (string Name in new[] { "Hide", "HideBars", "Show" })
+                Patcher.Patch(AccessTools.Method(typeof(Health_Manager), Name), prefix: new HarmonyMethod(typeof(TestHarness), nameof(HudCalled)));
+            foreach (string Name in new[] { "MoveBackOutFunction", "hideBar" })
+                Patcher.Patch(AccessTools.Method(typeof(UI_Transitions), Name), prefix: new HarmonyMethod(typeof(TestHarness), nameof(HudTransition)));
+            Plugin.MonoInstance.StartCoroutine(LogHud());
+        }
+
+        /* Only the hearts panels' own moves */
+        private static void HudTransition(UI_Transitions __instance, MethodBase __originalMethod)
+        {
+            if (__instance == null || __instance.GetComponentInParent<Health_Manager>() == null)
+                return;
+            string Stack = string.Join(" < ", new System.Diagnostics.StackTrace(2, false).GetFrames()?.Take(6)
+                .Select(Frame => $"{Frame.GetMethod()?.DeclaringType?.Name}.{Frame.GetMethod()?.Name}") ?? Enumerable.Empty<string>());
+            Plugin.Logger?.LogWarning($"{Tag} HUD panel {__instance.name} {__originalMethod.Name}: {Stack}");
+        }
+
+        private static IEnumerator LogHud()
+        {
+            string Last = null;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(3f);
+                HUD_Manager Hud = HUD_Manager.Instance;
+                if (Hud == null)
+                    continue;
+                Health_Manager Health = Hud.healthManager;
+                string Hearts(HUD_Hearts Panel) => Panel == null ? "-" :
+                    $"{(Panel.gameObject.activeInHierarchy ? "on" : "off")}:{(Traverse.Create(Panel).Field("playerFarming").GetValue() is PlayerFarming Bound && Bound != null ? (Bound == PlayerFarming.Instance ? "us" : PlayerManager.IsPuppet(Bound.health) ? "puppet" : "other") : "none")}";
+                CanvasGroup Group = Hud.GetComponentInParent<CanvasGroup>();
+                string State = $"hidden={Hud.Hidden} active={Hud.gameObject.activeInHierarchy} alpha={(Group != null ? Group.alpha : -1f):F2} container={Hud.healthContainer?.activeInHierarchy} " +
+                               $"singleDungeon={Hearts(Health?.health_SingleDungeon)} singleBase={Hearts(Health?.health_SingleBase)} first={Hearts(Health?.health_firstPlayer)} second={Hearts(Health?.health_secondPlayer)} players={PlayerFarming.players.Count}";
+                if (State != Last)
+                    Plugin.Logger?.LogWarning($"{Tag} HUD state in {SceneManager.GetActiveScene().name}: {State}");
+                Last = State;
+            }
+        }
+
+        private static void HudCalled(MethodBase __originalMethod)
+        {
+            string Stack = string.Join(" < ", new System.Diagnostics.StackTrace(2, false).GetFrames()?.Take(6)
+                .Select(Frame => $"{Frame.GetMethod()?.DeclaringType?.Name}.{Frame.GetMethod()?.Name}") ?? Enumerable.Empty<string>());
+            Plugin.Logger?.LogWarning($"{Tag} HUD {__originalMethod.Name} in {SceneManager.GetActiveScene().name}: {Stack}");
+        }
+
         /* THE TEMPLE TEST ****************************************************/
 
         /// <summary>

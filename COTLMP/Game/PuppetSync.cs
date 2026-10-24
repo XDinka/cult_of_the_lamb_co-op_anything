@@ -50,6 +50,8 @@ namespace COTLMP.Game
             public string Weapon;
             /* Bruises, black and white, the mop: see Appearance.Look */
             public int Look;
+            /* Its hearts, see CoopHud */
+            public float[] Hearts;
             public Vector3 Position;
             public float ScaleX;
             public readonly List<Track> Tracks = new();
@@ -136,6 +138,7 @@ namespace COTLMP.Game
                 Writer.Write(Appearance.LocalSkin());
                 Writer.Write(WeaponSkin(Player));
                 Writer.Write(Appearance.Look);
+                CoopHud.WriteHearts(Writer);
                 Vector3 At = Player.transform.position;
                 Writer.Write(At.x);
                 Writer.Write(At.y);
@@ -173,6 +176,7 @@ namespace COTLMP.Game
                 Skin = Reader.ReadInt32(),
                 Weapon = Reader.ReadString(),
                 Look = Reader.ReadInt32(),
+                Hearts = CoopHud.ReadHearts(Reader),
                 Position = new Vector3(Reader.ReadSingle(), Reader.ReadSingle(), Reader.ReadSingle()),
                 ScaleX = Reader.ReadSingle(),
                 At = Time.realtimeSinceStartup
@@ -215,6 +219,7 @@ namespace COTLMP.Game
                     PlayerManager.SetPuppetWeapon(Id, Item.Weapon);
                     PlayerManager.SetPuppetLook(Id, Item.Look);
                     Puppet = PlayerManager.GetPuppet(Id);
+                    CoopHud.ApplyHearts(Puppet, Item.Hearts);
                     if (Puppet == null)
                         continue;
                     ++Appeared;
@@ -225,6 +230,7 @@ namespace COTLMP.Game
                     PlayerManager.SetPlayerSkin(Id, Item.Skin);
                     PlayerManager.SetPuppetWeapon(Id, Item.Weapon);
                     PlayerManager.SetPuppetLook(Id, Item.Look);
+                    CoopHud.ApplyHearts(Puppet, Item.Hearts);
                 }
 
                 /* Its own animator would put idle or running back every frame */

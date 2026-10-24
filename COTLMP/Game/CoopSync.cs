@@ -191,7 +191,12 @@ namespace COTLMP.Game
             if (Generator == null || Generator.CurrentRoom == null || Generator.gameObject.scene != SceneManager.GetActiveScene())
                 return Scene;
 
-            return $"{Scene}#{GameManager.CurrentDungeonLayer}.{GameManager.CurrentDungeonFloor}@{Generator.CurrentRoom.x},{Generator.CurrentRoom.y}";
+            /*
+             * The floor number only counts fighting floors: a resource or follower stop on the map,
+             * and every stop of the opening, keep the number of the floor before. The map stop the
+             * run is at tells them apart (both players take the same stops on the same map).
+             */
+            return $"{Scene}#{GameManager.CurrentDungeonLayer}.{GameManager.CurrentDungeonFloor}.{MapSync.Stop}@{Generator.CurrentRoom.x},{Generator.CurrentRoom.y}";
         }
 
         /* RELAY **************************************************************/

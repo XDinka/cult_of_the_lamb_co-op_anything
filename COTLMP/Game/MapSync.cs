@@ -113,6 +113,14 @@ namespace COTLMP.Game
         /* Our map is the one both share */
         private static bool OnHostMap => IsHost || Following;
 
+        /* Ways taken on the maps of the run so far, ours and the partner's alike (they are the same) */
+        private static int StopRun, Stops;
+
+        /// <summary>
+        /// How many ways the run has taken on its maps: the same for both players at the same stop
+        /// </summary>
+        internal static int Stop => StopRun == CoopSync.CurrentRun ? Stops : 0;
+
         private static void CountMap()
         {
             if (MapRun != CoopSync.CurrentRun)
@@ -547,6 +555,18 @@ namespace COTLMP.Game
                 {
                     Plugin.Logger?.LogWarning($"[COOP] Sending the map failed: {e.Message}");
                 }
+            }
+
+            [HarmonyPatch(typeof(MapManager), nameof(MapManager.AddNodeToPath))]
+            [HarmonyPostfix]
+            private static void NodeAdded()
+            {
+                if (StopRun != CoopSync.CurrentRun)
+                {
+                    StopRun = CoopSync.CurrentRun;
+                    Stops = 0;
+                }
+                ++Stops;
             }
 
             [HarmonyPatch(typeof(MapManager), nameof(MapManager.AddNodeToPath))]

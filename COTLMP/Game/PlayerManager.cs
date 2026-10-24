@@ -163,6 +163,11 @@ namespace COTLMP.Game
         private readonly static int[] skins;
         private readonly static string[] weapons;
         private readonly static int[] looks;
+
+        /// <summary>
+        /// True while a puppet is being made: what it sets up is not ours
+        /// </summary>
+        internal static bool CreatingPuppet { get; private set; }
         private readonly static Vector3?[] spineBase;
 
         /// <summary>
@@ -375,7 +380,17 @@ namespace COTLMP.Game
                 DeletePlayer(id);
             }
 
-            GameObject plr = GameObject.Instantiate(CoopManager.Instance?.playerPrefab);
+            /* Setting itself up (on enable too), it would take the HUD and our hearts' data, see CoopHud */
+            GameObject plr;
+            CreatingPuppet = true;
+            try
+            {
+                plr = GameObject.Instantiate(CoopManager.Instance?.playerPrefab);
+            }
+            finally
+            {
+                CreatingPuppet = false;
+            }
             if (plr == null)
                 return;
 
@@ -390,10 +405,19 @@ namespace COTLMP.Game
 
             try
             {
-                farming.isLamb = true;
+                /* The game's co-op tells the Lamb and the Goat apart by this (the HUD panel, its icon) */
+                farming.isLamb = skin != Appearance.GoatSkin;
                 farming.EnableCoopFeatures = false;
                 farming.playerID = 1; // afaik the player id here doesn't matter
-                farming.Init();
+                CreatingPuppet = true;
+                try
+                {
+                    farming.Init();
+                }
+                finally
+                {
+                    CreatingPuppet = false;
+                }
                 farming.rewiredPlayer = null;
                 farming.transform.parent = PlayerFarming.players[0]?.transform.parent;
                 plr.SetActive(true);
@@ -425,6 +449,7 @@ namespace COTLMP.Game
             looks[id] = 0;
             spineBase[id] = null;
             ApplySkin(farming, skin);
+            CoopHud.Rebuild();
 
             /* Met again (room change, scene load) while they are down */
             if (puppetsDown)
@@ -533,7 +558,9 @@ namespace COTLMP.Game
             if (skins[plr] == skin)
                 return;
             skins[plr] = skin;
+            players[plr].isLamb = skin != Appearance.GoatSkin;
             ApplySkin(players[plr], skin);
+            CoopHud.Rebuild();
         }
 
         /// <summary>
