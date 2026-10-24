@@ -266,6 +266,7 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.CultSync.Initialize();
         COTLMP.Game.CultHands.Initialize();
         COTLMP.Game.CultResources.Initialize();
+        COTLMP.Network.Updater.Initialize();
         COTLMP.Game.PropSync.Initialize();
         COTLMP.Game.ConnectionQuality.Initialize();
         COTLMP.Debug.TestHarness.Initialize();

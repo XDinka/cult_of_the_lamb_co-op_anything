@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.8, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.9, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.8, pre-release.**
+**Version 0.2.9, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.8.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.2.9.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -95,6 +95,7 @@ You play as the Goat, as in the game's own co-op.</td>
 | Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
 | The friend's hands in the cult: a follower the friend talks to, or gathers for a sermon or ritual, runs in the friend's game for that while and goes back to the host's with its orders (sleep, a job, prison); one player talks to a follower at a time | works in the automated test (an order to sleep, a follower gathered and let go); a real sermon in a temple not tested yet |
 | The cult's data: doctrines, rituals and their cooldowns, faith, the last sermon's day, quests; not what is each player's own or a run's | works in the automated test |
+| Mod versions compared on joining: both shown, playing on allowed with a warning; a friend behind updates to the host's version and joins again by itself, a host behind can be asked to update | works in the automated test (both ways, the friend's update end to end) |
 | The mod updates itself: a newer release is offered in the main menu, downloaded, checked (SHA-256), installed and the game started again; the installer offers a newer installer too | works in the automated test (a fake release, end to end) |
 | A sync check every 4 s: what still differs two checks in a row is taken from its owner (the host, or the friend for followers in their hands) and logged with what differed; once a minute the log says what the sync cost | works in the automated test (a lost rename, sermon day, stone, a missing and an extra torch all fixed) |
 | Trees, rocks and berry bushes: each hit shows for the player who watches (shake, bar, stump, smoke), the loot drops only for the one who hit | works in the automated test (a tree chopped, a rock broken, followers picking berries) |
@@ -118,7 +119,7 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.8, предрелиз.
+Версия 0.2.9, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно

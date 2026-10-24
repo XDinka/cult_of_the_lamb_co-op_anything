@@ -3,6 +3,42 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.2.9 (2026-10-24)
+
+**Both players' mod versions compared on joining**
+- The joining player and the host send their mod versions. If they differ, the joining player sees
+  both, "Host's version" and "Your version", before the host's save is loaded. Playing on is allowed,
+  with a warning that different versions may cause errors or damage the save. See `VersionCheck.cs`.
+- The host on a newer version: **Update** takes exactly the host's version (its release by tag), the
+  game restarts and joins the host again by itself.
+- The host on an older version: **Ask the host to update** sends the host a window with both versions;
+  the host updates to the friend's version, the game restarts, and the host opens the game online
+  again and picks the save.
+- The host hears of a friend on another version as a short note. If updating doesn't work, the join
+  goes on and the release page is offered.
+
+  ![The friend joining a host on an older version](Media/changelog/0.2.9-versions-friend.png)
+  ![The host asked to update](Media/changelog/0.2.9-versions-host.png)
+
+- Tested on two copies: the friend updated to the host's (fake) newer release, restarted and joined
+  again by itself:
+
+  ```
+  [COOP] Mod versions differ: the host's 0.2.10, ours 0.2.9
+  [COOP] Mod versions differ, the joining player chose: update
+  ... the installer waits, installs, starts the game again ...
+  [UPDATE] Updated to the host's version, joining host 1 again
+  [STEAM] Joined host 1 in scene Main Menu
+  [COOP] Got the host's save (4192 bytes, 0 followers), going to its cult
+  ```
+
+**Fixed:** the installer started by the mod inherited the game's open sockets and files, and so did
+the game it started again (that game couldn't open its connection); it is now started through the
+shell. A host now answers every join with its version, not only the first one of a session.
+
+**Known:** Windows Smart App Control can block a new installer it doesn't know yet (the installer
+isn't code-signed); then the mod offers the release page.
+
 ## 0.2.8 (2026-10-24)
 
 **The mod updates itself**

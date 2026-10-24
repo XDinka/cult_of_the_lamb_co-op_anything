@@ -94,7 +94,10 @@ namespace COTLMP.Game
             CultCheck = 32,
             CultCheckAsk = 33,
             CultCheckList = 34,
-            CultFixAsk = 35
+            CultFixAsk = 35,
+            /* VersionCheck */
+            ModVersion = 36,
+            UpdateSuggest = 37
         }
 
         /// <summary>
@@ -341,6 +344,14 @@ namespace COTLMP.Game
 
                 case Kind.CultFixAsk:
                     CultSync.OnFixAsk(Reader);
+                    break;
+
+                case Kind.ModVersion:
+                    VersionCheck.OnVersion(Reader);
+                    break;
+
+                case Kind.UpdateSuggest:
+                    VersionCheck.OnSuggest(Reader);
                     break;
 
                 case Kind.PropBroken:

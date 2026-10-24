@@ -85,6 +85,22 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/LeaveFirst", "Закройте свою онлайн игру, чтобы зайти к другу", false),
             new("Multiplayer/Cult/FollowerBusy", "Кто-то уже разговаривает с этим последователем", false),
 
+            /* Mod versions of the two players */
+            new("Multiplayer/Version/Title", "Разные версии мода", false),
+            new("Multiplayer/Version/Lines", "Версия хоста: {0}\nВаша версия: {1}", false),
+            new("Multiplayer/Version/FriendLines", "Версия друга: {0}\nВаша версия: {1}", false),
+            new("Multiplayer/Version/Unknown", "неизвестна (0.2.8 или старее)", false),
+            new("Multiplayer/Version/Risk", "Играть можно, но разные версии могут вызвать ошибки или даже повредить сохранение.", false),
+            new("Multiplayer/Version/UpdateToHost", "Обновиться до {0}? Игра перезапустится и сама снова подключится к хосту.", false),
+            new("Multiplayer/Version/HostOlder", "У хоста версия старее. Можно предложить хосту обновиться.", false),
+            new("Multiplayer/Version/HostUpdate", "Обновиться сейчас? Игра перезапустится; потом снова откройте онлайн игру и выберите сохранение.", false),
+            new("Multiplayer/Version/FriendAsks", "Друг предлагает обновить мод", false),
+            new("Multiplayer/Version/FriendHas", "У друга мод {0}, у вас {1}", false),
+            new("Multiplayer/Version/Update", "Обновиться", false),
+            new("Multiplayer/Version/PlayAnyway", "Играть так", false),
+            new("Multiplayer/Version/Suggest", "Предложить хосту обновиться", false),
+            new("Multiplayer/Version/NotNow", "Не сейчас", false),
+
             /* Updates */
             new("Multiplayer/Update/Title", "Вышла новая версия кооп-мода", false),
             new("Multiplayer/Update/Body", "Вышла версия {0}, у вас {1}. Обновить сейчас? Игра закроется, установщик поставит новую версию и снова запустит игру.", false),

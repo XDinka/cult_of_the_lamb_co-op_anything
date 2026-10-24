@@ -99,6 +99,18 @@ namespace COTLMP.Game
         /// <summary>
         /// Connected to the host: save our own game if one is up, then ask for the host's
         /// </summary>
+        /// <summary>
+        /// The join went on hold for an update that didn't happen: the host's save after all
+        /// </summary>
+        internal static void ContinueJoin()
+        {
+            if (!CoopSync.InSession || Playing)
+                return;
+            Waiting = true;
+            Notify("Multiplayer/Steam/LoadingHostSave");
+            Ask();
+        }
+
         internal static void BeginJoin()
         {
             Plugin.MonoInstance.StartCoroutine(Join());
@@ -126,6 +138,15 @@ namespace COTLMP.Game
 
             if (!Waiting || !CoopSync.InSession)
                 yield break;
+
+            /* Both mods' versions first: a difference is shown, and the player may update instead */
+            bool GoOn = true;
+            yield return VersionCheck.Gate(Answer => GoOn = Answer);
+            if (!GoOn || !Waiting || !CoopSync.InSession)
+            {
+                Waiting = false;
+                yield break;
+            }
             Notify("Multiplayer/Steam/LoadingHostSave");
             Ask();
         }

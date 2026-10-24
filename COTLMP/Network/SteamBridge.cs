@@ -95,6 +95,48 @@ namespace COTLMP.Network
             if (IsFake)
                 PendingFakeHost = Host;
         }
+
+        /// <summary>
+        /// The host we joined, 0 while hosting or alone
+        /// </summary>
+        internal static ulong JoinedHost => Active && !IsHost ? HostId : 0;
+
+        /// <summary>
+        /// Joins this host again once the game can (after updating to the host's version): through
+        /// the lobby of the game the friend is in, as accepting their invite would
+        /// </summary>
+        internal static void JoinAgain(ulong Host)
+        {
+            if (IsFake)
+            {
+                PendingFakeHost = Host;
+                return;
+            }
+            Plugin.MonoInstance.StartCoroutine(FindHostLobby(Host));
+        }
+
+        private static IEnumerator FindHostLobby(ulong Host)
+        {
+            float Until = Time.realtimeSinceStartup + 120f;
+            while (Time.realtimeSinceStartup < Until)
+            {
+                yield return new WaitForSecondsRealtime(2f);
+                try
+                {
+                    if (SteamFriends.GetFriendGamePlayed(new CSteamID(Host), out FriendGameInfo_t Game) && Game.m_steamIDLobby.IsValid())
+                    {
+                        Plugin.Logger?.LogInfo($"[STEAM] Joining host {Host} again in lobby {Game.m_steamIDLobby.m_SteamID}");
+                        PendingLobby = Game.m_steamIDLobby.m_SteamID;
+                        yield break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[STEAM] Can't see the host's game yet: {e.Message}");
+                }
+            }
+            Plugin.Logger?.LogWarning($"[STEAM] Host {Host} has no game open to join again");
+        }
         private static ulong PendingLobby;
         private static bool ToldToLeave;
         private static bool Joining;
@@ -470,6 +512,7 @@ namespace COTLMP.Network
             Network.AnnounceCurrentScene();
             COTLMP.Game.Appearance.Refresh();
             COTLMP.Game.CoopSync.SayHello();
+            COTLMP.Game.VersionCheck.Announce();
             Notify("Multiplayer/Steam/Joined");
             Plugin.Logger?.LogInfo($"[STEAM] Joined host {Host} in scene {SceneManager.GetActiveScene().name}");
 

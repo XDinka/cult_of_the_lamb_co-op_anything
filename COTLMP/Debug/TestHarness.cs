@@ -44,6 +44,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
     /// <item><c>-cotlmp-pretendversion=0.2.6</c>: the update check takes this mod for that version</item>
     /// <item><c>-cotlmp-updatefrom=URL</c>: the release is read from there instead of GitHub (a file:/// one for tests)</item>
+    /// <item><c>-cotlmp-versionchoice=update|play|suggest</c>: what the joining player picks when the mod versions differ</item>
+    /// <item><c>-cotlmp-versionshots=DIR</c>: frames of the version windows</item>
     /// <item><c>-cotlmp-takeupdate</c>: an update offered is taken at once, the installer runs without its window</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
@@ -121,6 +123,10 @@ namespace COTLMP.Debug
                     AnimTest = true;
                 else if (Arg.StartsWith("-cotlmp-pretendversion=", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Network.Updater.PretendVersion = Arg.Substring("-cotlmp-pretendversion=".Length);
+                else if (Arg.StartsWith("-cotlmp-versionchoice=", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Game.VersionCheck.AutoChoice = Arg.Substring("-cotlmp-versionchoice=".Length);
+                else if (Arg.StartsWith("-cotlmp-versionshots=", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Game.VersionCheck.ShotsDir = Arg.Substring("-cotlmp-versionshots=".Length);
                 else if (Arg.StartsWith("-cotlmp-updateshot=", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Network.Updater.OfferShot = Arg.Substring("-cotlmp-updateshot=".Length);
                 else if (Arg.StartsWith("-cotlmp-updatefrom=", StringComparison.OrdinalIgnoreCase))
@@ -1225,6 +1231,7 @@ namespace COTLMP.Debug
                    $"mushrooms={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.MUSHROOM_SMALL)} trees={StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base).Count} rocks={StructureManager.GetAllStructuresOfType<Structures_Rubble>(FollowerLocation.Base).Count} hits={CultResources.HitsSent}/{CultResources.HitsApplied} " +
                    $"sermonday={DataManager.Instance.PreviousSermonDayIndex} feast={DataManager.Instance.LastFeastDeclared:F0} " +
                    $"checks={CultSync.ChecksSent}/{CultSync.ChecksTaken}/{CultSync.GroupsDiffered}/{CultSync.FixesAsked}/{CultSync.FixesSent}/{CultSync.FixesTaken} load={CultSync.LoadMsPerSecond:F2}/{CultSync.WorstFrameMs:F2}/{CultSync.KBPerSecond:F2} " +
+                   $"versions={COTLMP.Game.VersionCheck.Partner}/{COTLMP.Network.Updater.Version}/{COTLMP.Game.VersionCheck.Warned}/{COTLMP.Game.VersionCheck.Suggested}/{COTLMP.Game.VersionCheck.SuggestionsTaken} " +
                    $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount} data={CultSync.DataApplied} " +
                    $"tasks={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{FollowerBrain.FindBrainByID(Info?.ID ?? 0)?.CurrentTaskType}:{Info?.Location}:{Info?.CurrentOverrideTaskType}"))}";
         }

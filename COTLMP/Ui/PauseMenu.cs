@@ -360,6 +360,7 @@ namespace COTLMP.Ui
 
             /* A joining player on the host's save goes back to the main menu */
             COTLMP.Game.CultSync.Reset();
+            COTLMP.Game.VersionCheck.Reset();
             COTLMP.Game.HostSave.Forget();
         }
 

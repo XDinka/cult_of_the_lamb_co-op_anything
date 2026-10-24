@@ -85,6 +85,22 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/LeaveFirst", "Stop hosting to join your friend", false),
             new("Multiplayer/Cult/FollowerBusy", "Someone is already talking to this follower", false),
 
+            /* Mod versions of the two players */
+            new("Multiplayer/Version/Title", "Different mod versions", false),
+            new("Multiplayer/Version/Lines", "Host's version: {0}\nYour version: {1}", false),
+            new("Multiplayer/Version/FriendLines", "Your friend's version: {0}\nYour version: {1}", false),
+            new("Multiplayer/Version/Unknown", "unknown (0.2.8 or older)", false),
+            new("Multiplayer/Version/Risk", "You can play, but different versions may cause errors or even damage the save.", false),
+            new("Multiplayer/Version/UpdateToHost", "Update to {0}? The game restarts and joins the host again by itself.", false),
+            new("Multiplayer/Version/HostOlder", "The host has an older version. You can ask the host to update.", false),
+            new("Multiplayer/Version/HostUpdate", "Update now? The game restarts; then open the game online again and pick your save.", false),
+            new("Multiplayer/Version/FriendAsks", "Your friend asks you to update the mod", false),
+            new("Multiplayer/Version/FriendHas", "Your friend's mod is {0}, yours is {1}", false),
+            new("Multiplayer/Version/Update", "Update", false),
+            new("Multiplayer/Version/PlayAnyway", "Play anyway", false),
+            new("Multiplayer/Version/Suggest", "Ask the host to update", false),
+            new("Multiplayer/Version/NotNow", "Not now", false),
+
             /* Updates */
             new("Multiplayer/Update/Title", "A new version of the co-op mod", false),
             new("Multiplayer/Update/Body", "Version {0} is out, you have {1}. Update now? The game will close, the installer will put in the new version and start the game again.", false),

@@ -283,12 +283,10 @@ namespace CotlCoopInstaller
             string Exe = Dir == null ? null : Path.Combine(Dir, "Cult Of The Lamb.exe");
             if (!string.IsNullOrEmpty(Arguments) && File.Exists(Exe))
             {
-                ProcessStartInfo Start = new(Exe, Arguments) { UseShellExecute = false, WorkingDirectory = Dir };
-
                 /* Started from a modded game, we may carry its loader's marks: the game would start without mods */
-                foreach (string Name in Start.EnvironmentVariables.Keys.Cast<string>().Where(Name => Name.StartsWith("DOORSTOP", StringComparison.OrdinalIgnoreCase)).ToList())
-                    Start.EnvironmentVariables.Remove(Name);
-                Process.Start(Start);
+                foreach (string Name in Environment.GetEnvironmentVariables().Keys.Cast<string>().Where(Name => Name.StartsWith("DOORSTOP", StringComparison.OrdinalIgnoreCase)).ToList())
+                    Environment.SetEnvironmentVariable(Name, null);
+                Process.Start(new ProcessStartInfo(Exe, Arguments) { UseShellExecute = true, WorkingDirectory = Dir });
                 return;
             }
             Process.Start(new ProcessStartInfo("steam://rungameid/" + AppId) { UseShellExecute = true });
