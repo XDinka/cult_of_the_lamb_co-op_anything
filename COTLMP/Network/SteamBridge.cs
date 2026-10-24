@@ -102,6 +102,104 @@ namespace COTLMP.Network
         internal static ulong JoinedHost => Active && !IsHost ? HostId : 0;
 
         /// <summary>
+        /// We host (in the lobby or in the game)
+        /// </summary>
+        internal static bool Hosting => Active && IsHost;
+
+        /// <summary>
+        /// Our own Steam ID (the stand-in's number in a test)
+        /// </summary>
+        internal static ulong LocalId
+        {
+            get
+            {
+                try
+                {
+                    return IsFake ? FakeSteamId : SteamManager.Initialized ? SteamUser.GetSteamID().m_SteamID : 0;
+                }
+                catch (Exception)
+                {
+                    return 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The other players' Steam IDs: the friends who joined us, or the host we joined
+        /// </summary>
+        internal static List<ulong> PartnerIds()
+        {
+            return IsHost ? new List<ulong>(Peers.Keys) : HostId != 0 ? new List<ulong> { HostId } : new List<ulong>();
+        }
+
+        /// <summary>
+        /// A player's Steam name
+        /// </summary>
+        internal static string NameOf(ulong Id)
+        {
+            if (Id == LocalId)
+                return LocalName();
+            try
+            {
+                return IsFake ? $"Player {Id}" : SteamFriends.GetFriendPersonaName(new CSteamID(Id));
+            }
+            catch (Exception)
+            {
+                return Id.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Friends in this game with a lobby open to join (in a test, the stand-in's host 1)
+        /// </summary>
+        internal static List<(ulong Friend, ulong Lobby)> FriendLobbies()
+        {
+            List<(ulong, ulong)> Found = new();
+            if (IsFake)
+            {
+                if (FakeSteamId != 1)
+                    Found.Add((1, 0));
+                return Found;
+            }
+            try
+            {
+                if (!SteamManager.Initialized)
+                    return Found;
+                AppId_t Ours = SteamUtils.GetAppID();
+                int Count = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
+                for (int Index = 0; Index < Count; Index++)
+                {
+                    CSteamID Friend = SteamFriends.GetFriendByIndex(Index, EFriendFlags.k_EFriendFlagImmediate);
+                    if (SteamFriends.GetFriendGamePlayed(Friend, out FriendGameInfo_t Game) && Game.m_gameID.AppID() == Ours && Game.m_steamIDLobby.IsValid())
+                        Found.Add((Friend.m_SteamID, Game.m_steamIDLobby.m_SteamID));
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[STEAM] Can't list the friends' games: {e.Message}");
+            }
+            return Found;
+        }
+
+        /// <summary>
+        /// Joins a friend's lobby, as accepting their invite would
+        /// </summary>
+        internal static void JoinFriend(ulong Friend, ulong FriendLobby)
+        {
+            Plugin.Logger?.LogInfo($"[STEAM] Joining friend {Friend} (lobby {FriendLobby})");
+            if (IsFake)
+                PendingFakeHost = Friend;
+            else
+                PendingLobby = FriendLobby;
+        }
+
+        /// <summary>
+        /// Opens the Steam overlay's invite dialog as soon as the lobby is open (off for the menu's lobby,
+        /// which has its own button for it)
+        /// </summary>
+        internal static bool InviteOnOpen = true;
+
+        /// <summary>
         /// Joins this host again once the game can (after updating to the host's version): through
         /// the lobby of the game the friend is in, as accepting their invite would
         /// </summary>
@@ -298,8 +396,9 @@ namespace COTLMP.Network
             SteamMatchmaking.SetLobbyData(Lobby, "cotlmp", Application.version);
             SteamMatchmaking.SetLobbyJoinable(Lobby, true);
             SteamFriends.SetRichPresence("connect", "+connect_lobby " + Lobby.m_SteamID);
-            Plugin.Logger?.LogInfo($"[STEAM] Lobby {Lobby.m_SteamID} is open, opening the invite dialog");
-            SteamFriends.ActivateGameOverlayInviteDialog(Lobby);
+            Plugin.Logger?.LogInfo($"[STEAM] Lobby {Lobby.m_SteamID} is open");
+            if (InviteOnOpen)
+                SteamFriends.ActivateGameOverlayInviteDialog(Lobby);
         }
 
         /// <summary>
@@ -450,7 +549,7 @@ namespace COTLMP.Network
             if (Version != Application.version)
             {
                 Plugin.Logger?.LogError($"[STEAM] The host runs game version '{Version}', we run '{Application.version}'");
-                PauseMenuPatches.Message = $"Game version mismatch! host {Version} you {Application.version}";
+                PauseMenuPatches.Message = string.Format(I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Steam/GameVersion"), Version, Application.version);
                 SteamMatchmaking.LeaveLobby(Lobby);
                 Lobby = CSteamID.Nil;
                 Joining = false;

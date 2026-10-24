@@ -42,6 +42,12 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-tarottest</c>: in the first dungeon room both have, a tarot reader deals two cards to the host, then to the joining copy (shared tarot test)</item>
     /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
     /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
+    /// <item><c>-cotlmp-lobby=SLOT|new</c>: open the lobby from the main menu on that save slot (or a new game in the hidden slot 6) and press Play a while after a friend stands in it</item>
+    /// <item><c>-cotlmp-lobbyplay=N</c>: with -cotlmp-lobby, press Play N seconds after the friend came (6 by default)</item>
+    /// <item><c>-cotlmp-lobbyjoin</c>: join the first friend's lobby from the online menu</item>
+    /// <item><c>-cotlmp-lobbyshots=DIR</c>: frames of the online menu, the lobby and the opening's crown</item>
+    /// <item><c>-cotlmp-skipintro=N</c>: N seconds into a new game's opening, go straight to the crown</item>
+    /// <item><c>-cotlmp-leaveintro=N</c>: with -cotlmp-skipintro, leave the opening for the cult N seconds after coming back to life</item>
     /// <item><c>-cotlmp-pretendversion=0.2.6</c>: the update check takes this mod for that version</item>
     /// <item><c>-cotlmp-updatefrom=URL</c>: the release is read from there instead of GitHub (a file:/// one for tests)</item>
     /// <item><c>-cotlmp-versionchoice=update|play|suggest</c>: what the joining player picks when the mod versions differ</item>
@@ -64,7 +70,7 @@ namespace COTLMP.Debug
     /// </summary>
     internal static class TestHarness
     {
-        private static bool AutoHost, AutoEnter, AutoWalk, Report, SteamSelfTest, AutoKill;
+        private static bool AutoHost, AutoEnter, AutoWalk, Report, SteamSelfTest, AutoKill, LobbyJoin;
         private static float QuitAfter, EndAfter, AutoDungeon;
         private static ulong RejoinHost;
         private static string ShotsDir;
@@ -127,6 +133,18 @@ namespace COTLMP.Debug
                     COTLMP.Game.VersionCheck.AutoChoice = Arg.Substring("-cotlmp-versionchoice=".Length);
                 else if (Arg.StartsWith("-cotlmp-versionshots=", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Game.VersionCheck.ShotsDir = Arg.Substring("-cotlmp-versionshots=".Length);
+                else if (Arg.StartsWith("-cotlmp-lobby=", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Game.Lobby.AutoLobby = Arg.Substring("-cotlmp-lobby=".Length);
+                else if (Arg.StartsWith("-cotlmp-lobbyplay=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-lobbyplay=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out COTLMP.Game.Lobby.AutoPlay);
+                else if (Arg.Equals("-cotlmp-lobbyjoin", StringComparison.OrdinalIgnoreCase))
+                    LobbyJoin = true;
+                else if (Arg.StartsWith("-cotlmp-lobbyshots=", StringComparison.OrdinalIgnoreCase))
+                    LobbyShots.Dir = Arg.Substring("-cotlmp-lobbyshots=".Length);
+                else if (Arg.StartsWith("-cotlmp-skipintro=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-skipintro=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out COTLMP.Game.IntroCoop.SkipTo);
+                else if (Arg.StartsWith("-cotlmp-leaveintro=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-leaveintro=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out COTLMP.Game.IntroCoop.LeaveAfter);
                 else if (Arg.StartsWith("-cotlmp-updateshot=", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Network.Updater.OfferShot = Arg.Substring("-cotlmp-updateshot=".Length);
                 else if (Arg.StartsWith("-cotlmp-updatefrom=", StringComparison.OrdinalIgnoreCase))
@@ -190,6 +208,15 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(CutThings());
             if (AutoHost || AutoEnter)
                 Plugin.MonoInstance.StartCoroutine(EnterCult(AutoHost));
+            PressStart.On = COTLMP.Game.Lobby.AutoLobby != null || LobbyJoin;
+            if (COTLMP.Game.Lobby.AutoLobby != null)
+                Plugin.MonoInstance.StartCoroutine(COTLMP.Game.Lobby.AutoHost());
+            if (LobbyJoin)
+                Plugin.MonoInstance.StartCoroutine(COTLMP.Ui.OnlineMenu.AutoJoin());
+            if (COTLMP.Game.IntroCoop.SkipTo >= 0f)
+                Plugin.MonoInstance.StartCoroutine(COTLMP.Game.IntroCoop.AutoCrown());
+            if ((COTLMP.Game.Lobby.AutoLobby != null || LobbyJoin || COTLMP.Game.IntroCoop.SkipTo >= 0f) && !(AutoHost || AutoEnter))
+                Plugin.MonoInstance.StartCoroutine(AdvanceConversations());
             if (AutoHost || AutoEnter)
                 Plugin.MonoInstance.StartCoroutine(AdvanceConversations());
             if (AutoWalk)
@@ -232,6 +259,9 @@ namespace COTLMP.Debug
             yield return new WaitForSecondsRealtime(3f);
 
             Plugin.Logger?.LogWarning($"{Tag} Entering the cult without a save");
+
+            /* Whatever the game saves goes to a slot no menu shows (the save folder is the player's own) */
+            SaveAndLoad.SAVE_SLOT = 6;
             AudioManager.Instance?.StopCurrentMusic();
             MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Base Biome 1", 2, "", null, null);
 
@@ -1231,6 +1261,7 @@ namespace COTLMP.Debug
                    $"mushrooms={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.MUSHROOM_SMALL)} trees={StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base).Count} rocks={StructureManager.GetAllStructuresOfType<Structures_Rubble>(FollowerLocation.Base).Count} hits={CultResources.HitsSent}/{CultResources.HitsApplied} " +
                    $"sermonday={DataManager.Instance.PreviousSermonDayIndex} feast={DataManager.Instance.LastFeastDeclared:F0} " +
                    $"checks={CultSync.ChecksSent}/{CultSync.ChecksTaken}/{CultSync.GroupsDiffered}/{CultSync.FixesAsked}/{CultSync.FixesSent}/{CultSync.FixesTaken} load={CultSync.LoadMsPerSecond:F2}/{CultSync.WorstFrameMs:F2}/{CultSync.KBPerSecond:F2} " +
+                   $"lobby={COTLMP.Game.Lobby.Opened}/{COTLMP.Game.Lobby.Started}/{COTLMP.Game.Lobby.Stood}/{COTLMP.Game.Lobby.Heard} intro={COTLMP.Game.IntroCoop.State} " +
                    $"versions={COTLMP.Game.VersionCheck.Partner}/{COTLMP.Network.Updater.Version}/{COTLMP.Game.VersionCheck.Warned}/{COTLMP.Game.VersionCheck.Suggested}/{COTLMP.Game.VersionCheck.SuggestionsTaken} " +
                    $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount} data={CultSync.DataApplied} " +
                    $"tasks={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{FollowerBrain.FindBrainByID(Info?.ID ?? 0)?.CurrentTaskType}:{Info?.Location}:{Info?.CurrentOverrideTaskType}"))}";

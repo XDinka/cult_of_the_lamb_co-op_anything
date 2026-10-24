@@ -40,9 +40,9 @@ namespace COTLMP.Ui
             [HarmonyPrefix]
             private static bool OnMultiplayerButtonClickedPatch(MainMenu __instance)
             {
-                /* Display the servers list UI */
+                /* The online menu: friends' lobbies and the host's own lobby */
                 COTLMP.Debug.PrintLogger.PrintVerbose(DebugLevel.MESSAGE_LEVEL, DebugComponent.UI_COMPONENT, "The Multiplayer button has been clicked!");
-                COTLMP.Ui.ServerList.DisplayUi();
+                COTLMP.Ui.OnlineMenu.Open();
                 return false;
             }
 

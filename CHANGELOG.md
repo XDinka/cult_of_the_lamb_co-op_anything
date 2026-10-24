@@ -3,6 +3,56 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.0 (2026-10-24)
+
+**A lobby in the main menu**
+- The main menu's Multiplayer button opens an online menu built from the game's own menu (its header,
+  buttons, highlight and fonts, on its canvas), in place of the old server browser: **Create Lobby**,
+  and the friends who have a lobby open. See `OnlineMenu.cs`.
+- Create Lobby shows the game's own save slots: a save, or an empty slot for a new game (with the
+  game's new game options). The lobby opens online play; the Lamb of the menu's key art steps aside for
+  the Goat (a copy of it in its goat skin), and each wears its player's Steam name and avatar. The Goat
+  is faint until a friend stands in the lobby. **Invite a Friend** opens the Steam overlay; **Play**
+  starts both. See `Lobby.cs`.
+
+  ![The host's lobby with a friend in it](Media/changelog/0.3.0-lobby-host.png)
+  ![The friend's online menu](Media/changelog/0.3.0-online-menu.png)
+  ![The friend in the host's lobby](Media/changelog/0.3.0-lobby-friend.png)
+
+- It scales with the game: checked at 800x450, 1024x768, 1680x720 and 1920x1080 (on a narrow screen
+  the two stand closer).
+
+  ![1024x768](Media/changelog/0.3.0-lobby-1024x768.png)
+  ![1680x720](Media/changelog/0.3.0-lobby-1680x720.png)
+
+**A new game together**
+- Play on a new game: each player plays the opening alone, the Lamb led to the altar in chains, until
+  the One Who Waits gives the crown. Whoever has it first waits; then both come back to life at once in
+  the same place, the friend as the Goat, and the rest of the opening is a shared run. On its way to the
+  cult the friend's game takes the host's save, as for any join. The friend's own opening is never
+  saved. See `IntroCoop.cs`.
+
+  ![The host waits for the friend's crown](Media/changelog/0.3.0-crown-wait.png)
+  ![Back to life together: the host's Lamb and the friend's Goat](Media/changelog/0.3.0-reborn-together.png)
+
+- Tested on two copies, the crown reached by a shortcut and the end of the opening by a jump to the
+  cult:
+
+  ```
+  [LOBBY] Play: NewGame with 1 friend(s)
+  [INTRO] We have the crown, the partner not yet
+  [INTRO] The partner has the crown, going on together
+  [INTRO] The opening is over: into the host's cult, on its save
+  [COOP] Got the host's save (4102 bytes, 0 followers), going to its cult
+  ```
+- On a save: Play loads it on the host; the friend's request for the save waits until the host's game
+  is up, then the friend goes to the cult.
+
+**Also**
+- English and Russian for everything new, and for the last texts of the mod that were English only
+  (opening online play, a different game version).
+- The release's README is in English too.
+
 ## 0.2.9 (2026-10-24)
 
 **Both players' mod versions compared on joining**

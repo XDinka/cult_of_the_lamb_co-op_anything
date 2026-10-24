@@ -101,6 +101,31 @@ namespace COTLMP.Language
             new("Multiplayer/Version/Suggest", "Ask the host to update", false),
             new("Multiplayer/Version/NotNow", "Not now", false),
 
+            /* Online menu and lobby */
+            new("Multiplayer/Online/Title", "Online Play", false),
+            new("Multiplayer/Online/CreateLobby", "Create Lobby", false),
+            new("Multiplayer/Online/FriendsLobbies", "Friends' lobbies", false),
+            new("Multiplayer/Online/NoLobbies", "No friend has a lobby open", false),
+            new("Multiplayer/Online/Joining", "Joining {0}...", false),
+            new("Multiplayer/Online/PickSave", "Save for the lobby", false),
+            new("Multiplayer/Online/Back", "Back", false),
+            new("Multiplayer/Lobby/Title", "Lobby", false),
+            new("Multiplayer/Lobby/NewGame", "New game", false),
+            new("Multiplayer/Lobby/HostSave", "{0}'s game: {1}", false),
+            new("Multiplayer/Lobby/Play", "Play", false),
+            new("Multiplayer/Lobby/Invite", "Invite a Friend", false),
+            new("Multiplayer/Lobby/Leave", "Leave Lobby", false),
+            new("Multiplayer/Lobby/Close", "Close Lobby", false),
+            new("Multiplayer/Lobby/WaitingFriend", "Waiting for a friend...", false),
+            new("Multiplayer/Lobby/WaitingHost", "Waiting for the host to start", false),
+            new("Multiplayer/Lobby/Failed", "Couldn't open the lobby", false),
+            new("Multiplayer/Intro/WaitCrown", "Waiting for your friend to receive the crown...", false),
+
+            /* Opening online play */
+            new("Multiplayer/UI/OnlineOpen", "Online play is open", false),
+            new("Multiplayer/UI/OnlineFailed", "Couldn't open online play", false),
+            new("Multiplayer/Steam/GameVersion", "Your friend's game is version {0}, yours is {1}. Update the game in Steam on both sides.", false),
+
             /* Updates */
             new("Multiplayer/Update/Title", "A new version of the co-op mod", false),
             new("Multiplayer/Update/Body", "Version {0} is out, you have {1}. Update now? The game will close, the installer will put in the new version and start the game again.", false),

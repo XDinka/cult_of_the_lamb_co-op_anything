@@ -147,6 +147,15 @@ namespace COTLMP.Game
                 Waiting = false;
                 yield break;
             }
+
+            /* The host waits in the lobby: so do we, until its Play */
+            bool Hold = false;
+            yield return Lobby.Decide(Answer => Hold = Answer);
+            if (Hold || !Waiting || !CoopSync.InSession)
+            {
+                Waiting = false;
+                yield break;
+            }
             Notify("Multiplayer/Steam/LoadingHostSave");
             Ask();
         }
@@ -184,6 +193,47 @@ namespace COTLMP.Game
             if (!Plugin.GlobalsInternal.IsServerCreator || DataManager.Instance == null)
                 return;
 
+            /* Still in the lobby, loading, or in the opening: the save goes once our game is up */
+            if (!Up)
+            {
+                if (!Deferred)
+                {
+                    Deferred = true;
+                    Plugin.Logger?.LogInfo($"[COOP] Player {From} asks for our save, sent once our game is up");
+                    Plugin.MonoInstance.StartCoroutine(SendWhenUp(From));
+                }
+                return;
+            }
+            SendSave(From);
+        }
+
+        private static bool Deferred;
+
+        /// <summary>
+        /// Our game is loaded and standing (not the menu, the opening or a transition)
+        /// </summary>
+        private static bool Up
+        {
+            get
+            {
+                string Scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+                return PlayerFarming.Instance != null && !MMTransition.IsPlaying &&
+                       Scene != "Main Menu" && Scene != "QuoteScreen" && Scene != "Game Biome Intro";
+            }
+        }
+
+        private static IEnumerator SendWhenUp(uint From)
+        {
+            while (!Up && CoopSync.InSession)
+                yield return null;
+            yield return new WaitForSecondsRealtime(1f);
+            Deferred = false;
+            if (CoopSync.InSession && Plugin.GlobalsInternal.IsServerCreator)
+                SendSave(From);
+        }
+
+        private static void SendSave(uint From)
+        {
             byte[] Save, Meta;
             CultSync.OnSaveSent();
             try
@@ -322,8 +372,8 @@ namespace COTLMP.Game
         /// </summary>
         internal static void Forget()
         {
-            bool Was = Playing || Waiting;
-            Playing = Waiting = false;
+            bool Was = IntroCoop.Reset() | Playing | Waiting;
+            Playing = Waiting = Deferred = false;
             CultSync.Reset();
             Pieces = null;
             AskedAt = 0f;

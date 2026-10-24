@@ -101,6 +101,31 @@ namespace COTLMP.Language
             new("Multiplayer/Version/Suggest", "Предложить хосту обновиться", false),
             new("Multiplayer/Version/NotNow", "Не сейчас", false),
 
+            /* Online menu and lobby */
+            new("Multiplayer/Online/Title", "Онлайн игра", false),
+            new("Multiplayer/Online/CreateLobby", "Создать лобби", false),
+            new("Multiplayer/Online/FriendsLobbies", "Лобби друзей", false),
+            new("Multiplayer/Online/NoLobbies", "Открытых лобби друзей нет", false),
+            new("Multiplayer/Online/Joining", "Подключаемся к {0}...", false),
+            new("Multiplayer/Online/PickSave", "Сохранение для лобби", false),
+            new("Multiplayer/Online/Back", "Вернуться", false),
+            new("Multiplayer/Lobby/Title", "Лобби", false),
+            new("Multiplayer/Lobby/NewGame", "Новая игра", false),
+            new("Multiplayer/Lobby/HostSave", "Игра {0}: {1}", false),
+            new("Multiplayer/Lobby/Play", "Играть", false),
+            new("Multiplayer/Lobby/Invite", "Пригласить друга", false),
+            new("Multiplayer/Lobby/Leave", "Покинуть лобби", false),
+            new("Multiplayer/Lobby/Close", "Закрыть лобби", false),
+            new("Multiplayer/Lobby/WaitingFriend", "Ждём друга...", false),
+            new("Multiplayer/Lobby/WaitingHost", "Ждём, когда хост начнёт", false),
+            new("Multiplayer/Lobby/Failed", "Не удалось открыть лобби", false),
+            new("Multiplayer/Intro/WaitCrown", "Ждём, пока друг получит корону...", false),
+
+            /* Opening online play */
+            new("Multiplayer/UI/OnlineOpen", "Онлайн открыт", false),
+            new("Multiplayer/UI/OnlineFailed", "Не удалось открыть онлайн", false),
+            new("Multiplayer/Steam/GameVersion", "У друга игра версии {0}, у вас {1}. Обновите игру в Steam у обоих.", false),
+
             /* Updates */
             new("Multiplayer/Update/Title", "Вышла новая версия кооп-мода", false),
             new("Multiplayer/Update/Body", "Вышла версия {0}, у вас {1}. Обновить сейчас? Игра закроется, установщик поставит новую версию и снова запустит игру.", false),

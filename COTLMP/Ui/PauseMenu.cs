@@ -213,11 +213,11 @@ namespace COTLMP.Ui
             {
                 if (!StartHosting())
                 {
-                    __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure("Failed to start server!", "", true);
+                    __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure(LocalizationManager.GetTranslation("Multiplayer/UI/OnlineFailed"), "", true);
                     return false;
                 }
 
-                __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure("Started server!", $"Port: {Server.Port}\nServer Name: {Server.serverName}\nGamemode: {TranslateGameModeToString(Server.gameMode)}", true);
+                __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure(LocalizationManager.GetTranslation("Multiplayer/UI/OnlineOpen"), LocalizationManager.GetTranslation("Multiplayer/UI/SteamInviteHint"), true);
             }
 
             return false;
@@ -361,6 +361,7 @@ namespace COTLMP.Ui
             /* A joining player on the host's save goes back to the main menu */
             COTLMP.Game.CultSync.Reset();
             COTLMP.Game.VersionCheck.Reset();
+            COTLMP.Game.Lobby.Reset();
             COTLMP.Game.HostSave.Forget();
         }
 

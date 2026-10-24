@@ -97,7 +97,11 @@ namespace COTLMP.Game
             CultFixAsk = 35,
             /* VersionCheck */
             ModVersion = 36,
-            UpdateSuggest = 37
+            UpdateSuggest = 37,
+            /* Lobby */
+            Lobby = 38,
+            /* IntroCoop */
+            IntroCrown = 39
         }
 
         /// <summary>
@@ -175,6 +179,10 @@ namespace COTLMP.Game
             string Scene = SceneManager.GetActiveScene().name;
             if (string.IsNullOrEmpty(Scene))
                 return null;
+
+            /* A new game's opening is each player's own until both have the crown */
+            if (IntroCoop.Apart)
+                return Scene + (Plugin.GlobalsInternal.IsServerCreator ? "~host" : "~friend");
 
             BiomeGenerator Generator = BiomeGenerator.Instance;
             if (Generator == null || Generator.CurrentRoom == null || Generator.gameObject.scene != SceneManager.GetActiveScene())
@@ -354,6 +362,14 @@ namespace COTLMP.Game
                     VersionCheck.OnSuggest(Reader);
                     break;
 
+                case Kind.Lobby:
+                    Lobby.OnLobby(Reader);
+                    break;
+
+                case Kind.IntroCrown:
+                    IntroCoop.OnCrown(Reader);
+                    break;
+
                 case Kind.PropBroken:
                     PropSync.OnRelay(Reader);
                     break;
@@ -460,6 +476,20 @@ namespace COTLMP.Game
             RunStartedAt = Time.realtimeSinceStartup;
             Plugin.Logger?.LogInfo($"[COOP] Starting run {RunId} in {Location}");
             AnnounceRun();
+        }
+
+        /// <summary>
+        /// Our run is the partner's from now on (both come back to life in the opening at once)
+        /// </summary>
+        internal static void TakeRun(int Id, int Location)
+        {
+            if (Id == RunId)
+                return;
+            Plugin.Logger?.LogInfo($"[COOP] Taking the partner's run {Id} (ours was {RunId})");
+            RunId = Id;
+            RunLocation = Location;
+            RunStartedAt = Time.realtimeSinceStartup;
+            PartnerRunLocation = -1;
         }
 
         /// <summary>

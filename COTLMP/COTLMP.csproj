@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>COTLMP</AssemblyName>
     <Product>Cult of the Lamb Multiplayer Mod Plug-In</Product>
-    <Version>0.2.9</Version>
+    <Version>0.3.0</Version>
     <Copyright>Copyright (c) 2026 GeoB99 &amp; Neco-Arc</Copyright>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
@@ -38,6 +38,11 @@
   <ItemGroup>
     <Reference Include="com.steamworks.net">
       <HintPath>$(CotlManagedDir)\com.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- The game's input and session library (the title screen's engagement, for the test harness) -->
+    <Reference Include="UnifyLibrary">
+      <HintPath>$(CotlManagedDir)\UnifyLibrary.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

@@ -136,7 +136,8 @@ namespace COTLMP.Game
                     return false;
                 }
 
-                if (!Plugin.GlobalsInternal.InGameSession || __instance != PlayerFarming.Instance || DataManager.Instance == null)
+                /* Both are the Lamb of the opening until the crown */
+                if (!Plugin.GlobalsInternal.InGameSession || __instance != PlayerFarming.Instance || DataManager.Instance == null || IntroCoop.Apart)
                     return true;
 
                 int Fleece = DataManager.Instance.PlayerVisualFleece;

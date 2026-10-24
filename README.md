@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.2.9, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.0, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.2.9, pre-release.**
+**Version 0.3.0, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.2.9.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.3.0.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -39,13 +39,14 @@ which provides the player puppets, the UDP protocol and the integrated server.
 <table>
 <tr>
 <td width="96" align="center"><img alt="Lamb" src="Media/readme/lamb.png" width="72"><br><sub><b>Host</b></sub></td>
-<td>Load a save, press <b>Esc</b>, then <b>Open Online</b>, and invite your friend in the Steam overlay.
+<td>Main menu: <b>Multiplayer</b>, <b>Create Lobby</b>, pick a save (or an empty slot for a new game
+together), <b>Invite a Friend</b>, then <b>Play</b>. Or, in your game: <b>Esc</b>, <b>Open Online</b>.
 You play as the Lamb.</td>
 </tr>
 <tr>
 <td width="96" align="center"><img alt="Goat" src="Media/readme/goat.png" width="72"><br><sub><b>Friend</b></sub></td>
-<td>Accept the invite (or <b>Join game</b> in the friends list), from the main menu: your game loads the host's and takes you to their cult.
-You play as the Goat, as in the game's own co-op.</td>
+<td>Main menu: <b>Multiplayer</b>, then your friend's name under "Friends' lobbies" (or accept the
+invite). You stand in the lobby until the host presses Play. You play as the Goat, as in the game's own co-op.</td>
 </tr>
 </table>
 
@@ -53,8 +54,10 @@ You play as the Goat, as in the game's own co-op.</td>
    It finds the game in Steam, backs up what it replaces, and **Remove mod** puts it back. Windows may
    warn about an unknown publisher: "More info", then "Run anyway". Without the installer:
    `install.cmd` from the [release zip](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest).
-2. The host opens the game online and invites, the friend joins (see above). Accepting an invite
-   while your own game is open online with nobody in it closes yours and takes you to the friend.
+2. The host opens a lobby and invites, the friend joins it (see above), the host presses Play. On a
+   new game each of you plays the opening alone until the crown; whoever gets it first waits, then you
+   come back to life together and go on to the cult as one. Accepting an invite while your own game is
+   open online with nobody in it closes yours and takes you to the friend.
 3. Dungeons: the **host enters the dungeon first** and the friend follows within 10 minutes, through
    the same door. Then you both get the same run. Each of you walks the floor freely; enemies are
    shared in a room you are both in.
@@ -84,7 +87,9 @@ You play as the Goat, as in the game's own co-op.</td>
 | The partner's conversations show at the bottom of your screen; your camera and your lamb stay yours | works in the automated test |
 | Dialog choices: whoever talks answers, as in the game's co-op; the other sees the answers and can point at one, the game's co-op icons (red Lamb, blue Goat) show which answer each player is on | works in the automated test (both directions) |
 | The pause menu lists the session's players: co-op icon, Steam name, host, ping | works in the automated test |
-| Online play opens after the prologue (the game keeps local co-op out of it too); an invite accepted in the prologue waits for the cult | not tested in the prologue itself |
+| A lobby in the main menu, in the game's own look: the host opens it on a save or a new game, friends' lobbies are listed, the Lamb and the Goat stand on the menu's altar with each player's Steam name and avatar; Play starts both | works in the automated test (a save and a new game, 1024x768, 800x450, 1680x720, 1920x1080) |
+| A new game together: each plays the opening alone until the crown, whoever gets it first waits; then both come back to life at once (the friend as the Goat) and the rest of the opening is shared; on the way to the cult the friend takes the host's save | works in the automated test (the crown reached by a shortcut, the opening's end by a jump to the cult) |
+| An invite accepted during the host's prologue waits for the host's cult | not tested in the prologue itself |
 | Enemy attacks of the room owner (shots incl. homing, beams, bombs, warning circles, other pooled attacks) show for the other player and move exactly as the owner's | works in the automated test (forced shots) |
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
@@ -119,14 +124,18 @@ You play as the Goat, as in the game's own co-op.</td>
 
 ## По-русски
 
-Версия 0.2.9, предрелиз.
+Версия 0.3.0, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
 не записывается, его собственные сохранения не трогаются). Вы видите друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
 получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
-Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива). Хост: Esc, затем «Онлайн игра»
-(«Open Online» в английской версии), затем пригласить друга. В подземелье хост заходит первым, друг идёт следом через ту же дверь.
+Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива).
+Хост: в главном меню «Мультиплеер», «Создать лобби», выбрать сохранение (или пустой слот для новой игры вдвоём),
+«Пригласить друга», потом «Играть». Друг: «Мультиплеер», имя друга в «Лобби друзей» (или принять приглашение).
+В лобби стоят Ягнёнок и Козёл с именами и аватарками из Steam. В новой игре каждый проходит пролог сам до короны,
+кто получил её первым, ждёт; дальше оба оживают вместе и идут в культ. Из своей игры по-прежнему можно открыть
+онлайн: Esc, «Онлайн игра». В подземелье хост заходит первым, друг идёт следом через ту же дверь.
 Если связь плохая, в правом верхнем углу появляется значок: три палочки с восклицательным знаком
 (пинг от 120 мс жёлтые, от 200 мс красные), пакеты с пропущенным (потери от 5 %) или выдернутый кабель
 (друг не отвечает).
@@ -137,7 +146,7 @@ You play as the Goat, as in the game's own co-op.</td>
 ходит сам, комнаты, где побывал партнёр, открываются и на вашей мини-карте. Удары, перекаты и
 заклинания партнёра видны как у него, а появляется он в комнате, только когда она у него загрузилась. В диалоге отвечает тот, кто говорит, как в обычном
 кооперативе; второй видит варианты и может указать на один (значки красного Ягнёнка и синего Козла).
-В меню паузы список игроков. Онлайн игра открывается после пролога. Когда друг выходит или хост закрывает игру,
+В меню паузы список игроков. Когда друг выходит или хост закрывает игру,
 друг возвращается в главное меню, сохранение хоста забывается.
 
 <p align="center"><img alt="For the devout" src="Media/readme/title-devout.png" width="760"></p>
@@ -257,6 +266,17 @@ paths from environment variables (see the top of each).
 - **Trees, rocks, bushes.** Hits go as they land (a few times a second) and the other side takes them
   as the game does, without loot; a rock or tree gone before its last hit arrived goes the game's way
   too. See `CultResources.cs`.
+- **The lobby.** The online menu and the lobby are copies of the game's save slot column on the main
+  menu's own canvas (its scaler: 1920x1080 by width), so they scale with the game. The lobby's Goat is
+  a copy of the key art's Lamb in that skeleton's `goat` skin; name tags follow the top of each
+  skeleton through the menu camera. The host opens online play in the menu and tells joining players
+  where it is (lobby, starting a save or a new game, playing); a joiner in the menu stands in the
+  lobby, anyone else takes the save once the host's game is up. See `OnlineMenu.cs`, `Lobby.cs`.
+- **A new game together.** The friend's game starts its own opening in a hidden slot with saving off.
+  After the crown's video the game would bring the player back to life: that waits until the partner
+  has the crown too (`IntroDeathSceneManager.ChangeRoom`), the friend takes the host's run, and until
+  then each opening is its own place, so nothing of the other shows. On its way to the cult the
+  friend's game takes the host's save instead. See `IntroCoop.cs`.
 - **Broken things.** Whatever with health dies in a dungeon room (grass, pots, critters, enemy
   bodies) and rubble walked into is sent by name, where it stood when the room came up and its number
   among the things of that name in the room; the other game breaks the one that stood there (else the

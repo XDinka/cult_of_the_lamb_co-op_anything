@@ -69,8 +69,10 @@ namespace COTLMP.Game
             if (!Plugin.GlobalsInternal.IsServerCreator)
                 return;
 
-            /* The host answers every joining (the friend may come back on another version), and hears of a
-               different version as a note: the joining player decides */
+            /* The host answers every joining (the friend may come back on another version), says where it
+               is (in the lobby or in a game), and hears of a different version as a note: the joining
+               player decides */
+            Lobby.Send();
             Announce();
             if (Theirs != Ours)
             {
