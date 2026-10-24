@@ -40,6 +40,10 @@ namespace CotlCoopInstaller
         internal static string Installed(int Count) => T($"Готово: {Count} файлов. Запускайте игру из Steam как обычно.", $"Done: {Count} files. Start the game from Steam as usual.");
         internal static string Removed => T("Мод удалён, заменённые файлы возвращены на место.", "The mod is removed, replaced files are back.");
         internal static string Failed(string Why) => T($"Не получилось: {Why}", $"It didn't work: {Why}");
+        internal static string GetNewer(string Version) => T($"Скачать {Version}", $"Get {Version}");
+        internal static string NewerOut(string Latest, string Ours) => T($"Вышла версия {Latest}, это установщик {Ours}. Скачайте новую, она сама запустится.", $"Version {Latest} is out, this installer is {Ours}. Get the new one, it starts by itself.");
+        internal static string Downloading(string Version) => T($"Скачиваем версию {Version}…", $"Downloading version {Version}…");
+        internal static string Relaunching => T("Обновлено. Запускаем игру…", "Updated. Starting the game…");
         internal static string NeedAdmin => T("Для этой папки нужны права администратора.", "This folder needs administrator rights.");
         internal static string HowTo => T(
             "Мод ставят оба игрока. Хост: загрузите сохранение, Esc › «Онлайн игра», пригласите друга.\nДруг: примите приглашение в Steam из главного меню, сохранение не нужно.",

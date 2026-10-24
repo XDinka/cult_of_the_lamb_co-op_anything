@@ -85,6 +85,13 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/LeaveFirst", "Stop hosting to join your friend", false),
             new("Multiplayer/Cult/FollowerBusy", "Someone is already talking to this follower", false),
 
+            /* Updates */
+            new("Multiplayer/Update/Title", "A new version of the co-op mod", false),
+            new("Multiplayer/Update/Body", "Version {0} is out, you have {1}. Update now? The game will close, the installer will put in the new version and start the game again.", false),
+            new("Multiplayer/Update/Downloading", "Downloading the update…", false),
+            new("Multiplayer/Update/Failed", "Couldn't update by itself", false),
+            new("Multiplayer/Update/OpenPage", "Open the page of version {0} to download it?", false),
+
             /* The map between floors */
             new("Multiplayer/Map/WaitingForHost", "Waiting for the host to choose the way", false),
 

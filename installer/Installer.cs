@@ -277,8 +277,20 @@ namespace CotlCoopInstaller
         /// <summary>
         /// Starts the game through Steam, so the Steam overlay and invites work
         /// </summary>
-        internal static void LaunchGame()
+        internal static void LaunchGame(string Dir = null, string Arguments = null)
         {
+            /* Started as it was before an update (its launch options), else as Steam starts it */
+            string Exe = Dir == null ? null : Path.Combine(Dir, "Cult Of The Lamb.exe");
+            if (!string.IsNullOrEmpty(Arguments) && File.Exists(Exe))
+            {
+                ProcessStartInfo Start = new(Exe, Arguments) { UseShellExecute = false, WorkingDirectory = Dir };
+
+                /* Started from a modded game, we may carry its loader's marks: the game would start without mods */
+                foreach (string Name in Start.EnvironmentVariables.Keys.Cast<string>().Where(Name => Name.StartsWith("DOORSTOP", StringComparison.OrdinalIgnoreCase)).ToList())
+                    Start.EnvironmentVariables.Remove(Name);
+                Process.Start(Start);
+                return;
+            }
             Process.Start(new ProcessStartInfo("steam://rungameid/" + AppId) { UseShellExecute = true });
         }
     }

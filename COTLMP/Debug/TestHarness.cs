@@ -42,6 +42,9 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-tarottest</c>: in the first dungeon room both have, a tarot reader deals two cards to the host, then to the joining copy (shared tarot test)</item>
     /// <item><c>-cotlmp-autocut</c>: in a dungeon room shared with the partner, cut the nearest grass or other neutral thing every 2 s (prop sync test)</item>
     /// <item><c>-cotlmp-nextfloor</c>: in a dungeon, once no unvisited room is left, go to the floor's exit and through it; on the map the host clicks the last way out after 3 s, the joining copy (which walks through the exit itself once both are in that room) the first after 0.5 s; whoever is first, the other is taken there (map sync test)</item>
+    /// <item><c>-cotlmp-pretendversion=0.2.6</c>: the update check takes this mod for that version</item>
+    /// <item><c>-cotlmp-updatefrom=URL</c>: the release is read from there instead of GitHub (a file:/// one for tests)</item>
+    /// <item><c>-cotlmp-takeupdate</c>: an update offered is taken at once, the installer runs without its window</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
     /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
@@ -116,6 +119,14 @@ namespace COTLMP.Debug
                     NoMapClick = true;
                 else if (Arg.Equals("-cotlmp-animtest", StringComparison.OrdinalIgnoreCase))
                     AnimTest = true;
+                else if (Arg.StartsWith("-cotlmp-pretendversion=", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Network.Updater.PretendVersion = Arg.Substring("-cotlmp-pretendversion=".Length);
+                else if (Arg.StartsWith("-cotlmp-updateshot=", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Network.Updater.OfferShot = Arg.Substring("-cotlmp-updateshot=".Length);
+                else if (Arg.StartsWith("-cotlmp-updatefrom=", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Network.Updater.ReleaseFrom = Arg.Substring("-cotlmp-updatefrom=".Length);
+                else if (Arg.Equals("-cotlmp-takeupdate", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Network.Updater.TakeOffer = COTLMP.Network.Updater.QuietInstaller = true;
                 else if (Arg.Equals("-cotlmp-culttest", StringComparison.OrdinalIgnoreCase))
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))

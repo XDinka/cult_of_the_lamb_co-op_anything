@@ -85,6 +85,13 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/LeaveFirst", "Закройте свою онлайн игру, чтобы зайти к другу", false),
             new("Multiplayer/Cult/FollowerBusy", "Кто-то уже разговаривает с этим последователем", false),
 
+            /* Updates */
+            new("Multiplayer/Update/Title", "Вышла новая версия кооп-мода", false),
+            new("Multiplayer/Update/Body", "Вышла версия {0}, у вас {1}. Обновить сейчас? Игра закроется, установщик поставит новую версию и снова запустит игру.", false),
+            new("Multiplayer/Update/Downloading", "Скачиваю обновление…", false),
+            new("Multiplayer/Update/Failed", "Не получилось обновить автоматически", false),
+            new("Multiplayer/Update/OpenPage", "Открыть страницу версии {0}, чтобы скачать её вручную?", false),
+
             /* The map between floors */
             new("Multiplayer/Map/WaitingForHost", "Ждём, пока хост выберет путь", false),
 

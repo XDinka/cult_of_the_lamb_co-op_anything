@@ -3,6 +3,37 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.2.8 (2026-10-24)
+
+**The mod updates itself**
+- Once a game start the mod asks GitHub for the latest release. If it is newer, the main menu offers
+  it in the game's own window. Taking it downloads the release's installer, checks it against the
+  SHA-256 GitHub gives for it, closes the game, installs the new version and starts the game again
+  with the same launch options. If anything fails, it offers the release page instead. See
+  `COTLMP/Network/Updater.cs`.
+
+  ![The update offer in the main menu](Media/changelog/0.2.8-update-in-game.png)
+
+- The installer checks too: an older installer offers the newest one, downloads it, checks it and
+  starts it for the same folder. New switches: `--wait <game process>` and `--relaunch`, used by the mod.
+
+  ![The installer offering a newer version](Media/changelog/0.2.8-update-installer.png)
+
+- Tested end to end on a test copy (a fake release 0.2.8 offered to a mod that took itself for 0.2.7):
+
+  ```
+  [UPDATE] Latest release 0.2.8, this mod 0.2.7: an update is offered
+  [UPDATE] Installer 0.2.8 (9db8ca0d...) started, closing the game for it
+  ... the installer waits, installs, starts the game again ...
+  [UPDATE] Started again after taking 0.2.8
+  ```
+
+**Fixed on the way:** a game started again by the installer from a modded game came up without mods
+(BepInEx's loader marks are inherited through the environment); the mod and the installer clear them.
+
+**Note:** the self-update needs the new installer on the release it takes, so it works from 0.2.8 to
+the next version on. From 0.2.7 to 0.2.8, update once with the installer as before.
+
 ## 0.2.7 (2026-10-24)
 
 **Fixes**

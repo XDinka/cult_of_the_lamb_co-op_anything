@@ -6,6 +6,7 @@
  */
 
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -30,11 +31,23 @@ namespace CotlCoopInstaller
         private bool Busy;
         private string FoundBuild;
 
-        internal InstallerForm(string Dir, string Auto)
+        /* Start the game again once installed (the mod updating itself), with the arguments it had */
+        private readonly bool Relaunch;
+        private readonly string RelaunchArgs;
+
+        /* A newer installer on GitHub, once known */
+        private Updates.Release Newer;
+
+        /* For a picture of the offer: the version this installer takes itself for */
+        internal static string PretendVersion;
+
+        internal InstallerForm(string Dir, string Auto, bool Relaunch = false, string RelaunchArgs = null)
         {
+            this.Relaunch = Relaunch;
+            this.RelaunchArgs = RelaunchArgs;
             using (Graphics G = CreateGraphics())
                 S = G.DpiX / 96f;
-            Version = Assembly.GetExecutingAssembly().GetName().Version is Version V ? $"{V.Major}.{V.Minor}.{V.Build}" : "";
+            Version = PretendVersion ?? (Assembly.GetExecutingAssembly().GetName().Version is Version V ? $"{V.Major}.{V.Minor}.{V.Build}" : "");
 
             Text = "Cult of the Lamb Co-op Anything";
             FormBorderStyle = FormBorderStyle.None;
@@ -66,7 +79,13 @@ namespace CotlCoopInstaller
             LaunchButton = Add(new RuneButton(Words.Launch, false, 51), 276, 388, 180, 54);
             LaunchButton.Click += (_, _) => { Installer.LaunchGame(); Close(); };
             InstallButton = Add(new RuneButton(Words.Install, true, 61), 468, 388, 180, 54);
-            InstallButton.Click += (_, _) => Run(true);
+            InstallButton.Click += (_, _) =>
+            {
+                if (Newer != null)
+                    GetNewer();
+                else
+                    Run(true);
+            };
             CloseButton = Add(new RuneButton("✕", false, 0) { Flat = true }, 626, 22, 30, 30);
             CloseButton.Click += (_, _) => Close();
 
@@ -96,6 +115,49 @@ namespace CotlCoopInstaller
 
             if (Auto == "install" || Auto == "uninstall")
                 Shown += (_, _) => Run(Auto == "install");
+            else
+                Shown += (_, _) => AskForNewer();
+        }
+
+        /// <summary>
+        /// A newer release than this installer: the install button gets it instead
+        /// </summary>
+        private async void AskForNewer()
+        {
+            OfferNewer(await Task.Run(Updates.Latest));
+        }
+
+        private void OfferNewer(Updates.Release Found)
+        {
+            if (Found == null || !Updates.Newer(Found.Version, Version) || Busy)
+                return;
+            Newer = Found;
+            InstallButton.Label = Words.GetNewer(Found.Version);
+            SetStatus(Words.NewerOut(Found.Version, Version), Theme.Gold);
+        }
+
+        /// <summary>
+        /// The newer installer, checked, started for the same folder; this one closes
+        /// </summary>
+        private async void GetNewer()
+        {
+            Busy = true;
+            Check();
+            SetStatus(Words.Downloading(Newer.Version), Theme.BoneDim);
+            try
+            {
+                string File = await Task.Run(() => Updates.Download(Newer));
+                Process.Start(new ProcessStartInfo(File, $"--dir \"{Dir}\"") { UseShellExecute = true });
+                Close();
+            }
+            catch (Exception Error)
+            {
+                Busy = false;
+                Newer = null;
+                InstallButton.Label = Words.Install;
+                Check();
+                SetStatus(Words.Failed(Error.Message) + " " + Updates.Page, Theme.BloodLight);
+            }
         }
 
         private Size Sz(float W, float H) => new((int)(W * S), (int)(H * S));
@@ -186,7 +248,7 @@ namespace CotlCoopInstaller
             if (!Installer.CanWrite(Target))
             {
                 /* Ask for the rights once, the elevated copy does the work */
-                if (Program.Elevate(Target, Install ? "install" : "uninstall"))
+                if (Program.Elevate(Target, Install ? "install" : "uninstall", Relaunch))
                     Close();
                 else
                     SetStatus(Words.NeedAdmin, Theme.BloodLight);
@@ -211,6 +273,15 @@ namespace CotlCoopInstaller
                 Busy = false;
                 Check();
                 SetStatus(Install ? Words.Installed(Count) : Words.Removed, Theme.Moss);
+
+                /* Updated from the game: back into it */
+                if (Install && Relaunch)
+                {
+                    SetStatus(Words.Relaunching, Theme.Moss);
+                    await Task.Delay(1500);
+                    Installer.LaunchGame(Target, RelaunchArgs);
+                    Close();
+                }
             }
             catch (Exception Error)
             {
@@ -332,6 +403,11 @@ namespace CotlCoopInstaller
             ShowInTaskbar = false;
             Show();
             Application.DoEvents();
+            if (PretendVersion != null)
+            {
+                OfferNewer(Updates.Latest());
+                Application.DoEvents();
+            }
             using Bitmap Picture = new(ClientSize.Width, ClientSize.Height);
             DrawToBitmap(Picture, new Rectangle(System.Drawing.Point.Empty, ClientSize));
             Picture.Save(File, System.Drawing.Imaging.ImageFormat.Png);
