@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.2, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.3, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.3.2, pre-release.**
+**Version 0.3.3, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.3.2.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.3.3.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -99,6 +99,11 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 | What the friend does in the cult reaches the host: building, removing, items gained or spent, changes to followers and structures (as data) | works in the automated test (a renamed follower, a built torch, a removed bed) |
 | Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both, also when the two saves have had a different number of runs or flowers | works in the automated test (saves 1 and 10 runs apart) |
 | The partner's lamb shows its bruises and black eye (two hearts or less, one heart), black and white without faith, and its mop | works in the automated test (both ways, also from real enemy hits) |
+| Both players' hearts panels as in the game's co-op: the Lamb's in red, the Goat's in purple, each with its player's real hearts | works in the automated test |
+| The map between floors shows both crowns (where each stands, where each points) in the Lamb's red and the Goat's purple | works in the automated test |
+| A conversation both games play in one place goes at the host's pace: lines, answer and end are the host's | works in the automated test (a boss fight not tested yet) |
+| A newcomer at the gate is recruited once: the other player's copy waits, then goes | works in the automated test |
+| What the partner breaks drops its loot on your screen too, flying to the partner | works in the automated test (trees, rocks, grass) |
 | Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
 | The friend's hands in the cult: a follower the friend talks to, or gathers for a sermon or ritual, runs in the friend's game for that while and goes back to the host's with its orders (sleep, a job, prison); one player talks to a follower at a time | works in the automated test (an order to sleep; in a temple the test built, the friend preaches a sermon and holds a holiday, and the host's cult gets its outcome) |
 | The cult's data: doctrines, rituals and their cooldowns, faith, the last sermon's day, quests; not what is each player's own or a run's | works in the automated test |
@@ -126,7 +131,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 
 ## По-русски
 
-Версия 0.3.2, предрелиз.
+Версия 0.3.3, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно

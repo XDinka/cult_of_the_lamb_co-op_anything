@@ -3,6 +3,69 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.3 (2026-10-25)
+
+Fixes for what came up in the first game on two real Steam accounts.
+
+**Fixed: the hearts and stats panel went blank.** The partner's lamb is a second lamb in the game's
+player list, so the game builds its two-player HUD; but it was always "the Lamb", took the Lamb's
+panel, and as it was made again on every room change the HUD was rebuilt around it, and the
+two-player panels were only brought on screen in the game's own local co-op. Only for a moment after
+a load did ours show. Setting itself up it also reset the save's blue, black and spirit hearts in a
+dungeon. Now both panels show as in the game's co-op: the Lamb's in red, the Goat's in purple with
+the Goat's icon, each with its own player's real hearts (sent with the partner's moves). See
+`CoopHud.cs`.
+
+![The host's screen: its Lamb, and the friend's Goat below](Media/changelog/0.3.3-hud-host.png)
+![The friend's screen: the host's Lamb, and its own Goat in purple](Media/changelog/0.3.3-hud-friend.png)
+
+**Both crowns on the map between floors.** The partner's crown stands on their stop, the eye and the
+co-op ring in their colour (the Lamb's red, the Goat's purple), and a small faint crown of theirs on
+the way they are pointing at. See `MapCrowns.cs`.
+
+![The friend's Goat crown beside the host's Lamb crown, and where the friend points](Media/changelog/0.3.3-map-crowns.png)
+
+**Fixed: enemies gone before the follower's altar in the opening.** The opening's stops, and a
+dungeon's resource and follower stops, keep the floor number of the floor before, so their rooms had
+the same names as rooms already cleared: a room counted as cleared and lost its enemies, and the
+follower's altar never started. A room's name now carries the stop of the run's map:
+
+```
+before: [COOP] Game Biome Intro#1.1@0,0 was cleared by the partner, opening it   (the follower's stop)
+now:    Dungeon1#1.1.0@0,0 ... Dungeon1#1.1.1@-1,0 ... (the way taken on the map is part of it)
+```
+
+**Fixed: the same follower twice.** A newcomer waits at the gate in both games with the same id; when
+one player recruited it, it came to the other's cult and stood next to the newcomer still waiting
+there, which could be recruited again. Now the one who starts recruiting has it (the other gets
+"Someone is already talking to this follower") and the waiting copy goes when the follower comes. See
+`CultRecruits.cs`.
+
+```
+[COOP] The partner is recruiting follower 3
+[QA client] Recruit test: we try to talk to it while the host recruits: refused
+[COOP] Follower 3 was recruited by the partner: our newcomer goes
+[QA client] Recruit test: follower 3: 1 in the cult, 0 waiting, 1 listed, 0 newcomers
+```
+
+**Scenes go at the host's pace.** A conversation both games play in one place (a boss's words before
+the fight, the story's talks) is one scene, as in the game's co-op: the friend's copy follows the
+host's lines, takes the host's answer and ends with the host's, so what comes after (a boss waking up)
+starts in both games together. A talk only the friend has is the friend's after a few seconds. See
+`SharedScenes.cs`.
+
+```
+[COOP] The host leads the conversation in Dungeon1#1.1.0@3,0 (4 lines)
+[COOP] The host answered 1, so do we              (the friend tried to rush it and pick answer 0)
+[QA client] Scene test: over after 3.7 s, answer 1
+```
+
+**The partner's loot.** What the partner breaks (pots, grass, trees, rocks, berry bushes) drops its loot
+on your screen too, and it flies to the partner; it is theirs, never yours. See `GhostLoot.cs`.
+
+**Not tested yet:** the Leshy fight itself with the new scene pacing (the automated test has no way
+to the boss yet), the first follower's whole tutorial after a real opening.
+
 ## 0.3.2 (2026-10-24)
 
 **Fixed: bruises and the black eye.** The game dresses the lamb by its hearts in a dungeon: bruises
