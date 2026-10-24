@@ -48,6 +48,8 @@ namespace COTLMP.Game
             public string Place;
             public int Skin;
             public string Weapon;
+            /* Bruises, black and white, the mop: see Appearance.Look */
+            public int Look;
             public Vector3 Position;
             public float ScaleX;
             public readonly List<Track> Tracks = new();
@@ -133,6 +135,7 @@ namespace COTLMP.Game
                 Writer.Write(Place);
                 Writer.Write(Appearance.LocalSkin());
                 Writer.Write(WeaponSkin(Player));
+                Writer.Write(Appearance.Look);
                 Vector3 At = Player.transform.position;
                 Writer.Write(At.x);
                 Writer.Write(At.y);
@@ -169,6 +172,7 @@ namespace COTLMP.Game
                 Place = Reader.ReadString(),
                 Skin = Reader.ReadInt32(),
                 Weapon = Reader.ReadString(),
+                Look = Reader.ReadInt32(),
                 Position = new Vector3(Reader.ReadSingle(), Reader.ReadSingle(), Reader.ReadSingle()),
                 ScaleX = Reader.ReadSingle(),
                 At = Time.realtimeSinceStartup
@@ -209,6 +213,7 @@ namespace COTLMP.Game
                 {
                     PlayerManager.CreatePlayer(Id, Item.Position, Item.Skin);
                     PlayerManager.SetPuppetWeapon(Id, Item.Weapon);
+                    PlayerManager.SetPuppetLook(Id, Item.Look);
                     Puppet = PlayerManager.GetPuppet(Id);
                     if (Puppet == null)
                         continue;
@@ -219,6 +224,7 @@ namespace COTLMP.Game
                 {
                     PlayerManager.SetPlayerSkin(Id, Item.Skin);
                     PlayerManager.SetPuppetWeapon(Id, Item.Weapon);
+                    PlayerManager.SetPuppetLook(Id, Item.Look);
                 }
 
                 /* Its own animator would put idle or running back every frame */

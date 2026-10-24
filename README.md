@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.1, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.2, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.3.1, pre-release.**
+**Version 0.3.2, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.3.1.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.3.2.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -97,9 +97,10 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 | The tarot reader in a dungeon deals both players the same two cards | works in the automated test |
 | One cult for both: the host's game runs it (followers, structures, time), the friend's shows it: followers walk and animate as the host's, new and gone followers and structures appear and go, the inventory is shared | works in the automated test (wood, stone, a bed, a torch, a new follower, a removed bed, both ways) |
 | What the friend does in the cult reaches the host: building, removing, items gained or spent, changes to followers and structures (as data) | works in the automated test (a renamed follower, a built torch, a removed bed) |
-| Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both | works in the automated test |
+| Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both, also when the two saves have had a different number of runs or flowers | works in the automated test (saves 1 and 10 runs apart) |
+| The partner's lamb shows its bruises and black eye (two hearts or less, one heart), black and white without faith, and its mop | works in the automated test (both ways, also from real enemy hits) |
 | Grass, bushes, pots, barrels, rocks, critters and enemy bodies broken by either player break for the other, also in rooms entered later | works in the automated test (both players cutting at once) |
-| The friend's hands in the cult: a follower the friend talks to, or gathers for a sermon or ritual, runs in the friend's game for that while and goes back to the host's with its orders (sleep, a job, prison); one player talks to a follower at a time | works in the automated test (an order to sleep, a follower gathered and let go); a real sermon in a temple not tested yet |
+| The friend's hands in the cult: a follower the friend talks to, or gathers for a sermon or ritual, runs in the friend's game for that while and goes back to the host's with its orders (sleep, a job, prison); one player talks to a follower at a time | works in the automated test (an order to sleep; in a temple the test built, the friend preaches a sermon and holds a holiday, and the host's cult gets its outcome) |
 | The cult's data: doctrines, rituals and their cooldowns, faith, the last sermon's day, quests; not what is each player's own or a run's | works in the automated test |
 | Mod versions compared on joining: both shown, playing on allowed with a warning; a friend behind updates to the host's version and joins again by itself, a host behind can be asked to update | works in the automated test (both ways, the friend's update end to end) |
 | The mod updates itself: a newer release is offered in the main menu, downloaded, checked (SHA-256), installed and the game started again; the installer offers a newer installer too | works in the automated test (a fake release, end to end) |
@@ -125,7 +126,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 
 ## По-русски
 
-Версия 0.3.1, предрелиз.
+Версия 0.3.2, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно

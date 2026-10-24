@@ -116,6 +116,7 @@ namespace COTLMP.Game
         private static float RunStartedAt;
         private static int PartnerRunId, PartnerRunLocation = -1;
         private static float PartnerRunTime;
+        private static RunGrass.Inputs PartnerRunGrass;
 
         /* Enemy matching, reset on every scene load */
         /// <summary>
@@ -226,6 +227,7 @@ namespace COTLMP.Game
                 {
                     int Location = Reader.ReadInt32();
                     int Id = Reader.ReadInt32();
+                    RunGrass.Inputs Grass = RunGrass.Read(Reader);
                     if (Id != RunId && Id != PartnerRunId)
                         Plugin.Logger?.LogInfo($"[COOP] Player {From} is in run {Id} in {(FollowerLocation)Location}");
 
@@ -236,6 +238,7 @@ namespace COTLMP.Game
                     PartnerRunLocation = Location;
                     PartnerRunId = Id;
                     PartnerRunTime = Time.realtimeSinceStartup;
+                    PartnerRunGrass = Grass;
                     break;
                 }
 
@@ -465,6 +468,7 @@ namespace COTLMP.Game
         /// </summary>
         private static void OnNewRun(FollowerLocation Location)
         {
+            RunGrass.Run = null;
             if (!InSession)
                 return;
 
@@ -474,14 +478,16 @@ namespace COTLMP.Game
                 RunLocation = (int)Location;
                 RunStartedAt = PartnerRunTime;
                 PartnerRunLocation = -1;
-                Plugin.Logger?.LogInfo($"[COOP] Joining the partner's run {RunId} in {Location}");
+                RunGrass.Run = PartnerRunGrass;
+                Plugin.Logger?.LogInfo($"[COOP] Joining the partner's run {RunId} in {Location} (their run count {PartnerRunGrass?.DungeonRun}, ours {DataManager.Instance.dungeonRun})");
                 return;
             }
 
             RunId = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             RunLocation = (int)Location;
             RunStartedAt = Time.realtimeSinceStartup;
-            Plugin.Logger?.LogInfo($"[COOP] Starting run {RunId} in {Location}");
+            RunGrass.Run = RunGrass.Capture();
+            Plugin.Logger?.LogInfo($"[COOP] Starting run {RunId} in {Location} (run count {RunGrass.Run.DungeonRun})");
             AnnounceRun();
         }
 
@@ -497,6 +503,8 @@ namespace COTLMP.Game
             RunLocation = Location;
             RunStartedAt = Time.realtimeSinceStartup;
             PartnerRunLocation = -1;
+            if (Id == PartnerRunId && PartnerRunGrass != null)
+                RunGrass.Run = PartnerRunGrass;
         }
 
         /// <summary>
@@ -509,6 +517,7 @@ namespace COTLMP.Game
             {
                 Writer.Write(RunLocation);
                 Writer.Write(RunId);
+                RunGrass.Write(Writer, RunGrass.Run);
             });
         }
 

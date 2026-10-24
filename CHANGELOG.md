@@ -3,6 +3,61 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.2 (2026-10-24)
+
+**Fixed: bruises and the black eye.** The game dresses the lamb by its hearts in a dungeon: bruises
+at two hearts or less, a black eye at one (and black and white when there is no faith left for a
+curse, and the mop of its chore level). The partner's puppet only wore the fleece and the weapon, so
+it always looked unhurt. Now each game sends how it dressed its own lamb with its moves, and the
+puppet wears the same. See `Appearance.Look` and `PuppetSync.cs`.
+
+![The host's lamb on the friend's screen: healed, then on one heart](Media/changelog/0.3.2-bruises.png)
+
+```
+[QA host] Hurt test: our hp 2, our look 101          (bruises)
+[QA host] Hurt test: our hp 1, our look 102          (black eye)
+[QA host] Hurt test: our hp 6, our look 100
+[QA client] Hurt test: player 0's puppet looks 101 (bruises 1)
+[QA client] Hurt test: player 0's puppet looks 102 (bruises 2)
+[QA client] Hurt test: player 0's puppet looks 100 (bruises 0)
+```
+
+**Tested: the friend's sermon and ritual in a real temple.** The host builds a temple; the friend goes
+in, preaches a sermon (with the game's first-sermon tutorial and its upgrade) and holds a holiday.
+The followers gather in the friend's game and go back to the host's after. On the host's side: the
+sermon's day, the followers' devotion and thoughts (watched a sermon, holiday), the holiday and its
+cooldown, the 75 bones it cost, and faith that moves the same on both sides.
+
+![The friend (the Goat) holds a holiday in the host's temple](Media/changelog/0.3.2-holiday-friend.png)
+
+```
+[QA host] Temple: sermonday=1 day=1 holiday=True cooldown=0.90 bones=25 adoration=30.0
+          thoughts=3:WatchedSermon+DanceCircleLed+BadChat,4:WatchedSermon+Holiday+...  hands=0
+```
+
+**Fixed: the grass of the first runs.** A room's grass rolled the same in both games, but its odds
+come from the save: the first three runs have plain grass in the first land, and a flower quest or few
+flowers in the inventory raise the flower odds. Two saves apart by a run grew different rooms (plain
+grass for one, flowers for the other). Whoever starts a run now sends those numbers with it and both
+games grow the run's grass from them. See `RunGrass.cs`.
+
+```
+[COOP] Starting run 1733995097 in Dungeon1_1 (run count 2)
+[COOP] Joining the partner's run 1733995097 in Dungeon1_1 (their run count 2, ours 11)
+before: the same room, host plain grass 14/0/0, friend 0/21/0; now both plain grass
+```
+
+**Fixed: a follower's quest talk starting on the friend's side.** Every half a minute the game picks a
+follower to come up with a quest or a story talk (the first follower's tutorial talks too). The
+friend's game picked its own, at random, and told the host's game about it as cult data. Now the host's
+game picks for both; either player can take the talk, as with any follower.
+
+**Checked again:** enemies of the room's owner go for both players and hit the partner through the
+network (in the test: 11 hits on the friend's puppet, 5 taken by the friend), and the partner's puppet
+at a door takes nobody along (since 0.2.0).
+
+**Not tested yet:** two real Steam accounts.
+
 ## 0.3.1 (2026-10-24)
 
 **Fixed: the night fox with both players there.** Each game had its own fox, so both players could

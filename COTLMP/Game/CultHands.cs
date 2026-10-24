@@ -75,7 +75,7 @@ namespace COTLMP.Game
         private static readonly MethodInfo SetDelta = AccessTools.PropertySetter(typeof(TimeManager), nameof(TimeManager.DeltaGameTime));
 
         /* Counters for the test harness report */
-        internal static int Taken, Given, TakenBack, Ticked, Moved;
+        internal static int Taken, Given, TakenBack, Ticked, Moved, PicksLeftToHost;
 
         internal static bool FriendRuns(int Id) => Friends.ContainsKey(Id);
 
@@ -568,6 +568,23 @@ namespace COTLMP.Game
         [HarmonyPatch(typeof(SimFollower), nameof(SimFollower.Tick))]
         [HarmonyPrefix]
         private static bool TickAway(SimFollower __instance) => !(CultSync.Hosting && Friends.Count > 0 && __instance.Brain?.Info != null && Friends.ContainsKey(__instance.Brain.Info.ID));
+
+        /// <summary>
+        /// Every half a minute the game picks, at random, a follower to come up with a quest or a
+        /// story talk (the first follower's tutorial talks too). The host's game picks for both:
+        /// the friend's own pick started a second, different talk and told the host's game about it
+        /// as cult data. The host's pick reaches the friend with the cult's data, and either player
+        /// can take the talk, as with any follower.
+        /// </summary>
+        [HarmonyPatch(typeof(Onboarding), "TryGiveFollowerOnboardingQuest")]
+        [HarmonyPrefix]
+        private static bool OnboardingPick()
+        {
+            if (!CultSync.Mirror)
+                return true;
+            ++PicksLeftToHost;
+            return false;
+        }
     }
 }
 

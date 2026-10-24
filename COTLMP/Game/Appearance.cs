@@ -95,6 +95,36 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// How our own game last dressed our lamb on top of the fleece and the weapon: bruises
+        /// (1 at two hearts or less, 2 at one), black and white (no faith left for a curse) and
+        /// the mop's level. The game redresses the lamb on every hit, heal and faith change.
+        /// </summary>
+        /// <remarks>Bits 0-1 the bruises, bit 2 black and white, bits 8-15 the mop.</remarks>
+        public static int Look { get; private set; }
+
+        public static int LookHurt(int Value) => Value & 3;
+        public static bool LookBlackAndWhite(int Value) => (Value & 4) != 0;
+        public static int LookMops(int Value) => (Value >> 8) & 0xFF;
+
+        /// <summary>
+        /// PlayerFarming.SetSkin's own choices, read the way it reads them
+        /// </summary>
+        private static int ReadLook(PlayerFarming Player, bool BlackAndWhite)
+        {
+            int Hurt = 0;
+            HealthPlayer Health = Player.health as HealthPlayer;
+            if (Health != null && LocationManager.IsDungeonActive())
+            {
+                if (Health.CurrentHP <= 1f && Health.PLAYER_TOTAL_HEALTH != 2f)
+                    Hurt = 2;
+                else if ((Health.CurrentHP <= 2f && Health.PLAYER_TOTAL_HEALTH != 2f) || (Health.CurrentHP <= 1f && Health.PLAYER_TOTAL_HEALTH == 2f))
+                    Hurt = 1;
+            }
+            int Mops = UnityEngine.Mathf.Clamp((Player.isLamb ? DataManager.Instance.ChoreXPLevel : DataManager.Instance.ChoreXPLevel_Coop) + 1, 1, 10);
+            return Hurt | (BlackAndWhite ? 4 : 0) | (Mops << 8);
+        }
+
+        /// <summary>
         /// The base skin for a skin number, falling back to the plain Lamb.
         /// </summary>
         public static Skin FindSkin(SkeletonData Data, int Number)
@@ -152,11 +182,22 @@ namespace COTLMP.Game
 
             [HarmonyPatch(typeof(PlayerFarming), nameof(PlayerFarming.SetSkin), new[] { typeof(bool) })]
             [HarmonyFinalizer]
-            private static void SetSkinDone(int __state)
+            private static void SetSkinDone(PlayerFarming __instance, bool BlackAndWhite, int __state)
             {
                 /* Put the save's fleece back whatever happened */
                 if (__state != int.MinValue && DataManager.Instance != null)
                     DataManager.Instance.PlayerVisualFleece = __state;
+
+                /* What the partner's puppet of us wears too */
+                try
+                {
+                    if (__instance != null && __instance == PlayerFarming.Instance && DataManager.Instance != null && !PlayerManager.TryGetPuppetSkin(__instance, out _))
+                        Look = ReadLook(__instance, BlackAndWhite);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] Can't read how our lamb looks: {e.Message}");
+                }
             }
         }
     }

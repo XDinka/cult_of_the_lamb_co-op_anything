@@ -1,4 +1,4 @@
-Cult of the Lamb Co-op Anything 0.3.1: онлайн-кооператив через Steam (предрелиз)
+Cult of the Lamb Co-op Anything 0.3.2: онлайн-кооператив через Steam (предрелиз)
 ==================================================================================
 (English below)
 
@@ -8,6 +8,9 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 с включённым VPN или WARP. Трафик идёт через сеть ретрансляторов Valve.
 
 ЧТО ЭТА СБОРКА УМЕЕТ
+  + Синяки и фингал напарника видны (при двух сердцах и меньше, при одном).
+  + Проповедь и ритуал друга в храме проверены: итог у хоста.
+  + Трава и цветы в первых забегах одинаковые у обоих.
   + Ночной лис: сделки заключает хост, друг видит лиса и разговор, итог
     засчитывается обоим.
   + Лобби в главном меню, в стиле игры: «Мультиплеер» → «Создать лобби» →
@@ -68,8 +71,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
   + Предметы в культе больше не дюпаются и не теряются.
   + Раз в 4 секунды игры сверяют культ и чинят расхождения. Что разошлось и
     сколько стоит синхронизация, пишется в BepInEx\LogOutput.log.
-  - Не проверено: настоящая проповедь и ритуал в храме, два разных аккаунта
-    Steam. Что изменилось в версиях: CHANGELOG.md на GitHub.
+  - Не проверено: два разных аккаунта Steam. Что изменилось в версиях: CHANGELOG.md на GitHub.
 
 ЧТО НУЖНО
   - Игра Cult of the Lamb в Steam у обоих, версия 1.5.26 (Steam build 25223484).
@@ -118,7 +120,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 
 
 ==================================================================================
-Cult of the Lamb Co-op Anything 0.3.1: online co-op over Steam (pre-release)
+Cult of the Lamb Co-op Anything 0.3.2: online co-op over Steam (pre-release)
 ==================================================================================
 
 github.com/XDinka/cult_of_the_lamb_co-op_anything
@@ -127,6 +129,9 @@ Steam added: no IP addresses, no port forwarding, works behind a VPN or WARP.
 Traffic goes through Valve's relays.
 
 WHAT IT DOES
+  + The partner's bruises and black eye show (two hearts or less, one heart).
+  + The friend's sermon and ritual in a temple are tested: the host gets them.
+  + The grass and flowers of the first runs are the same for both.
   + A lobby in the main menu, in the game's own look: Multiplayer, Create
     Lobby, a save or an empty slot. The Lamb and the Goat with Steam names and
     avatars; friends' open lobbies are listed; Play starts both.
@@ -141,8 +146,7 @@ WHAT IT DOES
     time are the host's; what the friend builds, spends or orders reaches it.
   + Mod versions are compared on joining; the mod updates itself.
   + A bad connection icon in the top right corner.
-  - Not tested yet: a real sermon and ritual in a temple, two real Steam
-    accounts. What changed in each version: CHANGELOG.md on GitHub.
+  - Not tested yet: two real Steam accounts. What changed in each version: CHANGELOG.md on GitHub.
 
 WHAT YOU NEED
   - Cult of the Lamb on Steam for both, version 1.5.26 (Steam build 25223484).

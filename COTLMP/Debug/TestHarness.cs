@@ -55,6 +55,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-takeupdate</c>: an update offered is taken at once, the installer runs without its window</item>
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
+    /// <item><c>-cotlmp-templetest</c>: the host builds a temple and gets three followers and bones; the friend goes in, preaches a sermon, holds a holiday and closes the altar through its menus</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
     /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
     /// <item><c>-cotlmp-nomapclick</c>: with -cotlmp-nextfloor, never click on the map, only wait for the partner's pick</item>
@@ -65,6 +66,8 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-netshots</c>: with -cotlmp-shots, save a frame the first time each kind of bad connection icon shows</item>
     /// <item><c>-cotlmp-netflood</c>: every 3 s send the partner a 20 KB packet and a burst of 300 small ones of a kind they ignore (network stress test; pair it with -cotlmp-netchaos=LOSS,DELAY,JITTER,EVERY,OUTAGE for a bad connection)</item>
     /// <item><c>-cotlmp-drawtest</c>: in each shared dungeon room draw 3 tarot cards the way a chest would and log them (host pools test); the host also gets extra unlocks in memory so the two saves differ</item>
+    /// <item><c>-cotlmp-hurt=N</c>: N seconds after both stand in one dungeon room, the host's hearts go to two, one and back (bruises test); the joining copy logs and frames the looks the host's puppet takes on</item>
+    /// <item><c>-cotlmp-runcount=N</c>: our save has had N runs (the grass of the first land grows from it), so two copies' saves differ; <c>-cotlmp-nograssfix</c> grows the grass from our own save as before</item>
     /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
     /// </list>
@@ -76,10 +79,11 @@ namespace COTLMP.Debug
         private static ulong RejoinHost;
         private static string ShotsDir;
         private static float AutoDie;
+        private static float AutoHurt;
         private static bool Solo;
         private static bool NextFloor;
         private static bool NoMapClick;
-        private static bool AnimTest, CultTest;
+        private static bool AnimTest, CultTest, TempleTest;
         private static bool PauseTest, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
@@ -87,6 +91,7 @@ namespace COTLMP.Debug
         private static float AutoTalk;
         private static bool AutoShoot;
         private static bool DrawTest;
+        private static int RunCount = -1;
         private static bool NetFlood, NetShots;
         private static float AutoChoice;
         private static int FloodSent;
@@ -118,6 +123,10 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-autochoice=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoChoice);
                 else if (Arg.Equals("-cotlmp-drawtest", StringComparison.OrdinalIgnoreCase))
                     DrawTest = true;
+                else if (Arg.StartsWith("-cotlmp-runcount=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-runcount=".Length), out RunCount);
+                else if (Arg.Equals("-cotlmp-nograssfix", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Game.RunGrass.Off = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
                     AutoShoot = true;
                 else if (Arg.Equals("-cotlmp-solo", StringComparison.OrdinalIgnoreCase))
@@ -156,6 +165,8 @@ namespace COTLMP.Debug
                     FoxTest = true;
                 else if (Arg.Equals("-cotlmp-culttest", StringComparison.OrdinalIgnoreCase))
                     CultTest = true;
+                else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
+                    TempleTest = true;
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
                     PauseTest = true;
                 else if (Arg.Equals("-cotlmp-pausenoplayer", StringComparison.OrdinalIgnoreCase))
@@ -172,6 +183,8 @@ namespace COTLMP.Debug
                 }
                 else if (Arg.StartsWith("-cotlmp-autodie=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-autodie=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoDie);
+                else if (Arg.StartsWith("-cotlmp-hurt=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-hurt=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out AutoHurt);
                 else if (Arg.StartsWith("-cotlmp-shots=", StringComparison.OrdinalIgnoreCase))
                     ShotsDir = Arg.Substring("-cotlmp-shots=".Length);
                 else if (Arg.Equals("-cotlmp-autokill", StringComparison.OrdinalIgnoreCase))
@@ -201,6 +214,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(PlayAttacks());
             if (CultTest)
                 Plugin.MonoInstance.StartCoroutine(ChangeCult());
+            if (TempleTest)
+                Plugin.MonoInstance.StartCoroutine(TempleRun());
             if (PauseTest)
                 Plugin.MonoInstance.StartCoroutine(OpenPauseMenus());
             if (NextFloor && AutoEnter && !NoMapClick)
@@ -243,6 +258,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(Shots());
             if (AutoDie > 0)
                 Plugin.MonoInstance.StartCoroutine(DieOnce());
+            if (AutoHurt > 0)
+                Plugin.MonoInstance.StartCoroutine(HurtTest());
             if (AutoTalk > 0)
                 Plugin.MonoInstance.StartCoroutine(TalkOnce());
             if (AutoShoot)
@@ -293,6 +310,11 @@ namespace COTLMP.Debug
             /* The same for the difficulty a fresh save asks for on arrival (it covers the screen) */
             DataManager.Instance.DifficultyChosen = true;
             Plugin.MonoInstance.StartCoroutine(SkipDifficulty());
+            if (RunCount >= 0)
+            {
+                DataManager.Instance.dungeonRun = RunCount;
+                Plugin.Logger?.LogWarning($"{Tag} Our save has had {RunCount} runs");
+            }
             yield return new WaitForSecondsRealtime(1f);
 
             if (Host)
@@ -538,7 +560,7 @@ namespace COTLMP.Debug
                 Line.Append($" hazards={COTLMP.Game.HazardSync.Sent}/{COTLMP.Game.HazardSync.Shown}/{COTLMP.Game.HazardSync.Missing} moved={COTLMP.Game.HazardSync.Moved}");
                 Line.Append($" {Gear()}");
                 Line.Append($" flood={FloodSent}/{COTLMP.Game.CoopSync.UnknownReceived} chaos={COTLMP.Network.LoopbackPeerLink.ChaosStats} ping={COTLMP.Game.ConnectionQuality.PingMs:F0} loss={COTLMP.Game.ConnectionQuality.Loss:F2} broken={COTLMP.Game.ConnectionQuality.Broken} hops={COTLMP.Network.Network.PacketsOut}>{COTLMP.Network.SteamBridge.FromLocal}|{COTLMP.Network.SteamBridge.FromLink}>{COTLMP.Network.Network.PacketsIn}");
-                Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null}");
+                Line.Append($" seeded={COTLMP.Game.RoomRandom.Seeded} chest={Interaction_Chest.Instance != null} grass={COTLMP.Game.RunGrass.SpotsGrown}:{COTLMP.Game.RunGrass.Run?.DungeonRun}/{DataManager.Instance?.dungeonRun}:{COTLMP.Game.RunGrass.Grown()}");
                 Line.Append($" props={PropSync.Sent}/{PropSync.Received}/{PropSync.Applied}/{PropSync.Missing}/{PropSync.AppliedOnEntry}/{PropSync.AlreadyBroken} propmatch={PropSync.ByNumber}/{PropSync.BySpawn}/{PropSync.ByNearest}");
                 Line.Append($" tarot={SharedTarot.Sent}/{SharedTarot.Received}/{SharedTarot.Applied} time={TimeManager.CurrentDay}:{TimeManager.CurrentGameTime:F0}:{TimeManager.CurrentPhase} cult={CultSync.MembersSent}/{CultSync.MembersApplied}/{CultSync.WholeSent}/{CultSync.WholeApplied}/{CultSync.GoneSent}/{CultSync.GoneApplied}/{CultSync.ItemsSent}/{CultSync.ItemsApplied}/{CultSync.PosesApplied}/{CultSync.TimeApplied} {CultState()}");
                 Line.Append($" map={MapSync.LayoutsSent}/{MapSync.LayoutsAdopted}/{MapSync.PicksSent}/{MapSync.PicksApplied}/{MapSync.Conflicts} minimap={MiniMapSync.Marked} hostsave={COTLMP.Game.HostSave.Playing}/{COTLMP.Game.HostSave.Loads}/{COTLMP.Game.HostSave.ReceivedBytes}/{COTLMP.Game.HostSave.SentBytes} pose={PuppetSync.Sent}/{PuppetSync.Received}/{PuppetSync.Applied}/{PuppetSync.Appeared}/{PuppetSync.Vanished} enemyanims={RoomSync.EnemyAnimations} puppetanim={(COTLMP.Game.PlayerManager.GetPuppet(Plugin.GlobalsInternal.IsServerCreator ? 1u : 0u)?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} myanim={(PlayerFarming.Instance?.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name)} node={(global::Map.MapManager.Instance?.CurrentNode?.point.x)},{(global::Map.MapManager.Instance?.CurrentNode?.point.y)}:{(global::Map.MapManager.Instance?.CurrentNode?.nodeType)}");
@@ -947,6 +969,62 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
+        /// The host's hearts go down to two, then one, then back up, a few seconds each (the game
+        /// bruises the lamb at two and gives it a black eye at one); nothing else hurts it meanwhile
+        /// </summary>
+        private static IEnumerator HurtTest()
+        {
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            /* Hosting starts after the switches are read */
+            if (!Plugin.GlobalsInternal.IsServerCreator)
+            {
+                yield return WatchLooks();
+                yield break;
+            }
+            yield return new WaitForSecondsRealtime(AutoHurt);
+
+            PlayerFarming Player = PlayerFarming.Instance;
+            float Full = Player.health.HP;
+            Player.health.invincible = true;
+            foreach (float Hearts in new[] { 2f, 1f, Full })
+            {
+                Player.health.HP = Hearts;
+                Plugin.Logger?.LogWarning($"{Tag} Hurt test: our hp {Player.health.HP}, our look {COTLMP.Game.Appearance.Look:X}");
+                yield return new WaitForSecondsRealtime(6f);
+            }
+            Player.health.invincible = false;
+        }
+
+        /// <summary>
+        /// Logs and frames each look the partner's puppet takes on
+        /// </summary>
+        private static IEnumerator WatchLooks()
+        {
+            int Seen = -1, Frames = 0;
+            while (true)
+            {
+                for (uint Id = 0; Id < InternalData.MaxPlayersPerServerInternal; Id++)
+                {
+                    int Look = PlayerManager.GetLook(Id);
+                    if (Look < 0 || Look == Seen)
+                        continue;
+                    Seen = Look;
+                    Plugin.Logger?.LogWarning($"{Tag} Hurt test: player {Id}'s puppet looks {Look:X} (bruises {COTLMP.Game.Appearance.LookHurt(Look)})");
+                    if (Frames++ < 4)
+                    {
+                        yield return new WaitForSecondsRealtime(0.5f);
+                        PlayerFarming Puppet = PlayerManager.GetPuppet(Id);
+                        Vector3 OnScreen = Puppet != null && Camera.main != null ? Camera.main.WorldToScreenPoint(Puppet.transform.position) : Vector3.zero;
+                        Plugin.Logger?.LogWarning($"{Tag} Hurt test: the puppet stands at {OnScreen.x:F0},{Screen.height - OnScreen.y:F0} of {Screen.width}x{Screen.height}");
+                        Shot($"puppet-hurt{COTLMP.Game.Appearance.LookHurt(Look)}");
+                    }
+                }
+                yield return new WaitForSecondsRealtime(0.2f);
+            }
+        }
+
+        /// <summary>
         /// Stands next to the downed partner until the bar fills, as a player would
         /// </summary>
         private static IEnumerator Rescue()
@@ -1071,6 +1149,183 @@ namespace COTLMP.Debug
         /// <summary>
         /// Both sides of the cult test, by role
         /// </summary>
+        /* THE TEMPLE TEST ****************************************************/
+
+        /// <summary>
+        /// The cult as the temple test sees it: the sermon day, the holiday, its cooldown, faith,
+        /// what the followers think of us and how many are at the temple
+        /// </summary>
+        private static string TempleState()
+        {
+            var Followers = DataManager.Instance.Followers;
+            return $"sermonday={DataManager.Instance.PreviousSermonDayIndex} day={TimeManager.CurrentDay} holiday={FollowerBrainStats.IsHoliday} " +
+                   $"cooldown={UpgradeSystem.GetCoolDownNormalised(UpgradeSystem.Type.Ritual_Holiday):F2} faith={CultFaithManager.CurrentFaith:F1} " +
+                   $"bones={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.BONE)} adoration={Followers.Sum(Info => Info?.Adoration ?? 0f):F1} " +
+                   $"thoughts={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{string.Join("+", (Info?.Thoughts ?? new List<ThoughtData>()).Select(T => T.ThoughtType))}"))} " +
+                   $"church={FollowerManager.FollowersAtLocation(FollowerLocation.Church).Count} where={PlayerFarming.Location} hands={CultHands.FriendCount}";
+        }
+
+        /// <summary>
+        /// The host builds a temple and gets three followers and the bones for a holiday; the
+        /// friend goes into the temple, preaches a sermon, holds the holiday ritual and closes the
+        /// altar, as a player would through its menus. Both log the cult as it goes.
+        /// </summary>
+        private static IEnumerator TempleRun()
+        {
+            while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer() ||
+                   (!Plugin.GlobalsInternal.IsServerCreator && !HostSave.Playing))
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            Plugin.MonoInstance.StartCoroutine(LogTemple());
+            Plugin.MonoInstance.StartCoroutine(CloseTutorials());
+
+            if (Host)
+            {
+                yield return new WaitForSecondsRealtime(8f);
+                Vector3 Here = PlayerFarming.Instance.transform.position;
+                UpgradeSystem.UnlockAbility(UpgradeSystem.Type.Building_Temple, true);
+                UpgradeSystem.UnlockAbility(UpgradeSystem.Type.Ritual_Holiday, true);
+                StructuresData Temple = StructuresData.GetInfoByType(StructureBrain.TYPES.TEMPLE, 0);
+                StructureManager.BuildStructure(FollowerLocation.Base, Temple, Here + new Vector3(0f, 9f), Temple.Bounds);
+                Plugin.Logger?.LogWarning($"{Tag} Temple test: built a temple ({Temple.ID})");
+                for (int Count = 0; Count < 3; Count++)
+                {
+                    FollowerInfo New = FollowerInfo.NewCharacter(FollowerLocation.Base);
+                    DataManager.Instance.Followers.Add(New);
+                    FollowerManager.SpawnFollower(New, Here + new Vector3(-2f - Count, 1f));
+                }
+                Inventory.ChangeItemQuantity(InventoryItem.ITEM_TYPE.BONE, 100);
+                DataManager.Instance.PreviousSermonDayIndex = -1;
+                Plugin.Logger?.LogWarning($"{Tag} Temple test: ready: {TempleState()}");
+                yield break;
+            }
+
+            float Since = Time.realtimeSinceStartup;
+            while ((Interaction_Temple.Instance == null || DataManager.Instance.Followers.Count < 3 ||
+                    Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.BONE) < 75 || Time.realtimeSinceStartup - Since < 30f) && Time.realtimeSinceStartup - Since < 90f)
+                yield return null;
+            yield return new WaitForSecondsRealtime(3f);
+            Plugin.Logger?.LogWarning($"{Tag} Temple test: going in, temple {Interaction_Temple.Instance != null}: {TempleState()}");
+            if (Interaction_Temple.Instance == null)
+                yield break;
+
+            /* Through the door, as walking into it does */
+            EnterBuilding Door = Interaction_Temple.Instance.Entrance;
+            AccessTools.Method(typeof(EnterBuilding), "OnTriggerEnter2D").Invoke(Door, new object[] { PlayerFarming.Instance.GetComponent<Collider2D>() });
+            yield return Until(() => PlayerFarming.Location == FollowerLocation.Church && !MMTransition.IsPlaying && Interaction_TempleAltar.Instance != null, 20f);
+            yield return new WaitForSecondsRealtime(3f);
+            Plugin.Logger?.LogWarning($"{Tag} Temple test: inside ({PlayerFarming.Location}): {TempleState()}");
+            Shot("temple-inside");
+
+            Interaction_TempleAltar.Instance.OnInteract(PlayerFarming.Instance.state);
+            yield return Plugin.MonoInstance.StartCoroutine(PressAltar("OnSermonButtonClicked", "sermon"));
+            Plugin.MonoInstance.StartCoroutine(TempleShots("sermon", 6));
+
+            /* The altar's menu comes back once the sermon is over */
+            yield return Plugin.MonoInstance.StartCoroutine(PressAltar("OnRitualsButtonClicked", "rituals", 150f));
+            yield return Until(() => UnityEngine.Object.FindObjectOfType<Lamb.UI.Rituals.UIRitualsMenuController>() != null, 15f);
+            yield return new WaitForSecondsRealtime(1.5f);
+            var Rituals = UnityEngine.Object.FindObjectOfType<Lamb.UI.Rituals.UIRitualsMenuController>();
+            Plugin.Logger?.LogWarning($"{Tag} Temple test: ritual menu {Rituals != null}, holding the holiday: {TempleState()}");
+            if (Rituals != null)
+                AccessTools.Method(Rituals.GetType(), "RitualItemSelected").Invoke(Rituals, new object[] { UpgradeSystem.Type.Ritual_Holiday });
+            Plugin.MonoInstance.StartCoroutine(TempleShots("ritual", 6));
+
+            yield return Until(() => AltarMenu() != null, 90f);
+            yield return new WaitForSecondsRealtime(1.5f);
+            Plugin.Logger?.LogWarning($"{Tag} Temple test: ritual over, closing the altar: {TempleState()}");
+            AltarMenu()?.OnCancelButtonInput();
+            yield return new WaitForSecondsRealtime(15f);
+            Plugin.Logger?.LogWarning($"{Tag} Temple test: done: {TempleState()}");
+        }
+
+        private static Lamb.UI.AltarMenu.UIAltarMenuController AltarMenu()
+        {
+            var Menu = UnityEngine.Object.FindObjectOfType<Lamb.UI.AltarMenu.UIAltarMenuController>();
+            return Menu != null && Menu.isActiveAndEnabled ? Menu : null;
+        }
+
+        /// <summary>
+        /// Waits for the altar's menu and clicks one of its buttons; tutorials that come up meanwhile are closed
+        /// </summary>
+        private static IEnumerator PressAltar(string Button, string What, float Seconds = 20f)
+        {
+            float Since = Time.realtimeSinceStartup;
+            string Seen = null;
+            /* The menu last clicked takes a moment to go */
+            while (AltarMenu() != null && Time.realtimeSinceStartup - Since < 10f)
+                yield return null;
+            while (AltarMenu() == null && Time.realtimeSinceStartup - Since < Seconds)
+            {
+                string Open = string.Join(",", UnityEngine.Object.FindObjectsOfType<Lamb.UI.UIMenuBase>().Where(Menu => Menu.isActiveAndEnabled).Select(Menu => Menu.GetType().Name));
+                if (Open != Seen)
+                {
+                    Seen = Open;
+                    Plugin.Logger?.LogWarning($"{Tag} Temple test: menus up: {Open}");
+                }
+                yield return new WaitForSecondsRealtime(0.5f);
+            }
+            yield return new WaitForSecondsRealtime(1.5f);
+            var Altar = AltarMenu();
+            Plugin.Logger?.LogWarning($"{Tag} Temple test: altar menu {Altar != null} after {Time.realtimeSinceStartup - Since:F0} s, choosing {What}: {TempleState()}");
+            if (Altar != null)
+                AccessTools.Method(Altar.GetType(), Button).Invoke(Altar, null);
+        }
+
+        private static IEnumerator TempleShots(string Name, int Count)
+        {
+            for (int Index = 1; Index <= Count; Index++)
+            {
+                yield return new WaitForSecondsRealtime(4f);
+                Shot($"temple-{Name}-{Index}");
+            }
+        }
+
+        /// <summary>
+        /// The game's tutorial windows (the first sermon, the first ritual) are read and closed, as a player would
+        /// </summary>
+        private static IEnumerator CloseTutorials()
+        {
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+
+                /* The first sermon's reward: the first upgrade on offer, then the tree closes */
+                var Tree = UnityEngine.Object.FindObjectOfType<Lamb.UI.UIUpgradePlayerTreeMenuController>();
+                if (Tree != null && Tree.isActiveAndEnabled)
+                {
+                    yield return new WaitForSecondsRealtime(2f);
+                    var Nodes = Traverse.Create(Tree).Field("_treeNodes").GetValue<List<Lamb.UI.UpgradeTreeNode>>();
+                    Lamb.UI.UpgradeTreeNode Node = Nodes?.FirstOrDefault(Each => Each != null && Each.State == Lamb.UI.UpgradeTreeNode.NodeState.Available);
+                    Plugin.Logger?.LogWarning($"{Tag} Taking the upgrade {Node?.Upgrade}");
+                    if (Node != null)
+                        AccessTools.Method(typeof(Lamb.UI.UIUpgradeTreeMenuBase<Lamb.UI.UIPlayerUpgradeUnlockOverlayController>), "PerformUnlock").Invoke(Tree, new object[] { Node });
+                    yield return new WaitForSecondsRealtime(8f);
+                    if (Tree != null && Tree.isActiveAndEnabled)
+                        Tree.Hide();
+                    continue;
+                }
+
+                var Tutorial = UnityEngine.Object.FindObjectOfType<src.UI.Overlays.TutorialOverlay.UITutorialOverlayController>();
+                if (Tutorial == null || !Tutorial.isActiveAndEnabled)
+                    continue;
+                yield return new WaitForSecondsRealtime(1.5f);
+                if (Tutorial == null)
+                    continue;
+                Plugin.Logger?.LogWarning($"{Tag} Closing a tutorial window");
+                Tutorial.Hide();
+            }
+        }
+
+        private static IEnumerator LogTemple()
+        {
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(10f);
+                Plugin.Logger?.LogWarning($"{Tag} Temple: {TempleState()}");
+            }
+        }
+
         private static IEnumerator ChangeCult()
         {
             /* Who hosts is known once the session is up */
@@ -1309,7 +1564,7 @@ namespace COTLMP.Debug
                    $"checks={CultSync.ChecksSent}/{CultSync.ChecksTaken}/{CultSync.GroupsDiffered}/{CultSync.FixesAsked}/{CultSync.FixesSent}/{CultSync.FixesTaken} load={CultSync.LoadMsPerSecond:F2}/{CultSync.WorstFrameMs:F2}/{CultSync.KBPerSecond:F2} " +
                    $"fox={COTLMP.Game.FoxSync.Talks}/{COTLMP.Game.FoxSync.Mirrored}/{COTLMP.Game.FoxSync.Refused} lobby={COTLMP.Game.Lobby.Opened}/{COTLMP.Game.Lobby.Started}/{COTLMP.Game.Lobby.Stood}/{COTLMP.Game.Lobby.Heard} intro={COTLMP.Game.IntroCoop.State} " +
                    $"versions={COTLMP.Game.VersionCheck.Partner}/{COTLMP.Network.Updater.Version}/{COTLMP.Game.VersionCheck.Warned}/{COTLMP.Game.VersionCheck.Suggested}/{COTLMP.Game.VersionCheck.SuggestionsTaken} " +
-                   $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount} data={CultSync.DataApplied} " +
+                   $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount}/{CultHands.PicksLeftToHost} data={CultSync.DataApplied} " +
                    $"tasks={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{FollowerBrain.FindBrainByID(Info?.ID ?? 0)?.CurrentTaskType}:{Info?.Location}:{Info?.CurrentOverrideTaskType}"))}";
         }
 

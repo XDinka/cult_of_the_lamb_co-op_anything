@@ -162,6 +162,7 @@ namespace COTLMP.Game
         private readonly static Vector3?[] targets;
         private readonly static int[] skins;
         private readonly static string[] weapons;
+        private readonly static int[] looks;
         private readonly static Vector3?[] spineBase;
 
         /// <summary>
@@ -173,6 +174,7 @@ namespace COTLMP.Game
             targets = new Vector3?[InternalData.MaxPlayersPerServerInternal];
             skins = new int[InternalData.MaxPlayersPerServerInternal];
             weapons = new string[InternalData.MaxPlayersPerServerInternal];
+            looks = new int[InternalData.MaxPlayersPerServerInternal];
             spineBase = new Vector3?[InternalData.MaxPlayersPerServerInternal];
             Plugin.MonoInstance.StartCoroutine(MovePlayers());
         }
@@ -420,6 +422,7 @@ namespace COTLMP.Game
             players[id] = farming;
             skins[id] = skin;
             weapons[id] = null;
+            looks[id] = 0;
             spineBase[id] = null;
             ApplySkin(farming, skin);
 
@@ -448,6 +451,8 @@ namespace COTLMP.Game
         /// <summary>
         /// The skin number of a puppet, or -1 if there is no such puppet
         /// </summary>
+        internal static int GetLook(uint plr) => plr < players.Length && players[plr] != null ? looks[plr] : -1;
+
         internal static int GetSkin(uint plr) => plr < players.Length && players[plr] != null ? skins[plr] : -1;
 
         /// <summary>
@@ -467,22 +472,49 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// Bruises, black and white and the mop as its player's own game shows them, see Appearance.Look
+        /// </summary>
+        internal static void SetPuppetLook(uint plr, int look)
+        {
+            if (plr > players.Length - 1 || players[plr] == null || looks[plr] == look)
+                return;
+            looks[plr] = look;
+            ApplySkin(players[plr], skins[plr]);
+        }
+
+        /// <summary>
         /// Dresses a puppet as the Lamb in a fleece or as the Goat
         /// </summary>
         internal static Spine.Skin ApplySkin(PlayerFarming farming, int skin)
         {
             var data = farming.Spine.Skeleton.Data;
             var playerskin = farming.PlayerSkin = new Spine.Skin("Player Skin");
-            playerskin.AddSkin(Appearance.FindSkin(data, skin));
             string weaponName = null;
+            int look = 0;
             for (int i = 0; i < players.Length; ++i)
             {
                 if (players[i] != null && players[i] == farming)
+                {
                     weaponName = weapons[i];
+                    look = looks[i];
+                }
             }
+            bool goat = skin == Appearance.GoatSkin;
+
+            /* Dressed as the player's own game dresses them (PlayerFarming.SetSkin), see Appearance.Look */
+            Spine.Skin fleece = !goat && Appearance.LookBlackAndWhite(look) ? data.FindSkin($"Lamb_{skin}_BW") : null;
+            playerskin.AddSkin(fleece ?? Appearance.FindSkin(data, skin));
             var weapon = data.FindSkin("Weapons/" + (weaponName ?? "Normal")) ?? data.FindSkin("Weapons/Normal");
             if (weapon != null)
                 playerskin.AddSkin(weapon);
+            int hurt = Appearance.LookHurt(look);
+            var bruises = hurt > 0 ? data.FindSkin((goat ? "Goat_Hurt" : "Hurt") + hurt) : null;
+            if (bruises != null)
+                playerskin.AddSkin(bruises);
+            int mops = Appearance.LookMops(look);
+            var mop = mops > 0 ? data.FindSkin("Mops/" + mops) : null;
+            if (mop != null)
+                playerskin.AddSkin(mop);
             farming.Spine.Skeleton.SetSkin(playerskin);
             farming.Spine.Skeleton.SetSlotsToSetupPose();
             return playerskin;
