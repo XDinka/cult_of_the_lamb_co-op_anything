@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.0, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.1, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.3.0, pre-release.**
+**Version 0.3.1, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.3.0.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.3.1.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -90,6 +90,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 | A lobby in the main menu, in the game's own look: the host opens it on a save or a new game, friends' lobbies are listed, the Lamb and the Goat stand on the menu's altar with each player's Steam name and avatar; Play starts both | works in the automated test (a save and a new game, 1024x768, 800x450, 1680x720, 1920x1080) |
 | A new game together: each plays the opening alone until the crown, whoever gets it first waits; then both come back to life at once (the friend as the Goat) and the rest of the opening is shared; on the way to the cult the friend takes the host's save | works in the automated test (the crown reached by a shortcut, the opening's end by a jump to the cult) |
 | An invite accepted during the host's prologue waits for the host's cult | not tested in the prologue itself |
+| The night fox: the host makes its deals; with both there, the friend sees the fox come out and the host's talk, and the outcome counts for both | works in the automated test (on the shore at night) |
 | Enemy attacks of the room owner (shots incl. homing, beams, bombs, warning circles, other pooled attacks) show for the other player and move exactly as the owner's | works in the automated test (forced shots) |
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
 | Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
@@ -124,7 +125,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 
 ## По-русски
 
-Версия 0.3.0, предрелиз.
+Версия 0.3.1, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно

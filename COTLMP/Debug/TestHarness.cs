@@ -53,6 +53,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-versionchoice=update|play|suggest</c>: what the joining player picks when the mod versions differ</item>
     /// <item><c>-cotlmp-versionshots=DIR</c>: frames of the version windows</item>
     /// <item><c>-cotlmp-takeupdate</c>: an update offered is taken at once, the installer runs without its window</item>
+    /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
     /// <item><c>-cotlmp-pausetest</c>: every 8 s open the pause menu and log whether it is still open 2 s later; <c>-cotlmp-pausenoplayer</c> does it with no lamb in the player list, as in the game's opening</item>
@@ -70,7 +71,7 @@ namespace COTLMP.Debug
     /// </summary>
     internal static class TestHarness
     {
-        private static bool AutoHost, AutoEnter, AutoWalk, Report, SteamSelfTest, AutoKill, LobbyJoin;
+        private static bool AutoHost, AutoEnter, AutoWalk, Report, SteamSelfTest, AutoKill, LobbyJoin, FoxTest;
         private static float QuitAfter, EndAfter, AutoDungeon;
         private static ulong RejoinHost;
         private static string ShotsDir;
@@ -151,6 +152,8 @@ namespace COTLMP.Debug
                     COTLMP.Network.Updater.ReleaseFrom = Arg.Substring("-cotlmp-updatefrom=".Length);
                 else if (Arg.Equals("-cotlmp-takeupdate", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Network.Updater.TakeOffer = COTLMP.Network.Updater.QuietInstaller = true;
+                else if (Arg.Equals("-cotlmp-foxtest", StringComparison.OrdinalIgnoreCase))
+                    FoxTest = true;
                 else if (Arg.Equals("-cotlmp-culttest", StringComparison.OrdinalIgnoreCase))
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-pausetest", StringComparison.OrdinalIgnoreCase))
@@ -213,6 +216,8 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(COTLMP.Game.Lobby.AutoHost());
             if (LobbyJoin)
                 Plugin.MonoInstance.StartCoroutine(COTLMP.Ui.OnlineMenu.AutoJoin());
+            if (FoxTest)
+                Plugin.MonoInstance.StartCoroutine(MeetFox());
             if (COTLMP.Game.IntroCoop.SkipTo >= 0f)
                 Plugin.MonoInstance.StartCoroutine(COTLMP.Game.IntroCoop.AutoCrown());
             if ((COTLMP.Game.Lobby.AutoLobby != null || LobbyJoin || COTLMP.Game.IntroCoop.SkipTo >= 0f) && !(AutoHost || AutoEnter))
@@ -866,6 +871,47 @@ namespace COTLMP.Debug
             }
         }
 
+        private static IEnumerator MeetFox()
+        {
+            while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)
+                yield return null;
+            yield return new WaitForSecondsRealtime(10f);
+
+            /* Night first (the friend's clock follows the host's), with followers for a deal */
+            if (Plugin.GlobalsInternal.IsServerCreator)
+            {
+                HarmonyLib.AccessTools.Method(typeof(TimeManager), "StartNewPhase").Invoke(null, new object[] { DayPhase.Night });
+                Plugin.Logger?.LogWarning($"{Tag} Night now: {TimeManager.CurrentPhase}");
+            }
+            yield return new WaitForSecondsRealtime(4f);
+            Plugin.Logger?.LogWarning($"{Tag} To the shore at {TimeManager.CurrentPhase}");
+            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Hub-Shore", 1f, "", null);
+            while (SceneManager.GetActiveScene().name != "Hub-Shore" || PlayerFarming.Instance == null || MMTransition.IsPlaying)
+                yield return null;
+            yield return new WaitForSecondsRealtime(8f);
+
+            Interaction_NightFox Fox = UnityEngine.Object.FindObjectOfType<Interaction_NightFox>(true);
+            Plugin.Logger?.LogWarning($"{Tag} Fox here: {Fox != null} active={Fox?.gameObject.activeInHierarchy} location={PlayerFarming.Location} phase={TimeManager.CurrentPhase}");
+            if (Fox == null)
+                yield break;
+            PlayerFarming.Instance.transform.position = Fox.transform.position + Vector3.down * 2f;
+            yield return new WaitForSecondsRealtime(3f);
+            if (!string.IsNullOrEmpty(ShotsDir))
+                Shot($"fox-before-{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}");
+
+            /* The friend tries first, then the host talks */
+            yield return new WaitForSecondsRealtime(Plugin.GlobalsInternal.IsServerCreator ? 8f : 2f);
+            Plugin.Logger?.LogWarning($"{Tag} Talking to the fox");
+            Fox.OnInteract(PlayerFarming.Instance.state);
+            yield return new WaitForSecondsRealtime(Plugin.GlobalsInternal.IsServerCreator ? 6f : 14f);
+            if (!string.IsNullOrEmpty(ShotsDir))
+                Shot($"fox-talk-{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}");
+            yield return new WaitForSecondsRealtime(40f);
+            if (!string.IsNullOrEmpty(ShotsDir))
+                Shot($"fox-after-{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}");
+            Plugin.Logger?.LogWarning($"{Tag} Fox after: encounter={DataManager.Instance.CurrentFoxEncounter} done={string.Join(",", DataManager.Instance.FoxCompleted)} intro={string.Join(",", DataManager.Instance.FoxIntroductions)}");
+        }
+
         private static IEnumerator TalkOnce()
         {
             while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
@@ -1261,7 +1307,7 @@ namespace COTLMP.Debug
                    $"mushrooms={Inventory.GetItemQuantity(InventoryItem.ITEM_TYPE.MUSHROOM_SMALL)} trees={StructureManager.GetAllStructuresOfType<Structures_Tree>(FollowerLocation.Base).Count} rocks={StructureManager.GetAllStructuresOfType<Structures_Rubble>(FollowerLocation.Base).Count} hits={CultResources.HitsSent}/{CultResources.HitsApplied} " +
                    $"sermonday={DataManager.Instance.PreviousSermonDayIndex} feast={DataManager.Instance.LastFeastDeclared:F0} " +
                    $"checks={CultSync.ChecksSent}/{CultSync.ChecksTaken}/{CultSync.GroupsDiffered}/{CultSync.FixesAsked}/{CultSync.FixesSent}/{CultSync.FixesTaken} load={CultSync.LoadMsPerSecond:F2}/{CultSync.WorstFrameMs:F2}/{CultSync.KBPerSecond:F2} " +
-                   $"lobby={COTLMP.Game.Lobby.Opened}/{COTLMP.Game.Lobby.Started}/{COTLMP.Game.Lobby.Stood}/{COTLMP.Game.Lobby.Heard} intro={COTLMP.Game.IntroCoop.State} " +
+                   $"fox={COTLMP.Game.FoxSync.Talks}/{COTLMP.Game.FoxSync.Mirrored}/{COTLMP.Game.FoxSync.Refused} lobby={COTLMP.Game.Lobby.Opened}/{COTLMP.Game.Lobby.Started}/{COTLMP.Game.Lobby.Stood}/{COTLMP.Game.Lobby.Heard} intro={COTLMP.Game.IntroCoop.State} " +
                    $"versions={COTLMP.Game.VersionCheck.Partner}/{COTLMP.Network.Updater.Version}/{COTLMP.Game.VersionCheck.Warned}/{COTLMP.Game.VersionCheck.Suggested}/{COTLMP.Game.VersionCheck.SuggestionsTaken} " +
                    $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount} data={CultSync.DataApplied} " +
                    $"tasks={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{FollowerBrain.FindBrainByID(Info?.ID ?? 0)?.CurrentTaskType}:{Info?.Location}:{Info?.CurrentOverrideTaskType}"))}";

@@ -3,6 +3,38 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.1 (2026-10-24)
+
+**Fixed: the night fox with both players there.** Each game had its own fox, so both players could
+start a talk with it at once, the deal counted in one game only, and the place and the talk went apart.
+A deal with the fox changes the save (what it takes, what it gives), and the save is the host's, so
+now the host makes it: the friend gets "The host makes deals with the fox". When the host talks to
+it, the friend's fox comes out of the dark as the host's does, the talk and its answers show at the
+bottom of the friend's screen, and the outcome (the fox's encounter, its introduction, the place it
+is done with) is the friend's too. See `FoxSync.cs`.
+
+![The host's talk with the fox, on the friend's screen](Media/changelog/0.3.1-fox-friend.png)
+
+```
+[QA client] Talking to the fox                       (refused: the host makes deals with the fox)
+[COOP] Talking to the fox in HubShore                (the host)
+[COOP] The host's fox talk in HubShore starts        (the friend's fox comes out)
+[COOP] The host's fox talk in HubShore is over (done there: False)
+[QA client] Fox after: encounter=0 done= intro=HubShore
+```
+
+**Fixed: the shared opening after the crown ran as "no run".** Both games took a run numbered 0,
+which the mod treats as none, so part of what is shared in a run (who joined it, what to send on a
+rejoin) didn't work there. Now each starts its own, and at the crown the friend takes the host's:
+
+```
+[COOP] Taking the partner's run -301648455 (ours was 897309048)
+[COOP] Room Game Biome Intro#1.1@0,0 cleared in run -301648455 (ours -301648455)
+```
+
+**Fixed:** the game's text animation tags (`<wave>` and the like) showed as text in the partner's
+conversation at the bottom of the screen.
+
 ## 0.3.0 (2026-10-24)
 
 **A lobby in the main menu**

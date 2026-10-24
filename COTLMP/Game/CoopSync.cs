@@ -101,7 +101,9 @@ namespace COTLMP.Game
             /* Lobby */
             Lobby = 38,
             /* IntroCoop */
-            IntroCrown = 39
+            IntroCrown = 39,
+            /* FoxSync */
+            FoxTalk = 40
         }
 
         /// <summary>
@@ -369,6 +371,10 @@ namespace COTLMP.Game
 
                 case Kind.IntroCrown:
                     IntroCoop.OnCrown(Reader);
+                    break;
+
+                case Kind.FoxTalk:
+                    FoxSync.OnTalk(Reader);
                     break;
 
                 case Kind.PropBroken:

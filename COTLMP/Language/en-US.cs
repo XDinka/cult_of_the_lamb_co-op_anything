@@ -126,6 +126,9 @@ namespace COTLMP.Language
             new("Multiplayer/UI/OnlineFailed", "Couldn't open online play", false),
             new("Multiplayer/Steam/GameVersion", "Your friend's game is version {0}, yours is {1}. Update the game in Steam on both sides.", false),
 
+            /* The night fox */
+            new("Multiplayer/Fox/HostDeals", "The host makes deals with the fox", false),
+
             /* Updates */
             new("Multiplayer/Update/Title", "A new version of the co-op mod", false),
             new("Multiplayer/Update/Body", "Version {0} is out, you have {1}. Update now? The game will close, the installer will put in the new version and start the game again.", false),

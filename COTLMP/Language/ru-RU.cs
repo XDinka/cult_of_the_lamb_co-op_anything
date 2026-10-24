@@ -126,6 +126,9 @@ namespace COTLMP.Language
             new("Multiplayer/UI/OnlineFailed", "Не удалось открыть онлайн", false),
             new("Multiplayer/Steam/GameVersion", "У друга игра версии {0}, у вас {1}. Обновите игру в Steam у обоих.", false),
 
+            /* The night fox */
+            new("Multiplayer/Fox/HostDeals", "Сделки с лисом заключает хост", false),
+
             /* Updates */
             new("Multiplayer/Update/Title", "Вышла новая версия кооп-мода", false),
             new("Multiplayer/Update/Body", "Вышла версия {0}, у вас {1}. Обновить сейчас? Игра закроется, установщик поставит новую версию и снова запустит игру.", false),

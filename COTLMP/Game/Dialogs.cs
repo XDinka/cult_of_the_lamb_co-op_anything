@@ -18,6 +18,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -144,6 +145,11 @@ namespace COTLMP.Game
             }
         }
 
+        /* The game's text animation tags (<wave>, <shake> and the like), which only its own boxes read */
+        private static readonly Regex Animation = new("</?(wave|shake|bounce|rot|wiggle|swing|incr|dangle|fade|rainb|pend|slide|size|speed|waitfor|waitinput|notype)(=[^>]*)?>", RegexOptions.IgnoreCase);
+
+        private static string Plain(string Line) => string.IsNullOrEmpty(Line) ? Line : Animation.Replace(Line, "");
+
         private static string Translate(string Term)
         {
             if (string.IsNullOrEmpty(Term))
@@ -174,7 +180,7 @@ namespace COTLMP.Game
                     {
                         string OptionTerm = Reader.ReadString(), Theirs = Reader.ReadString();
                         string Translated = string.IsNullOrEmpty(OptionTerm) ? null : LocalizationManager.GetTranslation(OptionTerm);
-                        Options.Add(string.IsNullOrEmpty(Translated) ? Theirs : Translated);
+                        Options.Add(Plain(string.IsNullOrEmpty(Translated) ? Theirs : Translated));
                     }
                     if (Place != CoopSync.CurrentPlace() || MMConversation.isPlaying)
                         return;
@@ -199,7 +205,7 @@ namespace COTLMP.Game
                 return;
 
             string Ours = LocalizationManager.GetTranslation(Term);
-            Text = string.IsNullOrEmpty(Ours) ? Line : Ours;
+            Text = Plain(string.IsNullOrEmpty(Ours) ? Line : Ours);
             string OurName = NameTerm == "-" || string.IsNullOrEmpty(NameTerm) ? "" : LocalizationManager.GetTranslation(NameTerm);
             Speaker = string.IsNullOrEmpty(OurName) ? Name : OurName;
             ShownAt = Time.unscaledTime;
