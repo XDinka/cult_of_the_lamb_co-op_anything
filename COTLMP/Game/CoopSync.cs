@@ -111,7 +111,9 @@ namespace COTLMP.Game
             /* CultRecruits */
             Recruit = 43,
             /* SharedScenes: a scene started where the partner stands too */
-            ScenePull = 44
+            ScenePull = 44,
+            /* SceneEnds: our scene or film started or ended */
+            SceneState = 45
         }
 
         /// <summary>
@@ -407,6 +409,10 @@ namespace COTLMP.Game
 
                 case Kind.ScenePull:
                     SharedScenes.OnPull(Reader);
+                    break;
+
+                case Kind.SceneState:
+                    SceneEnds.OnRelay(Reader);
                     break;
 
                 case Kind.PropBroken:

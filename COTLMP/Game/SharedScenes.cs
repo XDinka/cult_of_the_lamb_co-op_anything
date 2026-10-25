@@ -392,6 +392,7 @@ namespace COTLMP.Game
                     return;
                 Current = ConversationObject;
                 CurrentKey = KeyOf(ConversationObject);
+                SceneEnds.Talked(CurrentKey);
                 CurrentPlace = CoopSync.CurrentPlace();
                 StartedAt = Time.unscaledTime;
                 Led = false;

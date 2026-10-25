@@ -3,6 +3,43 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.5 (2026-10-25)
+
+**Scenes and films end for both together, as at the opening's crown.** What comes after a scene's
+last words (the camera going over the room, a leader getting up) each game played on its own clock,
+and films on their own too: whoever was done first got their hands back while the other still
+watched, and the leader fought them alone. Now whoever is done first waits: their game stands still
+behind a black screen, "Waiting for your partner to finish watching", until the partner's scene or
+film is over too (at most 45 s for a scene, 60 s for a film). This is for any scene both play in one
+dungeon room (every leader and the scenes rooms start by themselves) and for a story talk both play
+anywhere. See `SceneEnds.cs`.
+
+**Films can be skipped.** The game's skip prompt is shown on its films and the skip button skips.
+Whoever skips gets the black screen and waits while the partner watches on, so a skip never cuts the
+partner's film short.
+
+![The host skipped: a black screen until the friend has watched](Media/changelog/0.3.5-skip-wait.png)
+![The friend watches on, with the skip prompt](Media/changelog/0.3.5-partner-watching.png)
+
+**The host's world first.** The friend who waited goes on only when the host says its game is there
+again (its world loaded after the scene or film). If that takes a while, the friend's black screen
+says "Waiting for the sync to be confirmed" (at most 30 s).
+
+![The friend waits for the host's word](Media/changelog/0.3.5-sync-wait.png)
+
+```
+host:   We skip our film Intro, the partner watches on: waiting for them
+        Waited 9.7 s for the partner's film: theirs is over too, going on together
+friend: Our scene in Dungeon1#1.1.0@0,-1 is over, the partner's isn't: waiting for them
+        Waited 4.7 s for the partner's scene: theirs is over too, going on together
+        Waiting for the host's game to be there again
+        Waited 4.0 s for the host's game: the host's world is up, going on together
+```
+
+**Tested:** scene ends both ways, a film skipped by the host and by the friend, the host's word late
+by 4 s, the first land's first leader (the friend's scene over 1.6 s first, it waited). Other lands'
+leaders go the same way but weren't run.
+
 ## 0.3.4 (2026-10-25)
 
 **Leaders' rooms: in together, as the opening's crown.** Whoever comes into a land's leader's room first

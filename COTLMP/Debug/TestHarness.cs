@@ -61,6 +61,10 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-bosslate=N</c>, <c>-cotlmp-bosslayer=N</c>: with -cotlmp-bosstest, come N s later; go to that layer's leader (4: the Leshy)</item>
     /// <item><c>-cotlmp-bosstest</c>: from the first dungeon room both go to the land's leader (the floor made again with the leader's room), the host a moment first; both read its talk on (the friend faster) and log the scene and the leader's health</item>
     /// <item><c>-cotlmp-recruittest</c>: a newcomer at the gate for both; the host recruits it while the friend tries to talk to it; both log how many of that follower they have</item>
+    /// <item><c>-cotlmp-endtest</c>: in a dungeon room both copies play a scene, the host's ends 6 s first and must wait for the friend's (scene ends test); <c>-cotlmp-endtest=friend</c>: the friend's ends first</item>
+    /// <item><c>-cotlmp-readydelay=N</c>: the host tells the friend its world is up N s late (the friend's sync wait)</item>
+    /// <item><c>-cotlmp-filmtest[=NAME]</c>: in a dungeon room both copies play a film (Intro by default), the friend's 5 s later; the host's must wait for the friend's</item>
+    /// <item><c>-cotlmp-filmskip=N</c>: with -cotlmp-filmtest, press skip N s into our film (a black screen until the partner's film is over)</item>
     /// <item><c>-cotlmp-scenetest</c>: in a dungeon room both copies play the same conversation, the host reads on slowly and answers the second answer, the friend tries to rush it and answer the first (shared scenes test)</item>
     /// <item><c>-cotlmp-templetest</c>: the host builds a temple and gets three followers and bones; the friend goes in, preaches a sermon, holds a holiday and closes the altar through its menus</item>
     /// <item><c>-cotlmp-animtest</c>: every 3 s, while the partner is in the room, play one of the lamb's attack animations (puppet animation test)</item>
@@ -91,6 +95,9 @@ namespace COTLMP.Debug
         private static bool NextFloor;
         private static bool NoMapClick;
         private static bool AnimTest, CultTest, TempleTest, SceneTest, RecruitTest, BossTest, DieOnRevive;
+        private static bool EndTest, FilmTest, FriendEndsFirst;
+        private static string FilmName = "Intro";
+        private static float FilmSkipAt;
         private static bool PauseTest, PauseNoPlayer;
         private static bool TarotTest;
         private static bool AutoCut;
@@ -178,6 +185,21 @@ namespace COTLMP.Debug
                     TempleTest = true;
                 else if (Arg.Equals("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
                     SceneTest = true;
+                else if (Arg.StartsWith("-cotlmp-endtest", StringComparison.OrdinalIgnoreCase))
+                {
+                    EndTest = true;
+                    FriendEndsFirst = Arg.Equals("-cotlmp-endtest=friend", StringComparison.OrdinalIgnoreCase);
+                }
+                else if (Arg.StartsWith("-cotlmp-readydelay=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-readydelay=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out COTLMP.Game.SceneEnds.ReadyDelay);
+                else if (Arg.StartsWith("-cotlmp-filmskip=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-filmskip=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out FilmSkipAt);
+                else if (Arg.StartsWith("-cotlmp-filmtest", StringComparison.OrdinalIgnoreCase))
+                {
+                    FilmTest = true;
+                    if (Arg.StartsWith("-cotlmp-filmtest=", StringComparison.OrdinalIgnoreCase))
+                        FilmName = Arg.Substring("-cotlmp-filmtest=".Length);
+                }
                 else if (Arg.Equals("-cotlmp-recruittest", StringComparison.OrdinalIgnoreCase))
                     RecruitTest = true;
                 else if (Arg.Equals("-cotlmp-bosstest", StringComparison.OrdinalIgnoreCase))
@@ -241,6 +263,10 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(TempleRun());
             if (SceneTest)
                 Plugin.MonoInstance.StartCoroutine(SceneTogether());
+            if (EndTest)
+                Plugin.MonoInstance.StartCoroutine(SceneEndTogether());
+            if (FilmTest)
+                Plugin.MonoInstance.StartCoroutine(FilmEndTogether());
             if (RecruitTest)
                 Plugin.MonoInstance.StartCoroutine(RecruitTogether());
             if (BossTest)
@@ -669,7 +695,7 @@ namespace COTLMP.Debug
             {
                 yield return new WaitForSecondsRealtime(Plugin.GlobalsInternal.IsServerCreator ? 5f : 1f);
                 MMBiomeGeneration.BiomeRoom Room = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
-                if (Room == null || MMTransition.IsPlaying)
+                if (Room == null || MMTransition.IsPlaying || COTLMP.Game.SceneEnds.Waiting)
                     continue;
 
                 /* The joining copy just follows the host into the next room */
@@ -724,6 +750,8 @@ namespace COTLMP.Debug
                     Waited += 1f;
                 }
                 yield return new WaitForSecondsRealtime(4f);
+                while (COTLMP.Game.SceneEnds.Waiting)
+                    yield return null;
 
                 Vector2Int? Way = null;
                 if (Room.N_Room != null && Room.N_Room.Connected && Room.N_Room.Room != null && !Room.N_Room.Room.Visited) Way = new Vector2Int(0, 1);
@@ -1039,6 +1067,77 @@ namespace COTLMP.Debug
                 }
             }
             Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}");
+        }
+
+        /// <summary>
+        /// Both copies play a scene in one dungeon room, the host's over 6 s before the friend's:
+        /// the host's game must stand still until the friend's is over (scene ends test)
+        /// </summary>
+        private static IEnumerator SceneEndTogether()
+        {
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 6f : 7f);
+            float Started = Time.unscaledTime;
+            Plugin.Logger?.LogWarning($"{Tag} Scene end test: our scene starts");
+            GameManager.GetInstance().OnConversationNew();
+            yield return new WaitForSecondsRealtime(Host != FriendEndsFirst ? 2f : 7f);
+            GameManager.GetInstance().OnConversationEnd();
+            float Ended = Time.unscaledTime;
+            Plugin.Logger?.LogWarning($"{Tag} Scene end test: our scene is over after {Ended - Started:F1} s, time scale {Time.timeScale}");
+            yield return new WaitForSecondsRealtime(1.5f);
+            if (COTLMP.Game.SceneEnds.Waiting)
+                Shot("scene-wait");
+            Ended -= 1.5f;
+            if (!Host && FriendEndsFirst)
+            {
+                yield return Until(() => COTLMP.Game.SceneEnds.Synced > 0 || Time.unscaledTime - Ended > 6.5f + 2.5f, 15f);
+                if (COTLMP.Game.SceneEnds.Waiting)
+                    Shot("sync-wait");
+            }
+            float Still = 0f;
+            while (Time.unscaledTime - Ended < 15f)
+            {
+                if (Time.timeScale == 0f)
+                    Still = Time.unscaledTime - Ended;
+                yield return null;
+            }
+            Plugin.Logger?.LogWarning($"{Tag} Scene end test: held {COTLMP.Game.SceneEnds.Held}, stood still {Still:F1} s, waited {COTLMP.Game.SceneEnds.LastHeldFor:F1} s, synced {COTLMP.Game.SceneEnds.Synced} after {COTLMP.Game.SceneEnds.LastSyncFor:F1} s, time scale now {Time.timeScale}");
+        }
+
+        /// <summary>
+        /// Both copies play the same film, the friend's 5 s later: the host's must hold its last
+        /// frame until the friend's is over (film ends test)
+        /// </summary>
+        private static IEnumerator FilmEndTogether()
+        {
+            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+                yield return null;
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 6f : 11f);
+            float Started = Time.unscaledTime;
+            float Done = -1f;
+            Plugin.Logger?.LogWarning($"{Tag} Film end test: our film starts");
+            MMTools.MMVideoPlayer.Play(FilmName, () => Done = Time.unscaledTime, MMTools.MMVideoPlayer.Options.DISABLE, MMTools.MMVideoPlayer.Options.DISABLE);
+            if (FilmSkipAt > 0f)
+            {
+                yield return Until(() => Done > 0f, FilmSkipAt);
+                if (Done < 0f)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Film end test: we press skip after {Time.unscaledTime - Started:F1} s");
+                    COTLMP.Game.SceneEnds.Skip();
+                    yield return new WaitForSecondsRealtime(1.5f);
+                    Shot("film-skipped");
+                }
+            }
+            else
+            {
+                yield return Until(() => Done > 0f, 4f);
+                Shot("film-watching");
+            }
+            yield return Until(() => Done > 0f, 240f);
+            Plugin.Logger?.LogWarning($"{Tag} Film end test: our film is over after {(Done > 0f ? Done - Started : -1f):F1} s, films held {COTLMP.Game.SceneEnds.FilmsHeld}, skips {COTLMP.Game.SceneEnds.FilmsSkipped}, waited {COTLMP.Game.SceneEnds.LastHeldFor:F1} s");
         }
 
         /// <summary>

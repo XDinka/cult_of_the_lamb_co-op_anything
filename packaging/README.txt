@@ -1,4 +1,4 @@
-Cult of the Lamb Co-op Anything 0.3.4: онлайн-кооператив через Steam (предрелиз)
+Cult of the Lamb Co-op Anything 0.3.5: онлайн-кооператив через Steam (предрелиз)
 ==================================================================================
 (English below)
 
@@ -8,6 +8,10 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 с включённым VPN или WARP. Трафик идёт через сеть ретрансляторов Valve.
 
 ЧТО ЭТА СБОРКА УМЕЕТ
+  + Сцены и ролики кончаются у обоих вместе: кто досмотрел или пропустил
+    первым, ждёт за чёрным экраном («Ждём, когда напарник досмотрит»);
+    друг продолжает, когда у хоста прогрузился мир («Ждём подтверждения
+    синхронизации», если это затянулось). Ролики можно пропускать.
   + У лидера земли первый вошедший ждёт напарника у двери, сцена и бой
     начинаются у обоих вместе.
   + Сердца обоих игроков на экране, как в кооперативе игры (Козёл фиолетовый).
@@ -126,7 +130,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 
 
 ==================================================================================
-Cult of the Lamb Co-op Anything 0.3.4: online co-op over Steam (pre-release)
+Cult of the Lamb Co-op Anything 0.3.5: online co-op over Steam (pre-release)
 ==================================================================================
 
 github.com/XDinka/cult_of_the_lamb_co-op_anything
@@ -135,6 +139,10 @@ Steam added: no IP addresses, no port forwarding, works behind a VPN or WARP.
 Traffic goes through Valve's relays.
 
 WHAT IT DOES
+  + Scenes and films end for both together: whoever is done or skips first
+    waits behind a black screen ("Waiting for your partner to finish
+    watching"); the friend goes on once the host's world is up ("Waiting for
+    the sync to be confirmed" if that takes a while). Films can be skipped.
   + At a land's leader the first in waits by the door for the partner; the
     scene and the fight start for both together.
   + Both players' hearts on screen as in the game's co-op (the Goat in purple).
