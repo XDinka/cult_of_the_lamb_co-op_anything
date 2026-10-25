@@ -58,6 +58,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-hudtrace</c>: log every time the HUD is hidden or shown, with who asked</item>
     /// <item><c>-cotlmp-dieonrevive</c>: with the other copy's -cotlmp-autodie, we die halfway through getting them up (both down test)</item>
+    /// <item><c>-cotlmp-bosslate=N</c>, <c>-cotlmp-bosslayer=N</c>: with -cotlmp-bosstest, come N s later; go to that layer's leader (4: the Leshy)</item>
     /// <item><c>-cotlmp-bosstest</c>: from the first dungeon room both go to the land's leader (the floor made again with the leader's room), the host a moment first; both read its talk on (the friend faster) and log the scene and the leader's health</item>
     /// <item><c>-cotlmp-recruittest</c>: a newcomer at the gate for both; the host recruits it while the friend tries to talk to it; both log how many of that follower they have</item>
     /// <item><c>-cotlmp-scenetest</c>: in a dungeon room both copies play the same conversation, the host reads on slowly and answers the second answer, the friend tries to rush it and answer the first (shared scenes test)</item>
@@ -98,6 +99,8 @@ namespace COTLMP.Debug
         private static bool AutoShoot;
         private static bool DrawTest;
         private static int RunCount = -1;
+        private static float BossLate;
+        private static int BossLayer;
         private static bool NetFlood, NetShots;
         private static float AutoChoice;
         private static int FloodSent;
@@ -179,6 +182,10 @@ namespace COTLMP.Debug
                     RecruitTest = true;
                 else if (Arg.Equals("-cotlmp-bosstest", StringComparison.OrdinalIgnoreCase))
                     BossTest = true;
+                else if (Arg.StartsWith("-cotlmp-bosslate=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-bosslate=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out BossLate);
+                else if (Arg.StartsWith("-cotlmp-bosslayer=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-bosslayer=".Length), out BossLayer);
                 else if (Arg.Equals("-cotlmp-dieonrevive", StringComparison.OrdinalIgnoreCase))
                     DieOnRevive = true;
                 else if (Arg.Equals("-cotlmp-hudtrace", StringComparison.OrdinalIgnoreCase))
@@ -1092,31 +1099,45 @@ namespace COTLMP.Debug
             while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
-            yield return new WaitForSecondsRealtime(Host ? 8f : 9.5f);
+            /* Both standing in the room before either changes anything */
+            yield return new WaitForSecondsRealtime(3f);
             MMBiomeGeneration.BiomeGenerator Generator = MMBiomeGeneration.BiomeGenerator.Instance;
+            /* The land's leader of a later layer (the first land's fourth is the Leshy), for both at once */
+            if (BossLayer > 1 && Generator != null && Generator.LeaderRoomPath != null && Generator.LeaderRoomPath.EndsWith("_1.prefab"))
+            {
+                Generator.LeaderRoomPath = Generator.LeaderRoomPath.Substring(0, Generator.LeaderRoomPath.Length - "_1.prefab".Length) + $"_{BossLayer}.prefab";
+                GameManager.CurrentDungeonLayer = BossLayer;
+            }
+            yield return new WaitForSecondsRealtime((Host ? 8f : 9.5f) + BossLate);
             Plugin.Logger?.LogWarning($"{Tag} Boss test: going to the leader's room {Generator?.LeaderRoomPath}");
             if (Generator == null || string.IsNullOrEmpty(Generator.LeaderRoomPath))
                 yield break;
             PlayerFarming.Instance.health.invincible = true;
-            Generator.OverrideRooms = new List<MMBiomeGeneration.BiomeGenerator.OverrideRoom>
-            {
-                new()
-                {
-                    North = MMRoomGeneration.GenerateRoom.ConnectionTypes.DoorRoom,
-                    South = MMRoomGeneration.GenerateRoom.ConnectionTypes.Entrance,
-                    Generated = MMBiomeGeneration.BiomeGenerator.FixedRoom.Generate.DontGenerate,
-                    PrefabPath = Generator.LeaderRoomPath
-                }
-            };
+            /* The leader's room is put at its place on a floor once the run's map has a stop */
+            Map.Map RunMap = Map.MapManager.Instance?.CurrentMap ?? Map.MapManager.Instance?.GenerateNewMap();
+            if (RunMap != null && RunMap.GetCurrentNode() == null && RunMap.nodes.Count > 0)
+                RunMap.path.Add(RunMap.nodes[0].point);
             Generator.Regenerate(null);
             yield return new WaitForSecondsRealtime(1f);
             while (MMTransition.IsPlaying || Generator.CurrentRoom == null)
                 yield return null;
             yield return new WaitForSecondsRealtime(2f);
-            MMBiomeGeneration.BiomeRoom Lair = Generator.Rooms.FirstOrDefault(Room => Room != null && (Room.IsBoss || Room.GameObjectPath == Generator.LeaderRoomPath));
+            MMBiomeGeneration.BiomeRoom Lair = Generator.Rooms.FirstOrDefault(Room => Room != null && (Room.IsBoss || Room.y == MMBiomeGeneration.BiomeGenerator.BossCoords.y));
             Plugin.Logger?.LogWarning($"{Tag} Boss test: rooms {string.Join(", ", Generator.Rooms.Select(Room => $"{Room.x},{Room.y}{(Room.IsBoss ? "!" : "")}"))}; the leader's {Lair?.x},{Lair?.y}");
             if (Lair != null && Lair != Generator.CurrentRoom)
                 MMBiomeGeneration.BiomeGenerator.ChangeRoom(Lair.x, Lair.y);
+            yield return new WaitForSecondsRealtime(1f);
+            while (MMTransition.IsPlaying)
+                yield return null;
+            yield return new WaitForSecondsRealtime(Host ? 2f : 3.5f);
+            /* Into the room, where its fight starts */
+            Plugin.Logger?.LogWarning($"{Tag} Boss test: walking into the room from {PlayerFarming.Instance.transform.position}");
+            for (int Step = 0; Step < 14 && !LetterBox.IsPlaying && !MMTools.MMConversation.isPlaying; Step++)
+            {
+                PlayerFarming.Instance.GoToAndStop(PlayerFarming.Instance.transform.position + new Vector3(0f, 5f), null, false, false, null, 4f, true);
+                yield return new WaitForSecondsRealtime(2.5f);
+            }
+            Plugin.Logger?.LogWarning($"{Tag} Boss test: stopped at {PlayerFarming.Instance.transform.position}, letterbox {LetterBox.IsPlaying}, talk {MMTools.MMConversation.isPlaying}, enemies {Health.team2.Count}");
             float Since = Time.unscaledTime;
             string Last = null;
             while (Time.unscaledTime - Since < 150f)

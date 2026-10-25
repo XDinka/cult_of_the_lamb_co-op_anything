@@ -84,6 +84,7 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/Stopped", "Stopped hosting", false),
             new("Multiplayer/Steam/LeaveFirst", "Stop hosting to join your friend", false),
             new("Multiplayer/Cult/FollowerBusy", "Someone is already talking to this follower", false),
+            new("Multiplayer/Scene/WaitPartner", "Waiting for your partner to come in", false),
 
             /* Mod versions of the two players */
             new("Multiplayer/Version/Title", "Different mod versions", false),

@@ -212,6 +212,16 @@ namespace COTLMP.Game
         {
             private void Update()
             {
+                try
+                {
+                    Gate();
+                    Pull();
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] Waiting for the partner failed: {e.Message}");
+                    Gating = false;
+                }
                 if (Current == null || IsHost)
                     return;
                 if (!MMConversation.isPlaying || MMConversation.CURRENT_CONVERSATION != Current)
@@ -236,6 +246,139 @@ namespace COTLMP.Game
 
         private static bool PartnerHere(string Place) =>
             CoopSync.InSession && Place != null && (RoomSync.PartnerPlace == Place || RoomSync.PartnerLastPlace == Place) && GhostLoot.PartnerHere() != null;
+
+        /* THE LEADER'S ROOM: COMING IN TOGETHER *****************************/
+
+        /* Whoever comes in first waits at the door this long at most */
+        private const float GateAtMost = 90f;
+
+        private static string GatePlace;
+        private static Vector3 GateAt;
+        private static float GateSince, GateNoted;
+        private static bool Gating;
+        private static float PullAt = -1f;
+        private static Vector3 PullTo;
+
+        internal static int Gated, Pulled;
+
+        private static bool InLeaderRoom(string Place) =>
+            Place != null && Place.Contains("#") && MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom?.IsBoss == true && !IntroCoop.Apart;
+
+        /* The partner is on this run, standing, and could come in */
+        private static bool PartnerOnRun => CoopSync.InSession && !CoopLife.PartnerFallen && SameStop(RoomSync.PartnerLastPlace, CoopSync.CurrentPlace());
+
+        /* Two places on the same floor and stop of the map (the part before the room) */
+        private static bool SameStop(string A, string B)
+        {
+            int At = A?.IndexOf('@') ?? -1, Bt = B?.IndexOf('@') ?? -1;
+            return At > 0 && Bt > 0 && string.CompareOrdinal(A, 0, B, 0, Math.Max(At, Bt)) == 0;
+        }
+
+        /// <summary>
+        /// The first into a leader's room waits by the door for the partner, as the opening waits at
+        /// the crown: its scene and its fight start for both, never for one alone
+        /// </summary>
+        private static void Gate()
+        {
+            PlayerFarming Player = PlayerFarming.Instance;
+            string Place = Player != null && !MMTools.MMTransition.IsPlaying ? CoopSync.CurrentPlace() : null;
+            if (Place == null)
+                return;
+
+            if (Place != GatePlace)
+            {
+                GatePlace = Place;
+                Gating = InLeaderRoom(Place) && PartnerOnRun && RoomSync.PartnerPlace != Place && !LetterBox.IsPlaying;
+                if (Gating)
+                {
+                    GateAt = Player.transform.position;
+                    GateSince = Time.unscaledTime;
+                    GateNoted = -100f;
+                    ++Gated;
+                    Plugin.Logger?.LogInfo($"[COOP] First into the leader's room {Place}: waiting for the partner at the door");
+                }
+            }
+            if (!Gating)
+                return;
+
+            if (RoomSync.PartnerPlace == Place || !PartnerOnRun || Time.unscaledTime - GateSince > GateAtMost)
+            {
+                Gating = false;
+                Plugin.Logger?.LogInfo($"[COOP] The leader's room {Place}: {(RoomSync.PartnerPlace == Place ? "the partner came in, going on together" : "going on alone")}");
+                return;
+            }
+            Vector3 Gap = Player.transform.position - GateAt;
+            Gap.z = 0f;
+            if (Gap.magnitude > 1.5f)
+            {
+                Player.AbortGoTo();
+                Player.transform.position = GateAt;
+            }
+            if (Time.unscaledTime - GateNoted > 6f)
+            {
+                GateNoted = Time.unscaledTime;
+                try
+                {
+                    NotificationCentre.Instance?.PlayGenericNotification("Multiplayer/Scene/WaitPartner");
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        /// <summary>
+        /// A scene started for the partner where we stand too: we are taken to where it started, so
+        /// ours starts at once, as the game's co-op takes both players into it
+        /// </summary>
+        public static void OnPull(BinaryReader Reader)
+        {
+            string Place = Reader.ReadString();
+            Vector3 At = new(Reader.ReadSingle(), Reader.ReadSingle(), 0f);
+            if (Place != CoopSync.CurrentPlace() || !InLeaderRoom(Place) || LetterBox.IsPlaying)
+                return;
+            PullTo = At;
+            PullAt = Time.unscaledTime + 0.6f;
+        }
+
+        private static void Pull()
+        {
+            if (PullAt < 0f || Time.unscaledTime < PullAt)
+                return;
+            PullAt = -1f;
+            PlayerFarming Player = PlayerFarming.Instance;
+            if (Player == null || LetterBox.IsPlaying || MMTools.MMTransition.IsPlaying || !InLeaderRoom(CoopSync.CurrentPlace()))
+                return;
+            ++Pulled;
+            Plugin.Logger?.LogInfo("[COOP] The partner's scene started: going to where it starts");
+            Gating = false;
+            Player.AbortGoTo();
+            Player.transform.position = PullTo + new Vector3(0.8f, 0f);
+        }
+
+        [HarmonyPatch(typeof(LetterBox), nameof(LetterBox.Show))]
+        [HarmonyPostfix]
+        private static void SceneShown()
+        {
+            try
+            {
+                string Place = CoopSync.CurrentPlace();
+                PlayerFarming Player = PlayerFarming.Instance;
+                if (Player == null || !CoopSync.InSession || !InLeaderRoom(Place) || RoomSync.PartnerPlace != Place)
+                    return;
+                Vector3 At = Player.transform.position;
+                CoopSync.Send(CoopSync.Kind.ScenePull, Writer =>
+                {
+                    Writer.Write(Place);
+                    Writer.Write(At.x);
+                    Writer.Write(At.y);
+                });
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Telling the partner about our scene failed: {e.Message}");
+            }
+        }
 
         /* PATCHES ************************************************************/
 

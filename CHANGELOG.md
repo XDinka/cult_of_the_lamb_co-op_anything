@@ -3,6 +3,40 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.4 (2026-10-25)
+
+**Leaders' rooms: in together, as the opening's crown.** Whoever comes into a land's leader's room first
+waits by the door ("Waiting for your partner to come in") until the
+partner comes in, at most 90 s or until the partner is out of the run. When the scene starts for
+one of them, the other is taken to where it starts, so it starts in both games at once, as the
+game's co-op takes both players into it; its words go at the host's pace (since 0.3.3) and the fight
+starts for both together. See `SharedScenes.cs`.
+
+![The first land's fourth leader's room: the friend taken into the host's scene](Media/changelog/0.3.4-leshy-together.png)
+
+```
+[COOP] First into the leader's room Dungeon1#4.1.0@0,999: waiting for the partner at the door
+[COOP] The leader's room Dungeon1#4.1.0@0,999: the partner came in, going on together
+[COOP] The partner's scene started: going to where it starts          (the friend)
+[COOP] The host leads the conversation in Dungeon1#4.1.0@0,999 (2 lines)
+both:  the scene over at the same second, the fight on
+```
+
+**Fixed: both down, but the host stood on.** The friend fell while getting the downed host up: the
+friend's run was over, but the host's game, trying to end its run too, let the life loop call it
+alive again and its last hit didn't take, so the host stood with a frozen revive bar and the
+friend's hearts full. Now nothing stands a lamb up meanwhile, a last hit that doesn't take goes the
+game's own way to game over, and a fallen partner's revive bar and hearts empty.
+
+```
+host:   We are Down -> The partner is Dead -> Both of us are down, the run ends
+        -> The last hit didn't take, ending the run the game's way -> We are Dead
+friend: Falling while getting the partner up -> We are Dead
+```
+
+**Tested:** the first land's leaders' rooms of the first and fourth layers (the test now goes straight
+there, the friend 15 s late). The other lands' leaders go the same way but weren't run.
+
 ## 0.3.3 (2026-10-25)
 
 Fixes for what came up in the first game on two real Steam accounts.

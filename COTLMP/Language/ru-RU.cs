@@ -84,6 +84,7 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/Stopped", "Онлайн игра закрыта", false),
             new("Multiplayer/Steam/LeaveFirst", "Закройте свою онлайн игру, чтобы зайти к другу", false),
             new("Multiplayer/Cult/FollowerBusy", "Кто-то уже разговаривает с этим последователем", false),
+            new("Multiplayer/Scene/WaitPartner", "Ждём, когда войдёт напарник", false),
 
             /* Mod versions of the two players */
             new("Multiplayer/Version/Title", "Разные версии мода", false),

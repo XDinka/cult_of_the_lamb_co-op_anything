@@ -1,4 +1,4 @@
-Cult of the Lamb Co-op Anything 0.3.3: онлайн-кооператив через Steam (предрелиз)
+Cult of the Lamb Co-op Anything 0.3.4: онлайн-кооператив через Steam (предрелиз)
 ==================================================================================
 (English below)
 
@@ -8,6 +8,8 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 с включённым VPN или WARP. Трафик идёт через сеть ретрансляторов Valve.
 
 ЧТО ЭТА СБОРКА УМЕЕТ
+  + У лидера земли первый вошедший ждёт напарника у двери, сцена и бой
+    начинаются у обоих вместе.
   + Сердца обоих игроков на экране, как в кооперативе игры (Козёл фиолетовый).
   + На карте между этажами видны короны обоих и куда каждый смотрит.
   + Разговоры и сцены в одном месте идут в темпе хоста, у обоих вместе.
@@ -124,7 +126,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 
 
 ==================================================================================
-Cult of the Lamb Co-op Anything 0.3.3: online co-op over Steam (pre-release)
+Cult of the Lamb Co-op Anything 0.3.4: online co-op over Steam (pre-release)
 ==================================================================================
 
 github.com/XDinka/cult_of_the_lamb_co-op_anything
@@ -133,6 +135,8 @@ Steam added: no IP addresses, no port forwarding, works behind a VPN or WARP.
 Traffic goes through Valve's relays.
 
 WHAT IT DOES
+  + At a land's leader the first in waits by the door for the partner; the
+    scene and the fight start for both together.
   + Both players' hearts on screen as in the game's co-op (the Goat in purple).
   + The map between floors shows both crowns and where each points.
   + Conversations and scenes in one place go at the host's pace, for both.
