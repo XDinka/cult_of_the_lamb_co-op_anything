@@ -46,8 +46,8 @@ namespace CotlCoopInstaller
         internal static string Relaunching => T("Обновлено. Запускаем игру…", "Updated. Starting the game…");
         internal static string NeedAdmin => T("Для этой папки нужны права администратора.", "This folder needs administrator rights.");
         internal static string HowTo => T(
-            "Мод ставят оба игрока. Хост: загрузите сохранение, Esc › «Онлайн игра», пригласите друга.\nДруг: примите приглашение в Steam из главного меню, сохранение не нужно.",
-            "Both players install the mod. Host: load a save, Esc › \"Open Online\", invite your friend.\nFriend: accept the Steam invite from the main menu, no save needed.");
+            "Мод ставят оба игрока. Хост: «Мультиплеер» › «Создать лобби», сохранение, пригласить друга.\nДруг: «Мультиплеер» › лобби друга (или приглашение в Steam), своё сохранение не нужно.",
+            "Both players install the mod. Host: main menu › \"Multiplayer\" › \"Create Lobby\", pick a save, invite your friend.\nFriend: \"Multiplayer\" › your friend's lobby (or the Steam invite), no save of your own needed.");
         internal static string Footer => "github.com/XDinka/cult_of_the_lamb_co-op_anything · MIT · " + T("фанатский мод, не связан с Massive Monster и Devolver", "fan mod, not affiliated with Massive Monster or Devolver");
     }
 }
