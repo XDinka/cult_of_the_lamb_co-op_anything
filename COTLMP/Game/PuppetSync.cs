@@ -97,8 +97,9 @@ namespace COTLMP.Game
                 if (Player.currentWeapon != EquipmentType.None && EquipmentManager.GetWeaponData(Player.currentWeapon) is WeaponData Data && Data != null)
                     return Data.Skin.ToString();
             }
-            catch
+            catch (Exception e)
             {
+                COTLMP.Debug.Faults.Note("The weapon's skin", e);
             }
             return WeaponData.Skins.Normal.ToString();
         }

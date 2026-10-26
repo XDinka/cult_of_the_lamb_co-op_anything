@@ -8,7 +8,6 @@
 /* IMPORTS ********************************************************************/
 
 using COTLMP;
-using static COTLMPServer.Data.GameModes;
 
 /* CLASSES & CODE *************************************************************/
 
@@ -25,57 +24,22 @@ namespace COTLMP.Data
         public bool EnableMod;
 
         /// <summary>
-        /// The current executing game-play mode.
-        /// </summary>
-        public GameMode Mode;
-
-        /// <summary>
         /// The name of the player in-game
         /// </summary>
         public string PlayerName;
-
-        /// <summary>
-        /// The name of the server.
-        /// </summary>
-        public string ServerName;
 
         /// <summary>
         /// The maximum allowed number of players.
         /// </summary>
         public int MaxNumPlayers;
 
-        /// <summary>
-        /// Enable or Disable voice chat.
-        /// </summary>
-        public bool EnableVoiceChat;
-
-        /// <summary>
-        /// The password of the server.
-        /// </summary>
-        public string ServerPassowrd;
-
-        /// <summary>
-        /// Should the server be protected with a password or not upon joining.
-        /// </summary>
-        public bool ProtectServer;
-
         public ModDataGlobals(bool Enable,
-                              GameMode gameMode,
                               string PlName,
-                              string SvName,
-                              int PlNum,
-                              bool EnableVC,
-                              string Pw,
-                              bool Protect)
+                              int PlNum)
         {
             EnableMod = Enable;
-            Mode = gameMode;
             PlayerName = PlName;
-            ServerName = SvName;
             MaxNumPlayers = PlNum;
-            EnableVoiceChat = EnableVC;
-            ServerPassowrd = Pw;
-            ProtectServer = Protect;
         }
     }
 }

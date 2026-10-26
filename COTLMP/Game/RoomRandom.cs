@@ -227,7 +227,7 @@ namespace COTLMP.Game
 
             [HarmonyPatch(typeof(TarotCards), nameof(TarotCards.DrawRandomCard))]
             [HarmonyPrefix]
-            private static void Tarot() => Seed("tarot");
+            private static void Tarot() => Seed(Plugin.GlobalsInternal.IsServerCreator ? "tarot" : "tarot-friend");
 
             /// <summary>
             /// A breakable decoration is one of several (barrel, crate, bone pile), picked once per

@@ -33,6 +33,13 @@ namespace COTLMP.Game
     /// so what follows starts in both games together. A conversation the host's game doesn't play
     /// (the friend's own talk) is the friend's as before: if no line of it comes from the host in a
     /// few seconds, the friend reads it at their own pace.
+    ///
+    /// A conversation never starts in a dungeon room with one player alone while the other is on the
+    /// same floor: it waits, its box hidden, until the partner comes in (or falls, leaves the floor, or
+    /// 3 minutes pass), then it starts for both. Meanwhile the one in the room moves about it freely but
+    /// can't go through its doors, and reads why in a line of the game's at the bottom of the screen; the
+    /// partner is told every few seconds that they are waited for, with nothing of theirs held. A
+    /// leader's room holds whoever comes in first at its door the same way.
     /// </remarks>
     [HarmonyPatch]
     internal static class SharedScenes
@@ -75,8 +82,6 @@ namespace COTLMP.Game
 
         /* Counters for the test harness report */
         internal static int Shared, LinesFollowed, AnswersFollowed, EndsFollowed, Released;
-
-        internal static bool Leading => Led;
 
         public static void Initialize()
         {
@@ -216,6 +221,8 @@ namespace COTLMP.Game
                 {
                     Gate();
                     Pull();
+                    HoldTick();
+                    WaitedFor();
                 }
                 catch (Exception e)
                 {
@@ -288,7 +295,7 @@ namespace COTLMP.Game
             if (Place != GatePlace)
             {
                 GatePlace = Place;
-                Gating = InLeaderRoom(Place) && PartnerOnRun && RoomSync.PartnerPlace != Place && !LetterBox.IsPlaying;
+                Gating = InLeaderRoom(Place) && PartnerOnRun && RoomSync.PartnerPlace != Place && !LetterBox.IsPlaying && !Rejoin.Going;
                 if (Gating)
                 {
                     GateAt = Player.transform.position;
@@ -304,6 +311,8 @@ namespace COTLMP.Game
             if (RoomSync.PartnerPlace == Place || !PartnerOnRun || Time.unscaledTime - GateSince > GateAtMost)
             {
                 Gating = false;
+                Dialogs.GameLine = null;
+                TellHold(Place, false);
                 Plugin.Logger?.LogInfo($"[COOP] The leader's room {Place}: {(RoomSync.PartnerPlace == Place ? "the partner came in, going on together" : "going on alone")}");
                 return;
             }
@@ -317,13 +326,8 @@ namespace COTLMP.Game
             if (Time.unscaledTime - GateNoted > 6f)
             {
                 GateNoted = Time.unscaledTime;
-                try
-                {
-                    NotificationCentre.Instance?.PlayGenericNotification("Multiplayer/Scene/WaitPartner");
-                }
-                catch
-                {
-                }
+                Dialogs.GameLine = T("Multiplayer/Scene/WaitPartner");
+                TellHold(Place, true);
             }
         }
 
@@ -380,6 +384,208 @@ namespace COTLMP.Game
             }
         }
 
+        /* A CONVERSATION IN A ROOM: NOT WITHOUT THE PARTNER ********************/
+
+        /* A conversation waits for the partner this long at most */
+        private const float HoldAtMost = 180f;
+
+        private static readonly FieldInfo ConversationNewEvent = AccessTools.Field(typeof(MMConversation), "OnConversationNew");
+        private static readonly FieldInfo ConversationRoot = AccessTools.Field(typeof(MMConversation), "Instance");
+
+        private static ConversationObject HeldTalk;
+        private static string HeldPlace;
+        private static float HeldSince, HeldNoted;
+        private static bool HeldInactive, HeldSnap, HeldLetterBox, Releasing;
+
+        /* The partner waits for us in this place (to tell us now and then) */
+        private static string WaitedIn;
+        private static float WaitedNoted;
+
+        internal static int TalksHeld, TalksReleased, HoldsTold;
+
+        private static string T(string Key) => I2.Loc.LocalizationManager.GetTranslation(Key);
+
+        /// <summary>
+        /// We wait in this room for the partner: its doors aren't ours to go through meanwhile
+        /// </summary>
+        internal static bool HoldingRoom => HeldTalk != null || Gating;
+
+        /// <summary>
+        /// We tried a door while we wait: the line says why it doesn't open
+        /// </summary>
+        internal static int DoorsHeld;
+
+        internal static void DoorTried()
+        {
+            if (++DoorsHeld % 30 == 1)
+                Plugin.Logger?.LogInfo("[COOP] A door of the room we wait in stays shut for us");
+            Dialogs.GameLine = T(Gating ? "Multiplayer/Scene/WaitPartner" : "Multiplayer/Scene/HoldTalk");
+        }
+
+        /* A conversation is held where the partner could come and isn't */
+        private static bool ShouldHold(string Place) =>
+            CoopSync.InSession && Place != null && Place.Contains("#") && GameManager.IsDungeon(PlayerFarming.Location) && PartnerOnRun &&
+            RoomSync.PartnerPlace != Place && !IntroCoop.Apart && !Rejoin.Going && !InLeaderRoom(Place) && PlayerFarming.Instance != null;
+
+        /* The conversation's box and its speech bubble (drawn apart from it) show or not */
+        private static void ShowBox(bool Shown)
+        {
+            List<GameObject> Parts = new();
+            if (ConversationRoot?.GetValue(null) is GameObject Root && Root != null)
+                Parts.Add(Root);
+            if (MMConversation.mmConversation?.SpeechBubble != null)
+                Parts.Add(MMConversation.mmConversation.SpeechBubble.gameObject);
+            foreach (GameObject Part in Parts)
+            {
+                CanvasGroup Group = Part.GetComponent<CanvasGroup>() ?? Part.AddComponent<CanvasGroup>();
+                Group.alpha = Shown ? 1f : 0f;
+                Group.blocksRaycasts = Shown;
+            }
+        }
+
+        private static void TellHold(string Place, bool Holding)
+        {
+            if (!CoopSync.InSession || Place == null)
+                return;
+            CoopSync.Send(CoopSync.Kind.SceneHold, Writer =>
+            {
+                Writer.Write(Place);
+                Writer.Write(Holding);
+            });
+        }
+
+        /// <summary>
+        /// The partner waits for us somewhere (or doesn't any more)
+        /// </summary>
+        public static void OnHold(BinaryReader Reader)
+        {
+            string Place = Reader.ReadString();
+            bool Holding = Reader.ReadBoolean();
+            WaitedIn = Holding ? Place : null;
+            WaitedNoted = -100f;
+            Plugin.Logger?.LogInfo(Holding ? $"[COOP] The partner waits for us in {Place}" : $"[COOP] The partner doesn't wait for us in {Place} any more");
+        }
+
+        /* Waited for: told now and then, nothing of ours held */
+        private static void WaitedFor()
+        {
+            if (WaitedIn == null)
+                return;
+            if (!CoopSync.InSession || CoopSync.CurrentPlace() == WaitedIn)
+            {
+                WaitedIn = null;
+                return;
+            }
+            if (Time.unscaledTime - WaitedNoted < 8f || MMTransition.IsPlaying)
+                return;
+            WaitedNoted = Time.unscaledTime;
+            ++HoldsTold;
+            try
+            {
+                NotificationCentre.Instance?.PlayGenericNotification("Multiplayer/Scene/PartnerWaits");
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// A conversation started in a room the partner isn't in: it waits, hidden, and we get our lamb back
+        /// </summary>
+        [HarmonyPatch(typeof(MMConversation), nameof(MMConversation.Play))]
+        [HarmonyPostfix]
+        [HarmonyPriority(Priority.Low)]
+        private static void HoldTalk(ConversationObject ConversationObject, bool SetPlayerInactiveOnStart, bool SnapLetterBox, bool ShowLetterBox)
+        {
+            try
+            {
+                if (Releasing || HeldTalk != null || ConversationObject == null || !MMConversation.isPlaying || MMConversation.isBark)
+                    return;
+                string Place = CoopSync.CurrentPlace();
+                if (!ShouldHold(Place))
+                    return;
+                HeldTalk = ConversationObject;
+                HeldPlace = Place;
+                HeldSince = Time.unscaledTime;
+                HeldNoted = -100f;
+                HeldInactive = SetPlayerInactiveOnStart;
+                HeldSnap = SnapLetterBox;
+                HeldLetterBox = ShowLetterBox;
+                ++TalksHeld;
+                ShowBox(false);
+                GameManager.GetInstance()?.OnConversationEnd(true, true);
+                Dialogs.GameLine = T("Multiplayer/Scene/HoldTalk");
+                TellHold(Place, true);
+                Plugin.Logger?.LogInfo($"[COOP] A conversation in {Place} waits for the partner to come in ({ConversationObject.Entries?.Count} lines)");
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Holding a conversation for the partner failed: {e.Message}");
+            }
+        }
+
+        private static void HoldTick()
+        {
+            if (HeldTalk == null)
+                return;
+            string Place = CoopSync.CurrentPlace();
+
+            /* It went meanwhile (we fell, the room changed): nothing to start */
+            if (!MMConversation.isPlaying || MMConversation.CURRENT_CONVERSATION != HeldTalk || (Place != null && Place != HeldPlace))
+            {
+                Plugin.Logger?.LogInfo($"[COOP] The conversation held in {HeldPlace} is gone");
+                DropHold(true);
+                return;
+            }
+            bool Here = RoomSync.PartnerPlace == HeldPlace;
+            bool Alone = !PartnerOnRun || Time.unscaledTime - HeldSince > HoldAtMost;
+            if (Here && Time.unscaledTime - HeldNoted < 0f)
+                return;
+            if (Here && HeldNoted < 0f)
+            {
+                /* A moment for the partner to be in */
+                HeldNoted = Time.unscaledTime + 1f;
+                return;
+            }
+            if (!Here && !Alone)
+                return;
+            ReleaseHold(Here ? "the partner came in" : "going on alone");
+        }
+
+        private static void DropHold(bool Show)
+        {
+            if (Show)
+                ShowBox(true);
+            string Place = HeldPlace;
+            HeldTalk = null;
+            HeldPlace = null;
+            Dialogs.GameLine = null;
+            TellHold(Place, false);
+        }
+
+        private static void ReleaseHold(string Why)
+        {
+            ConversationObject Talk = HeldTalk;
+            DropHold(true);
+            ++TalksReleased;
+            Plugin.Logger?.LogInfo($"[COOP] The conversation starts: {Why} ({Time.unscaledTime - HeldSince:F1} s)");
+            Releasing = true;
+            try
+            {
+                /* What Play does as it starts, now: the lamb stands still, the letterbox comes in */
+                (ConversationNewEvent?.GetValue(null) as Delegate)?.DynamicInvoke(HeldInactive, HeldSnap, HeldLetterBox);
+                Played(Talk);
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Starting the held conversation failed: {e.Message}");
+            }
+            finally
+            {
+                Releasing = false;
+            }
+        }
+
         /* PATCHES ************************************************************/
 
         [HarmonyPatch(typeof(MMConversation), nameof(MMConversation.Play))]
@@ -411,7 +617,15 @@ namespace COTLMP.Game
         /// </summary>
         [HarmonyPatch(typeof(MMConversation), "HandleNextClicked")]
         [HarmonyPrefix]
-        private static bool Next() => IsHost || Current == null || MMConversation.CURRENT_CONVERSATION != Current || !(Led || Waiting);
+        private static bool Next() => !Held() && (IsHost || Current == null || MMConversation.CURRENT_CONVERSATION != Current || !(Led || Waiting));
+
+        /* The conversation on screen waits for the partner: no reading on, no answer */
+        private static bool Held() => HeldTalk != null && MMConversation.CURRENT_CONVERSATION == HeldTalk;
+
+        /* Not a line on while it waits for the partner, whoever asks */
+        [HarmonyPatch(typeof(MMConversation), "ShowNextLine")]
+        [HarmonyPrefix]
+        private static bool NextLine() => !Held();
 
         [HarmonyPatch(typeof(MMConversation), "ShowNextLine")]
         [HarmonyPostfix]
@@ -426,6 +640,8 @@ namespace COTLMP.Game
         [HarmonyPrefix]
         private static bool Answered(int Answer)
         {
+            if (Held())
+                return false;
             if (Current == null || MMConversation.CURRENT_CONVERSATION != Current)
                 return true;
             if (IsHost)

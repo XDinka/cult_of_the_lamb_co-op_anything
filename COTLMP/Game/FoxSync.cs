@@ -186,8 +186,9 @@ namespace COTLMP.Game
             {
                 return Traverse.Create(Fox).Field("Activating").GetValue<bool>();
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                COTLMP.Debug.Faults.Note("The fox's state", e);
                 return false;
             }
         }

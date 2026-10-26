@@ -125,22 +125,6 @@ namespace I2.Loc
                     }
                 }
 
-                public static string MultiplayerSettings_ServerName
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/ServerName");
-                    }
-                }
-
-                public static string MultiplayerSettings_GameMode
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/GameMode");
-                    }
-                }
-
                 public static string MultiplayerSettings_PlayerCount
                 {
                     get
@@ -149,151 +133,10 @@ namespace I2.Loc
                     }
                 }
 
-                public static string MultiplayerSettings_VoiceChat
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/VoiceChat");
-                    }
-                }
-
-                public static string MultiplayerSettings_ProtectServer
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/ProtectServer");
-                    }
-                }
             }
 
-            public static class ServerList
-            {
-                public static string ServerList_BackButton
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/BackButton");
-                    }
-                }
 
-                public static string ServerList_EnterPlayerNameDescription
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/PlayerNameDescription");
-                    }
-                }
 
-                public static string ServerList_EnterServerNameDescription
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/ServerNameDescription");
-                    }
-                }
-
-                public static string ServerList_MainDescription
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/MainDescription");
-                    }
-                }
-
-                public static string ServerList_NoneFound
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/NoneFound");
-                    }
-                }
-
-                public static string ServerList_MasterFail
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/MasterFail");
-                    }
-                }
-
-                public static string ServerList_ScanProgress
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/ScanProgress");
-                    }
-                }
-
-                public static string ServerList_ConnectButton
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/ServerList/ConnectButton");
-                    }
-                }
-            }
-
-            public static class PasswordPrompt
-            {
-                public static string PasswordPrompt_OkButton
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/OkButton");
-                    }
-                }
-
-                public static string PasswordPrompt_CancelButton
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/CancelButton");
-                    }
-                }
-
-                public static string PasswordPrompt_Description
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/PromptDescription");
-                    }
-                }
-
-                public static string PasswordPrompt_InvalidPassword
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/PasswordPrompt/InvalidPassword");
-                    }
-                }
-            }
-
-            public static class ConnectByIp
-            {
-                public static string ConnectByIp_ConnectButton
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/JoinByIP/Connect");
-                    }
-                }
-
-                public static string ConnectByIp_CancelButton
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/JoinByIP/Cancel");
-                    }
-                }
-
-                public static string ConnectByIp_Description
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/JoinByIP/Description");
-                    }
-                }
-            }
         }
     }
 }

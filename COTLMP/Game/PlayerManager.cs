@@ -615,18 +615,6 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Get the state of a managed player
-        /// </summary>
-        /// <param name="plr">The ID of the player you want to get the state of</param>
-        /// <returns>The StateMachine of the player if the ID is valid. Otherwise, null</returns>
-        public static StateMachine GetPlayerState(uint plr)
-        {
-            if (plr > players.Length - 1 || players[plr] == null)
-                return null;
-            return players[plr].state;
-        }
-
-        /// <summary>
         /// Get the network position a managed player is walking to
         /// </summary>
         /// <param name="plr">The ID of the player</param>
@@ -683,8 +671,9 @@ namespace COTLMP.Game
                     __instance.CoopIndicatorLamb?.gameObject.SetActive(show && !goat);
                     __instance.CoopIndicatorGoat?.gameObject.SetActive(show && goat);
                 }
-                catch
+                catch (Exception e)
                 {
+                    COTLMP.Debug.Faults.Note("The co-op indicator", e);
                 }
             }
 
@@ -770,6 +759,13 @@ namespace COTLMP.Game
                     if (__0 == null)
                         return true;
                     var farming = __0.GetComponentInParent<PlayerFarming>();
+
+                    /* We wait in this room for the partner (a conversation or a leader): not out of it */
+                    if (farming != null && farming == PlayerFarming.Instance && SharedScenes.HoldingRoom)
+                    {
+                        SharedScenes.DoorTried();
+                        return false;
+                    }
                     return farming == null || !players.Contains(farming);
                 }
             }

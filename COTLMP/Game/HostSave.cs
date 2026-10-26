@@ -328,6 +328,8 @@ namespace COTLMP.Game
             }
 
             Plugin.Logger?.LogInfo($"[COOP] Got the host's save ({Data.Length} bytes, {Save.Followers?.Count ?? 0} followers), going to its cult");
+            /* Loading it stands our game still a while: the host isn't to take it for a lost connection */
+            ConnectionQuality.SayBusy();
             Waiting = false;
             Playing = true;
             ++Loads;
@@ -337,7 +339,9 @@ namespace COTLMP.Game
             MonoSingleton<UINavigatorNew>.Instance?.Clear();
             AudioManager.Instance?.StopCurrentMusic();
             Time.timeScale = 1f;
-            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Base Biome 1", 3f, "", () => Load(Save, Meta));
+            /* Connecting again: the screen is black already, no fade from the game into it */
+            float Fade = COTLMP.Network.Reconnect.HandOver() ? 0.01f : 3f;
+            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Base Biome 1", Fade, "", () => Load(Save, Meta));
         }
 
         /// <summary>
@@ -364,13 +368,28 @@ namespace COTLMP.Game
             MonoSingleton<UINavigatorNew>.Instance.LockInput = MonoSingleton<UINavigatorNew>.Instance.LockNavigation = false;
             Appearance.Refresh();
             CultSync.OnLoaded();
+            Rejoin.OnHostSave();
             Plugin.Logger?.LogInfo("[COOP] Playing on the host's save");
+        }
+
+        /// <summary>
+        /// The session went for a while (connecting again): the host's save stays up, unsaved, and a
+        /// new one is asked for
+        /// </summary>
+        internal static void Pause()
+        {
+            IntroCoop.Reset();
+            Waiting = Deferred = false;
+            CultSync.Reset();
+            Pieces = null;
+            AskedAt = 0f;
         }
 
         /// <summary>
         /// The session ended: back to the main menu, the host's save is dropped
         /// </summary>
-        internal static void Forget()
+        /// <param name = "Fade">The black fade's length (short from a black screen).</param>
+        internal static void Forget(float Fade = 1f)
         {
             bool Was = IntroCoop.Reset() | Playing | Waiting;
             Playing = Waiting = Deferred = false;
@@ -380,7 +399,7 @@ namespace COTLMP.Game
             if (!Was)
                 return;
             Plugin.Logger?.LogInfo("[COOP] Leaving the host's save, back to the main menu");
-            MMTransition.Play(MMTransition.TransitionType.ChangeSceneAutoResume, MMTransition.Effect.BlackFade, "Main Menu", 1f, "", null);
+            MMTransition.Play(MMTransition.TransitionType.ChangeSceneAutoResume, MMTransition.Effect.BlackFade, "Main Menu", Fade, "", null);
         }
 
         private static void Notify(string LocKey)

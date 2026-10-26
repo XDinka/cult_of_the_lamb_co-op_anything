@@ -34,10 +34,6 @@ namespace COTLMP.Data
         /// </summary>
         internal const int MaxPlayersPerServerInternal = 12;
 
-        /// <summary>
-        /// Maximum number of characters a player can type in the saychat box.
-        /// </summary>
-        internal const int MaxSayCharsLimit = 90;
 
         /******************************************************************************
          *                 THE FOLLOWING FIELDS ARE UPDATED AT RUNTIME.               *

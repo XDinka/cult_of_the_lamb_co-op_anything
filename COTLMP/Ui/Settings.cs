@@ -9,7 +9,6 @@
 
 using COTLMP;
 using COTLMP.Debug;
-using static COTLMPServer.Data.GameModes;
 using COTL_API.UI;
 using COTL_API.UI.Helpers;
 using COTL_API.CustomSettings;
@@ -167,22 +166,6 @@ namespace COTLMP.Ui
             bool Success;
             ActionCallbacks Callbacks;
 
-            /* Add the "Game Mode" setting */
-            Callbacks = new ActionCallbacks(null, COTLMP.Game.Callbacks.GameModeCallback);
-            string[] GameModes = System.Enum.GetNames(typeof(GameMode));
-            Success = AddSetting(SETTING_TYPE.HorizontalSelector,
-                                 MultiplayerModLocalization.UI.Settings.MultiplayerSettings_GameMode,
-                                 TranslateGameModeToString(Plugin.Globals.Mode),
-                                 GameModes,
-                                 false,
-                                 Callbacks);
-            if (!Success)
-            {
-                COTLMP.Debug.PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.UI_COMPONENT,
-                                               "Failed to add the Game Modes setting, expect problems with mod initialization!");
-                return Success;
-            }
-
             /* Add the "Players Count" setting */
             Callbacks = new ActionCallbacks(null, COTLMP.Game.Callbacks.PlayerCountCallback);
             string[] MaxPlayersCount = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
@@ -196,36 +179,6 @@ namespace COTLMP.Ui
             {
                 COTLMP.Debug.PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.UI_COMPONENT,
                                                "Failed to add the Players Count setting, expect problems with mod initialization!");
-                return Success;
-            }
-
-            /* Add the "Enable Voice Chat" setting */
-            Callbacks = new ActionCallbacks(COTLMP.Game.Callbacks.VoiceChatCallback, null);
-            Success = AddSetting(SETTING_TYPE.Toggle,
-                                 MultiplayerModLocalization.UI.Settings.MultiplayerSettings_VoiceChat,
-                                 null,
-                                 null,
-                                 Plugin.Globals.EnableVoiceChat,
-                                 Callbacks);
-            if (!Success)
-            {
-                COTLMP.Debug.PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.UI_COMPONENT,
-                                               "Failed to add the Voice Chat setting, expect problems with mod initialization!");
-                return Success;
-            }
-
-            /* Add the "Protect Server" setting */
-            Callbacks = new ActionCallbacks(COTLMP.Game.Callbacks.ProtectServerCallback, null);
-            Success = AddSetting(SETTING_TYPE.Toggle,
-                                 MultiplayerModLocalization.UI.Settings.MultiplayerSettings_ProtectServer,
-                                 null,
-                                 null,
-                                 Plugin.Globals.ProtectServer,
-                                 Callbacks);
-            if (!Success)
-            {
-                COTLMP.Debug.PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.UI_COMPONENT,
-                                               "Failed to add the Protect Server setting, expect problems with mod initialization!");
                 return Success;
             }
 

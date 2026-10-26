@@ -1,4 +1,4 @@
-Cult of the Lamb Co-op Anything 0.3.5: онлайн-кооператив через Steam (предрелиз)
+Cult of the Lamb Co-op Anything 0.3.6: онлайн-кооператив через Steam (предрелиз)
 ==================================================================================
 (English below)
 
@@ -8,6 +8,22 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 с включённым VPN или WARP. Трафик идёт через сеть ретрансляторов Valve.
 
 ЧТО ЭТА СБОРКА УМЕЕТ
+  + Пропала связь (30 с от хоста ничего): друг не вылетает, а за чёрным
+    экраном загрузки («Подключение 1/3») сам заходит к хосту снова и
+    возвращается в его комнату со своими сердцами и снаряжением. После трёх
+    неудачных попыток: главное меню с ошибкой.
+  + Чат: T открыть, Enter отправить, Esc закрыть. Пока пишете, игра не
+    слушает клавиатуру и геймпад.
+  + Мод обновляется прямо в игре, без перезапуска; битое обновление
+    откатывается. Обновление посреди игры: перезапуск лобби, игры или позже.
+  + Если обновление игры сломало часть мода, остальное работает, главное меню
+    скажет об этом (и предложит обновиться, если есть версия новее), в сессии
+    узнают оба.
+  + Вернувшийся друг (вышел, потерял связь, вылетел) попадает в комнату хоста
+    со своими вещами; у каждого друга свой персонаж в сохранении хоста.
+  + Разговор ждёт напарника, если тот в другой комнате; двери закрыты.
+  + Головы игроков на мини-карте подземелья, панели как в кооперативе игры.
+  + Все 15 языков игры.
   + Сцены и ролики кончаются у обоих вместе: кто досмотрел или пропустил
     первым, ждёт за чёрным экраном («Ждём, когда напарник досмотрит»);
     друг продолжает, когда у хоста прогрузился мир («Ждём подтверждения
@@ -130,7 +146,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 
 
 ==================================================================================
-Cult of the Lamb Co-op Anything 0.3.5: online co-op over Steam (pre-release)
+Cult of the Lamb Co-op Anything 0.3.6: online co-op over Steam (pre-release)
 ==================================================================================
 
 github.com/XDinka/cult_of_the_lamb_co-op_anything
@@ -139,6 +155,22 @@ Steam added: no IP addresses, no port forwarding, works behind a VPN or WARP.
 Traffic goes through Valve's relays.
 
 WHAT IT DOES
+  + A lost connection (nothing from the host for 30 s) is taken up again: the
+    friend waits behind the loading screen ("Connecting 1/3"), joins the host
+    again by itself and is back in the host's room with their hearts and gear.
+    After three tries: the main menu with the error.
+  + Text chat: T opens it, Enter sends, Esc closes. While typing the game
+    doesn't hear the keyboard or the pad.
+  + The mod updates without leaving the game; a broken update is rolled back.
+    An update during a game: restart the lobby, restart the game, or later.
+  + A game update that breaks part of the mod: the rest works, the main menu
+    says so (with an update when a newer mod is out), both hear it in a session.
+  + A friend who comes back (left, lost the connection, crashed) is taken to
+    the host's room with their things; each friend is a character of their own
+    in the host's save.
+  + A conversation waits for a partner in another room; the doors stay shut.
+  + The players' heads on the dungeon's minimap, panels as in the game's co-op.
+  + All 15 languages of the game.
   + Scenes and films end for both together: whoever is done or skips first
     waits behind a black screen ("Waiting for your partner to finish
     watching"); the friend goes on once the host's world is up ("Waiting for

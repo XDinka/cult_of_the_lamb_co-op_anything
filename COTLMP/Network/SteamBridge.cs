@@ -240,6 +240,44 @@ namespace COTLMP.Network
         private static bool Joining;
 
         /// <summary>
+        /// Joins this host now, through the lobby of the game they are in. False while that lobby
+        /// can't be seen (asked again later).
+        /// </summary>
+        internal static bool JoinHostNow(ulong Host)
+        {
+            if (IsFake)
+            {
+                PendingFakeHost = Host;
+                return true;
+            }
+            try
+            {
+                if (SteamFriends.GetFriendGamePlayed(new CSteamID(Host), out FriendGameInfo_t Game) && Game.m_steamIDLobby.IsValid())
+                {
+                    Plugin.Logger?.LogInfo($"[STEAM] Joining host {Host} again in lobby {Game.m_steamIDLobby.m_SteamID}");
+                    PendingLobby = Game.m_steamIDLobby.m_SteamID;
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[STEAM] Can't see the host's game: {e.Message}");
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// A join that didn't get through in time: dropped, with whatever it opened
+        /// </summary>
+        internal static void CancelJoin()
+        {
+            PendingLobby = 0;
+            PendingFakeHost = 0;
+            if (Active && !IsJoinedClient)
+                Shutdown();
+        }
+
+        /// <summary>
         /// True while players are connected through the bridge.
         /// </summary>
         public static bool Active => Link != null;
@@ -336,6 +374,9 @@ namespace COTLMP.Network
             /* A joined player that lost the host goes on with their own game */
             Network.OnDisconnect += () =>
             {
+                /* Gone quiet (or while connecting again): connect again instead of leaving */
+                if (IsJoinedClient && (Network.Lost || Reconnect.Active) && Reconnect.Begin(HostId))
+                    return;
                 if (IsJoinedClient)
                     PauseMenuPatches.EndSession("Multiplayer/Steam/HostLeft");
                 else if (!IsHost)
@@ -513,6 +554,10 @@ namespace COTLMP.Network
         /// </remarks>
         private static bool ReadyToJoin()
         {
+            /* Connecting again: from behind the black screen, in the game we were in */
+            if (Reconnect.Active)
+                return !Plugin.GlobalsInternal.InGameSession;
+
             /* From the main menu straight into the host's game, as the game's co-op */
             if (SceneManager.GetActiveScene().name == "Main Menu")
                 return !Plugin.GlobalsInternal.InGameSession && !MMTransition.IsPlaying;
@@ -607,7 +652,6 @@ namespace COTLMP.Network
             /* We are already in our own loaded game, so stay in this scene and tell the server where we are */
             IsJoinedClient = true;
             Plugin.GlobalsInternal.InGameSession = true;
-            COTLMP.Ui.SayChat.StartSayChat();
             Network.AnnounceCurrentScene();
             COTLMP.Game.Appearance.Refresh();
             COTLMP.Game.CoopSync.SayHello();
@@ -717,6 +761,14 @@ namespace COTLMP.Network
         {
             if (Link == null)
                 return;
+
+            /* A test of a lost connection: nothing either way for a while */
+            if (Reconnect.Outage && !IsHost)
+            {
+                while (Link.TryReceive(out _, out _)) ;
+                while (ToHost.TryDequeue(out _)) ;
+                return;
+            }
 
             while (Link.TryReceive(out ulong From, out byte[] Data))
             {
@@ -855,6 +907,22 @@ namespace COTLMP.Network
             {
                 Proxy.Send(Disconnect, Disconnect.Length, GameClient);
             }
+        }
+
+        /// <summary>
+        /// The mod is going away for a newer one in the running game: our Steam callbacks go too.
+        /// </summary>
+        internal static void Release()
+        {
+            Shutdown();
+            JoinRequested?.Dispose();
+            LobbyChanged?.Dispose();
+            LobbyCreatedResult?.Dispose();
+            LobbyEnterResult?.Dispose();
+            JoinRequested = null;
+            LobbyChanged = null;
+            LobbyCreatedResult = null;
+            LobbyEnterResult = null;
         }
 
         /// <summary>

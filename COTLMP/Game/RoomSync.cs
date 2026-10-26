@@ -71,6 +71,11 @@ namespace COTLMP.Game
         internal static string PartnerPlace { get; private set; }
 
         /// <summary>
+        /// Since when the partner says they are between places (loading), or -1
+        /// </summary>
+        internal static float PartnerLoadingSince { get; private set; } = -1f;
+
+        /// <summary>
         /// Where the partner was last seen standing; a room change in between doesn't clear it
         /// </summary>
         internal static string PartnerLastPlace { get; private set; }
@@ -183,6 +188,9 @@ namespace COTLMP.Game
 
         private static void Announce()
         {
+            /* On the way back to the host the rooms we pass aren't ours to run */
+            if (Rejoin.Going)
+                return;
             CoopSync.Send(CoopSync.Kind.Place, Writer =>
             {
                 Writer.Write(MyPlace ?? "");
@@ -197,6 +205,10 @@ namespace COTLMP.Game
             bool Arrived = Place != PartnerPlace;
 
             PartnerPlace = string.IsNullOrEmpty(Place) ? null : Place;
+            if (PartnerPlace != null)
+                PartnerLoadingSince = -1f;
+            else if (PartnerLoadingSince < 0f)
+                PartnerLoadingSince = Time.realtimeSinceStartup;
             PartnerOwns = Owns;
             if (PartnerPlace != null)
                 PartnerLastPlace = PartnerPlace;
@@ -354,6 +366,35 @@ namespace COTLMP.Game
                     {
                         PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Can't restart {Entry.Enemy.name}: {e.Message}");
                     }
+                }
+                try
+                {
+                    /*
+                     * Its own hop or fall was stopped halfway when it was frozen: down onto the ground, out of
+                     * that state (nothing would land it now) and its animator back on
+                     */
+                    foreach (SkeletonAnimation Model in Entry.Enemy.GetComponentsInChildren<SkeletonAnimation>(true))
+                    {
+                        if (Model.transform == Entry.Enemy.transform)
+                            continue;
+                        Vector3 Local = Model.transform.localPosition;
+                        Local.z = 0f;
+                        Model.transform.localPosition = Local;
+                    }
+                    Vector3 Position = Entry.Enemy.transform.position;
+                    Position.z = 0f;
+                    Entry.Enemy.transform.position = Position;
+                    if (Entry.Enemy.state != null)
+                        Entry.Enemy.state.CURRENT_STATE = StateMachine.State.Idle;
+                    foreach (SimpleSpineAnimator Animator in Entry.Enemy.GetComponentsInChildren<SimpleSpineAnimator>(true))
+                    {
+                        Animator.UpdateAnimsOnStateChange = true;
+                        Animator.enabled = true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Can't land {Entry.Enemy.name}: {e.Message}");
                 }
             }
             FollowedEnemies.Clear();

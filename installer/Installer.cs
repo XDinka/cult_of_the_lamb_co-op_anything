@@ -177,6 +177,18 @@ namespace CotlCoopInstaller
             string BackupDir = Path.Combine(Dir, Backup);
             bool BackedUp = Directory.Exists(BackupDir);
 
+            /* Before 0.3.6 the mod itself was the plugin; now the loader is, and the mod is in Mod\ (both would load) */
+            foreach (string Old in new[] { "COTLMP.dll", "COTLMP.pdb", "COTLMPServer.dll", "COTLMPServer.pdb" })
+            {
+                string Before = Path.Combine(Dir, "BepInEx", "plugins", "COTLMP", Old);
+                if (File.Exists(Before))
+                    File.Delete(Before);
+            }
+            /* Before 0.3.6 the mod had asset bundles for COTLMP's server browser, which is gone */
+            string OldAssets = Path.Combine(Dir, "BepInEx", "plugins", "COTLMP", "Assets");
+            if (Directory.Exists(OldAssets))
+                Directory.Delete(OldAssets, true);
+
             List<string> Installed = new();
             using (ZipArchive Zip = new(Payload(), ZipArchiveMode.Read))
             {

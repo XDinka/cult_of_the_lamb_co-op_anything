@@ -45,14 +45,16 @@ launch() { # folder args
 
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 mkdir -p "$OUT"
-if ! $DOTNET build "$SRC/COTLMP/COTLMP.csproj" -c Release "-p:CotlManagedDir=$(winpath "$G1/Cult Of The Lamb_Data/Managed")" > "$OUT/build.log" 2>&1; then
-    grep -E "error" "$OUT/build.log" | sort -u; echo "BUILD FAILED"; exit 1
-fi
+for P in COTLMP/COTLMP.csproj Loader/COTLMP.Loader.csproj; do
+    if ! $DOTNET build "$SRC/$P" -c Release "-p:CotlManagedDir=$(winpath "$G1/Cult Of The Lamb_Data/Managed")" > "$OUT/build.log" 2>&1; then
+        grep -E "error" "$OUT/build.log" | sort -u; echo "BUILD FAILED"; exit 1
+    fi
+done
 
 kill_test_copies
 rm -f "$OUT"/*-bepinex.log "$OUT"/*-player.log
 for G in "$G1" "$G2"; do
-    cp "$SRC"/COTLMP/bin/Release/net472/{COTLMP.dll,COTLMP.pdb,COTLMPServer.dll} "$G/BepInEx/plugins/COTLMP/"
+    bash "$SRC/tools/deploy-mod.sh" "$G/BepInEx/plugins/COTLMP"
     rm -f "$G/BepInEx/LogOutput.log" "$G/BepInEx/config/cotlmp-rejoin.json"
 done
 

@@ -177,8 +177,9 @@ namespace COTLMP.Game
                 if (SaveSlot >= 0 && SaveSlot < Menu.SaveSlots.Length)
                     return Menu.SaveSlots[SaveSlot].GetComponentInChildren<TMP_Text>(true).text;
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                COTLMP.Debug.Faults.Note("The save slot's name", e);
             }
             return $"#{SaveSlot + 1}";
         }

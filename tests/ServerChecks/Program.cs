@@ -34,7 +34,7 @@ namespace ServerChecks
         private static async Task<int> Main()
         {
             using CancellationTokenSource Stop = new();
-            using Server Host = new(Version, 2, "checks", GameModes.GameMode.Standard, new IPEndPoint(IPAddress.Loopback, 0), Stop.Token);
+            using Server Host = new(Version, 2, new IPEndPoint(IPAddress.Loopback, 0), Stop.Token);
             _ = Task.Run(Host.Run);
             IPEndPoint At = new(IPAddress.Loopback, Host.Port);
 

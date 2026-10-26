@@ -44,6 +44,15 @@ if (Get-Process "Cult Of The Lamb" -ErrorAction SilentlyContinue) { throw "Close
 
 Write-Host "Installing into $GameDir"
 
+# Before 0.3.6 the mod itself was the plugin; now the loader is, and the mod is in Mod\ (both would load)
+foreach ($old in "COTLMP.dll", "COTLMP.pdb", "COTLMPServer.dll", "COTLMPServer.pdb") {
+    $path = Join-Path $GameDir "BepInEx\plugins\COTLMP\$old"
+    if (Test-Path $path) { Remove-Item $path -Force }
+}
+# Before 0.3.6 the mod had asset bundles for COTLMP's server browser, which is gone
+$oldAssets = Join-Path $GameDir "BepInEx\plugins\COTLMP\Assets"
+if (Test-Path $oldAssets) { Remove-Item $oldAssets -Recurse -Force }
+
 # Anything the mod would overwrite is moved aside first, so uninstall.ps1 can put it back
 $Backup = Join-Path $GameDir ("COTLMP-backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 $Installed = @()

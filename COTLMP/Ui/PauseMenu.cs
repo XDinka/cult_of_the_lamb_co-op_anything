@@ -8,7 +8,6 @@
 /* IMPORTS ********************************************************************/
 
 using COTLMPServer;
-using static COTLMPServer.Data.GameModes;
 using HarmonyLib;
 using I2.Loc;
 using Lamb.UI;
@@ -241,11 +240,9 @@ namespace COTLMP.Ui
                 Plugin.GlobalsInternal.InGameSession = true;
                 Plugin.GlobalsInternal.IsServerCreator = true;
 
-                /* Start the saychat mechanism */
-                COTLMP.Ui.SayChat.StartSayChat();
-
-                LanPoint = new IPEndPoint(0, 0);
-                Server = new Server(Application.version, Plugin.Globals.MaxNumPlayers, Plugin.Globals.ServerName, Plugin.Globals.Mode, LanPoint, cancellationToken: tokenSource.Token, log: new ServerLogger());
+                /* Only this PC talks to it (our own game and the Steam bridge), so nothing else can reach it */
+                LanPoint = new IPEndPoint(IPAddress.Loopback, 0);
+                Server = new Server(Application.version, Plugin.Globals.MaxNumPlayers, LanPoint, cancellationToken: tokenSource.Token, log: new ServerLogger());
                 Server.ServerStopped += ServerStopped;
             }
             catch (System.Exception e)
@@ -282,9 +279,6 @@ namespace COTLMP.Ui
             UIDynamicNotificationCenter.Reset();
             MonoSingleton<UIManager>.Instance.ResetPreviousCursor();
             TwitchManager.Abort();
-
-            /* Shutdown the saychat mechanism */
-            COTLMP.Ui.SayChat.Shutdown();
 
             /* Close the Steam lobby and relay */
             COTLMP.Network.SteamBridge.Shutdown();
@@ -336,8 +330,9 @@ namespace COTLMP.Ui
         /// Ends the multiplayer session and lets the player carry on with their own game.
         /// </summary>
         /// <param name = "NotificationKey">A localization key to show as a notification, or null.</param>
+        /// <param name = "KeepGame">Connecting again: a friend stays in the host's save, behind the black screen.</param>
         /// <remarks>Must run on the main thread.</remarks>
-        internal static void EndSession(string NotificationKey)
+        internal static void EndSession(string NotificationKey, bool KeepGame = false)
         {
             if (!Plugin.GlobalsInternal.InGameSession && Server == null)
                 return;
@@ -346,10 +341,10 @@ namespace COTLMP.Ui
             tokenSource = new();
             Server = null;
 
-            COTLMP.Ui.SayChat.Shutdown();
             COTLMP.Network.SteamBridge.Shutdown();
             COTLMP.Game.PlayerManager.DeleteAllPlayers();
-            MonoSingleton<UIManager>.Instance.ForceDisableSaving = false;
+            if (!KeepGame)
+                MonoSingleton<UIManager>.Instance.ForceDisableSaving = false;
 
             Plugin.GlobalsInternal.InGameSession = false;
             Plugin.GlobalsInternal.IsServerCreator = false;
@@ -362,7 +357,10 @@ namespace COTLMP.Ui
             COTLMP.Game.CultSync.Reset();
             COTLMP.Game.VersionCheck.Reset();
             COTLMP.Game.Lobby.Reset();
-            COTLMP.Game.HostSave.Forget();
+            if (KeepGame)
+                COTLMP.Game.HostSave.Pause();
+            else
+                COTLMP.Game.HostSave.Forget();
         }
 
         /// <summary>

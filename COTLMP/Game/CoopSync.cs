@@ -113,7 +113,20 @@ namespace COTLMP.Game
             /* SharedScenes: a scene started where the partner stands too */
             ScenePull = 44,
             /* SceneEnds: our scene or film started or ended */
-            SceneState = 45
+            SceneState = 45,
+            /* Rejoin: how the friend stands in the run; the friend is in the host's cult; the host's answer */
+            RejoinKeep = 46,
+            RejoinBack = 47,
+            RejoinRestore = 48,
+            /* Rejoin: the friend's character; the host tells the friend which character they are */
+            RejoinCharacter = 49,
+            RejoinYou = 50,
+            /* SharedScenes: we wait in a room for the partner (a conversation or a leader), or don't any more */
+            SceneHold = 51,
+            /* PatchCheck: how many of our patches this game version didn't take */
+            PatchReport = 52,
+            /* TextChat: a line typed to the partner */
+            ChatLine = 53
         }
 
         /// <summary>
@@ -379,6 +392,14 @@ namespace COTLMP.Game
                     VersionCheck.OnVersion(Reader);
                     break;
 
+                case Kind.PatchReport:
+                    PatchCheck.OnReport(Reader);
+                    break;
+
+                case Kind.ChatLine:
+                    COTLMP.Ui.TextChat.OnLine(Reader);
+                    break;
+
                 case Kind.UpdateSuggest:
                     VersionCheck.OnSuggest(Reader);
                     break;
@@ -411,8 +432,20 @@ namespace COTLMP.Game
                     SharedScenes.OnPull(Reader);
                     break;
 
+                case Kind.SceneHold:
+                    SharedScenes.OnHold(Reader);
+                    break;
+
                 case Kind.SceneState:
                     SceneEnds.OnRelay(Reader);
+                    break;
+
+                case Kind.RejoinKeep:
+                case Kind.RejoinBack:
+                case Kind.RejoinRestore:
+                case Kind.RejoinCharacter:
+                case Kind.RejoinYou:
+                    Rejoin.OnRelay((Kind)Data[0], Reader);
                     break;
 
                 case Kind.PropBroken:
@@ -430,16 +463,6 @@ namespace COTLMP.Game
                     break;
             }
         }
-
-        /// <summary>
-        /// The sync id of an enemy, if it has one.
-        /// </summary>
-        internal static bool TryGetId(Health Enemy, out string Id) => EnemyIds.TryGetValue(Enemy, out Id);
-
-        /// <summary>
-        /// Our copy of the enemy with a sync id, if it is still around.
-        /// </summary>
-        internal static bool TryGetEnemy(string Id, out Health Enemy) => EnemiesById.TryGetValue(Id, out Enemy) && Enemy != null;
 
         /// <summary>
         /// Every registered enemy with its id.
@@ -461,7 +484,21 @@ namespace COTLMP.Game
         /// The partner's current run, as they last announced it (0 before any)
         /// </summary>
         internal static int PartnerRun => PartnerRunId;
-        internal static int PartnerLocation => PartnerRunLocation;
+
+        /// <summary>
+        /// Where our run is (a FollowerLocation)
+        /// </summary>
+        internal static int CurrentRunLocation => RunLocation;
+
+        /// <summary>
+        /// The next run we start is this one of the partner's, however long ago they started it (coming back to them)
+        /// </summary>
+        internal static void AdoptNext(int Id, int Location)
+        {
+            PartnerRunId = Id;
+            PartnerRunLocation = Location;
+            PartnerRunTime = Time.realtimeSinceStartup;
+        }
 
         /// <summary>
         /// Tells the others we just joined, so they send what we missed (or forgot in a crash).
@@ -515,6 +552,10 @@ namespace COTLMP.Game
                 PartnerRunLocation = -1;
                 RunGrass.Run = PartnerRunGrass;
                 Plugin.Logger?.LogInfo($"[COOP] Joining the partner's run {RunId} in {Location} (their run count {PartnerRunGrass?.DungeonRun}, ours {DataManager.Instance.dungeonRun})");
+                /* The floors' story rooms (a leader's words, a visitor) come by the save's run count: the run's
+                   creator's, or one game has a room the other hasn't */
+                if (PartnerRunGrass != null)
+                    DataManager.Instance.dungeonRun = PartnerRunGrass.DungeonRun;
                 return;
             }
 

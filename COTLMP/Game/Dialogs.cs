@@ -72,6 +72,11 @@ namespace COTLMP.Game
 
         /* What the partner says, shown by the overlay */
         private static string Speaker, Text;
+
+        /// <summary>
+        /// A line of the game's own (we wait for the partner), shown in the partner's lines' place when they say nothing; null for none
+        /// </summary>
+        internal static string GameLine;
         private static float ShownAt;
 
         /* Counters for the test harness report */
@@ -448,9 +453,34 @@ namespace COTLMP.Game
                 }
             }
 
+            /*
+             * The game's lines carry TextMeshPro's tags (<shake>, <wave>, <sprite=...>), which this box would print as they
+             * are: only bold and italics stay. The last line's result is kept.
+             */
+            private static readonly Regex Tags = new(@"<(/?)([a-zA-Z]+)(=[^>]*)?>", RegexOptions.Compiled);
+            private static string PlainIn, PlainOut;
+
+            private static string Plain(string Value)
+            {
+                if (Value == null || Value.IndexOf('<') < 0)
+                    return Value;
+                if (ReferenceEquals(Value, PlainIn) || Value == PlainIn)
+                    return PlainOut;
+                PlainIn = Value;
+                PlainOut = Tags.Replace(Value, Match =>
+                {
+                    string Name = Match.Groups[2].Value.ToLowerInvariant();
+                    string Arg = Match.Groups[3].Value;
+                    return (Name == "b" || Name == "i") && Arg.Length == 0 ? Match.Value : "";
+                });
+                return PlainOut;
+            }
+
             private void OnGUI()
             {
-                string Line = Text;
+                /* A line of the game's (we wait for the partner) when the partner says nothing */
+                bool Ours = Text == null && GameLine != null;
+                string Line = Plain(Ours ? GameLine : Text);
                 if (Line == null)
                     return;
 
@@ -465,10 +495,13 @@ namespace COTLMP.Game
                 TextStyle ??= new GUIStyle(GUI.skin.label) { wordWrap = true, richText = true };
                 NameStyle.fontSize = Size;
                 TextStyle.fontSize = Size;
-                NameStyle.normal.textColor = new Color(0.96f, 0.82f, 0.45f);
+                NameStyle.normal.textColor = Ours ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.96f, 0.82f, 0.45f);
                 TextStyle.normal.textColor = new Color(0.97f, 0.94f, 0.88f);
+                TextStyle.fontStyle = Ours ? FontStyle.Italic : FontStyle.Normal;
 
-                float Width = Screen.width * 0.6f, Height = Size * 5.5f;
+                /* As high as the line needs (a long one in German or Japanese takes three or four rows) */
+                float Width = Screen.width * 0.6f;
+                float Height = Mathf.Max(Size * 5.5f, TextStyle.CalcHeight(new GUIContent(Line), Width - Size * 1.6f) + Size * 2.6f);
                 Rect Box = new((Screen.width - Width) / 2f, Screen.height - Height - Screen.height * 0.05f, Width, Height);
                 Color Old = GUI.color;
                 GUI.color = new Color(0.05f, 0.03f, 0.05f, 0.85f);
@@ -478,11 +511,12 @@ namespace COTLMP.Game
                 GUI.color = Old;
 
                 float Pad = Size * 0.8f;
-                if (!string.IsNullOrEmpty(Speaker))
-                    GUI.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f, Box.width - Pad * 2f, Size * 1.6f), Speaker, NameStyle);
+                string Name = Ours ? I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/GameSpeaker") : Speaker;
+                if (!string.IsNullOrEmpty(Name))
+                    GUI.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f, Box.width - Pad * 2f, Size * 1.6f), Plain(Name), NameStyle);
                 GUI.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f + Size * 1.7f, Box.width - Pad * 2f, Height - Size * 2.2f), Line, TextStyle);
 
-                List<string> Options = RemoteOptions;
+                List<string> Options = Ours ? null : RemoteOptions;
                 if (Options == null || Options.Count == 0)
                     return;
 
@@ -500,7 +534,7 @@ namespace COTLMP.Game
                         Point(Index);
 
                     GUI.color = OurPick == Index ? new Color(0.96f, 0.82f, 0.45f, 1f) : Color.white;
-                    GUI.Box(Area, $"{Index + 1}. {Options[Index]}", OptionStyle);
+                    GUI.Box(Area, $"{Index + 1}. {Plain(Options[Index])}", OptionStyle);
                     GUI.color = Old;
 
                     /* Icons at the answer's top right corner, the partner's outermost */

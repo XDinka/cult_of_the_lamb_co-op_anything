@@ -3,6 +3,123 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.6 (2026-10-27)
+
+**Coming from 0.3.5: run the installer once more.** From this version the mod is loaded by a small
+loader (`COTLMP.Loader.dll`), so later versions can go in without leaving the game. 0.3.5 has no
+loader: its update offer restarts the game through the installer this one time.
+
+**A lost connection is taken up again.** When nothing comes from the host for 30 s (not a goodbye:
+the host's game or Steam went quiet), the friend doesn't drop to the main menu any more. The game
+stops behind the black loading screen with "Connecting 1/3" next to the crown and joins the host
+again by itself: the host's save comes anew and the friend is taken back to the host's room with the
+hearts and gear they had. Three tries; after the third the friend goes to the main menu with "Lost the
+connection to your friend: couldn't connect again in 3 tries". See `Network/Reconnect.cs`.
+
+![Connecting again behind the loading screen](Media/changelog/0.3.6-reconnecting.png)
+![After three tries](Media/changelog/0.3.6-reconnect-failed.png)
+
+```
+friend: [QA] Cutting the link for 45 s (a lost connection)
+        Recieve error type TimeoutException message Timed out
+        Lost the connection to host 1, connecting again
+        Connecting to host 1 again, try 1 of 3
+        Try 1 of 3 to connect again didn't get through
+        Connecting to host 1 again, try 2 of 3
+        Connected to the host again on try 2
+        Back with the host: in their room after 0 floors
+host:   Friend 2 is back: taking them to Dungeon1#1.1.0@0,2, with what they had 68 s ago
+```
+
+**Text chat.** In a session **T** opens a line at the bottom left, **Enter** sends it, **Esc** closes it.
+While it is open the game hears nothing of the keyboard or the pad, and gets back exactly the controls
+it had on. The last six lines stand at the bottom left with the sender's Steam name (the Lamb's in
+red, the Goat's in purple) and fade after 10 s; with the line open the whole history shows. Chinese,
+Japanese and Korean show and can be typed (IME). A line that is mostly Arabic is shaped like the
+game's own; an Arabic word among Latin ones shows left to right. COTLMP's old chat box (Y) sent
+nothing and left the controls off until Esc: it is gone. See `Ui/TextChat.cs`.
+
+![Typing](Media/changelog/0.3.6-chat-typing.png)
+![Both lines on the friend's screen](Media/changelog/0.3.6-chat.png)
+
+**A game update that breaks part of the mod no longer breaks all of it.** The mod's patches go in
+one class at a time when the game starts (as before, no longer to start). One that no longer fits
+the game's code is left out and logged with why, and the rest work; before, the first such patch
+stopped the whole mod. The main menu tells the player once: with an **update** button when a newer
+mod is out, or that a fix is coming and will be offered right there. Entering a session, each side
+tells the other: both get a note if either game left patches out. See `Debug/PatchCheck.cs`.
+
+![A newer mod is out: update from here](Media/changelog/0.3.6-patches-update.png)
+![No newer mod yet](Media/changelog/0.3.6-patches-coming.png)
+
+**The mod updates without leaving the game.** A newer release is downloaded and checked (SHA-256)
+in the main menu, the old mod lets go of everything it put into the game (patches, events, Steam
+callbacks, settings, objects) and the new one starts in its place. An update that doesn't start puts
+the old mod back ("The new mod didn't start, back on 0.3.4", tested with a cut archive). Only a version
+that needs a new BepInEx or COTL API restarts the game for the installer. During a game, a downloaded
+update asks: **Restart the lobby** (the host saves, the lobby opens again on that save and the friend
+rejoins), **Restart the game**, or **Later**.
+
+![The update going in](Media/changelog/0.3.6-update-bar.png)
+
+**A friend who comes back gets their things back.** The host keeps how each friend stands in a run
+(hearts of every kind, weapon, curse, relic, tarot cards, where they stood) by Steam account, however
+they went: left, lost the connection or crashed. A friend who joins during the host's run is taken to
+the host's room behind a black screen, floor after floor the way the host went, and gets it all back.
+Each friend is a character of their own in the host's save (their extra hearts, chores level, whether
+they ate today), kept next to the save in `saves\coop_players_SLOT.dat`; a new friend starts from
+nothing. See `Game/Rejoin.cs`.
+
+**Conversations wait for the partner.** A conversation (or a leader's scene) that starts while the
+partner is in another room holds: "Waiting for your partner: the conversation starts when they come
+into this room", the doors stay shut, the partner gets a note. The black screen stays only for films.
+
+![The host waits for the friend's arrival](Media/changelog/0.3.6-hold-waiting.png)
+
+**The HUD as in the game's co-op.** In a dungeon both players' panels stand in the game's co-op
+slots, yours first, each with its Lamb or Goat portrait and the glowing outline (the friend's portraits
+had none), and the co-op's starting hearts; in the cult each sees their own single panel. Alone, a Goat
+gets its panel in the Goat's colours. On the dungeon's minimap each player's head stands on the room
+they are in, side by side when in one room.
+
+![Both panels and the minimap](Media/changelog/0.3.6-hud-minimap.png)
+![The heads on the minimap](Media/changelog/0.3.6-minimap-heads.png)
+
+**All 15 languages of the game.** Every line of the mod is in English, Russian, Japanese, French,
+German, Spanish, Portuguese (Brazil), Chinese (Simplified and Traditional), Korean, Italian, Dutch,
+Turkish, French (Canadian) and Arabic, and follows a language change in the game's settings. The
+partner's lines at the bottom of the screen lost TextMeshPro tags they showed as text (`<shake>`) and
+their box grows for long lines. Arabic is shaped as the game shapes it; a long Arabic line over
+several rows reads its rows in the wrong order (the box can't lay out right-to-left text).
+
+![Japanese, Chinese, Korean, German, Arabic](Media/changelog/0.3.6-languages.png)
+
+**Fixes.**
+- An enemy the room's owner left in mid-jump stayed up in the air for the other player: it lands now,
+  and its animations come back.
+- Each player has their own tarot cards in a run.
+- The friend's story rooms come from the run's creator's run count.
+- The connection icon doesn't count the partner's loading as a lost connection.
+- "✕ CO-OP ANYTHING" under the game's title in the main menu and on the title screen.
+
+**Cleaned out.** What COTLMP's IP play left and the Steam co-op never runs, about 3,000 lines: the
+server browser, join by IP, server passwords, the dedicated server, game modes, the Unity asset bundles
+they needed (if one was missing the whole mod stopped), and the settings that did nothing (Game Mode,
+Voice Chat, Server Password). The integrated server no longer announces itself on the local network
+every 5 s and listens on 127.0.0.1 only: only the player's own game and the Steam bridge talk to it.
+
+**For testers.** The mod counts what goes wrong by kind (its warnings and errors, exceptions in its
+patches that only the game's log showed, quiet fallbacks), puts it in the test report and logs the most
+frequent at the end of a session. The test harness is in six files by subject; a test step that throws
+is logged with its name and counted, and the others go on. New switches: `-cotlmp-droplink=N[,D]`,
+`-cotlmp-chattest`, `-cotlmp-badpatch`, `-cotlmp-langshots`.
+
+**Tested:** a 45 s drop-out (back on the 2nd try, things restored), a 300 s one (3 tries, the main
+menu with the error), the chat both ways (input off while typing and back), a patch that doesn't fit
+(the rest in, the window both ways, the partner's note), the update in the game and a broken one
+rolled back, all 15 languages in the partner's line box, the HUD and the minimap heads in a run.
+Not tested: real two-account Steam reconnects.
+
 ## 0.3.5 (2026-10-25)
 
 **Scenes and films end for both together, as at the opening's crown.** What comes after a scene's

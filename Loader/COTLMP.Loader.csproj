@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The mod's loader: the one plugin BepInEx loads. It stays the same between releases and loads the mod
+       itself from memory, so a newer mod can take the old one's place while the game runs. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>COTLMP.Loader</AssemblyName>
+    <Product>Cult of the Lamb Co-op Anything loader</Product>
+    <Version>1.0.0</Version>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>COTLMP.Loader</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="UnityEngine.Modules" Version="2021.3.16" IncludeAssets="compile" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- The game's Managed folder (pass -p:CotlManagedDir=...); BepInEx's core folder is next to it, as installed -->
+    <CotlManagedDir Condition="'$(CotlManagedDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Cult of the Lamb\Cult Of The Lamb_Data\Managed</CotlManagedDir>
+    <BepInExCoreDir Condition="'$(BepInExCoreDir)' == ''">$(CotlManagedDir)\..\..\BepInEx\core</BepInExCoreDir>
+  </PropertyGroup>
+
+  <!-- BepInEx's own builds, so the loader binds to exactly what the game runs (Mono.Cecil 0.10.4) -->
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExCoreDir)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>$(BepInExCoreDir)\Mono.Cecil.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

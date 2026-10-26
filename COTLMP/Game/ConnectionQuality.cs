@@ -68,7 +68,11 @@ namespace COTLMP.Game
         private static float PartnerBusyUntil = -1f;
 
         private static bool WeStalledRecently => Time.realtimeSinceStartup - LastStall < StallGrace;
-        private static bool PartnerBusy => Time.realtimeSinceStartup < PartnerBusyUntil;
+        private static bool PartnerBusy => Time.realtimeSinceStartup < PartnerBusyUntil || PartnerLoading;
+
+        /* The partner said they are between places: a long load (the host's save, a new floor) isn't a lost connection, up to a minute */
+        private static bool PartnerLoading =>
+            RoomSync.PartnerPlace == null && RoomSync.PartnerLoadingSince >= 0f && Time.realtimeSinceStartup - RoomSync.PartnerLoadingSince < 60f;
 
         private static readonly List<Sent> Pings = new();
         private static readonly float[] Samples = new float[5];
@@ -106,7 +110,10 @@ namespace COTLMP.Game
         /// We are about to load: the partner shouldn't take our silence for a broken connection.
         /// Sent twice, since pings go unreliable.
         /// </summary>
-        private static void SayBusy()
+        /// <summary>
+        /// We are about to stand still a while (loading): the partner's icon doesn't take it for a broken connection
+        /// </summary>
+        internal static void SayBusy()
         {
             if (!CoopSync.InSession)
                 return;

@@ -28,36 +28,15 @@ namespace COTLMP.Language
             new("Multiplayer/UI/Settings", "Multiplayer Settings", false),
             new("Multiplayer/UI/Settings/DisableMod", "Mod Toggle", false),
             new("Multiplayer/UI/Settings/PlayerName", "Player Name", false),
-            new("Multiplayer/UI/Settings/ServerName", "Server Name", false),
-            new("Multiplayer/UI/Settings/GameMode", "Game Mode", false),
             new("Multiplayer/UI/Settings/PlayerCount", "Number of maximum players to join", false),
-            new("Multiplayer/UI/Settings/VoiceChat", "Enable Voice Chat", false),
-            new("Multiplayer/UI/Settings/ProtectServer", "Protect the server with a password", false),
 
             /* Servers browser UI resource strings */
-            new("Multiplayer/UI/ServerList/BackButton", "Back", false),
-            new("Multiplayer/UI/ServerList/PlayerNameDescription", "Enter your player name", false),
-            new("Multiplayer/UI/ServerList/ServerNameDescription", "Enter the server name", false),
-            new("Multiplayer/UI/ServerList/MainDescription", "Browse the servers list and click Connect to join a server", false),
-            new("Multiplayer/UI/ServerList/NoneFound", "No servers could be found", false),
-            new("Multiplayer/UI/ServerList/MasterFail", "Failed to connect to the masterserver", false),
-            new("Multiplayer/UI/ServerList/ScanProgress", "Searching for reachable servers in progress...", false),
-            new("Multiplayer/UI/ServerList/ConnectButton", "Connect", false),
 
             /* Server password prompt UI resource strings */
-            new("Multiplayer/UI/PasswordPrompt/OkButton", "OK", false),
-            new("Multiplayer/UI/PasswordPrompt/CancelButton", "Cancel", false),
-            new("Multiplayer/UI/PasswordPrompt/PromptDescription", "This server is password protected. Type the password in order to join.", false),
-            new("Multiplayer/UI/PasswordPrompt/InvalidPassword", "The submitted password is not valid!", false),
 
             /* Connect by IP dialog box resource strings */
-            new("Multiplayer/UI/JoinByIP/Connect", "Connect", false),
-            new("Multiplayer/UI/JoinByIP/Cancel", "Cancel", false),
-            new("Multiplayer/UI/JoinByIP/Description", "Type the IP address of the server that you want to join. The address must follow the following format as in the example below.\n\nExample: 111.55.222.333:36963", false),
 
             /* Game mod resource strings */
-            new("Multiplayer/Game/Join", "{0} has joined the server", false),
-            new("Multiplayer/Game/Left", "{0} has left the server", false),
 
             /* General UI resource strings */
             new("Multiplayer/UI/StartServer", "Open Online", false),
@@ -80,6 +59,15 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/Joined", "Joined your friend", false),
             new("Multiplayer/Steam/JoinFailed", "Couldn't reach your friend", false),
             new("Multiplayer/Steam/HostLeft", "Your friend stopped hosting", false),
+            new("Multiplayer/Reconnect/Connecting", "Connecting {0}/{1}", false),
+            new("Multiplayer/Reconnect/Failed", "Lost the connection to your friend: couldn't connect again in 3 tries", false),
+            new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
+            new("Multiplayer/UI/PatchesFailed", "{0} of the mod's hooks don't fit this game version: the game was updated after the mod. Co-op may not work right until a fixed version is out; the mod offers it here as soon as it is", false),
+            new("Multiplayer/UI/PatchesUpdate", "{0} of the mod's hooks don't fit this game version: the game was updated after the mod. Version {1} is out (you have {2}). Update now?", false),
+            new("Multiplayer/UI/PatchesOurs", "{0} of the mod's hooks don't fit your game version: co-op may not work right", false),
+            new("Multiplayer/UI/PatchesPartner", "{0}: {1} of the mod's hooks don't fit their game version, co-op may not work right", false),
+            new("Multiplayer/Chat/Tip", "Press T to chat with your friend", false),
+            new("Multiplayer/Chat/Hint", "Message… Enter sends, Esc closes", false),
             new("Multiplayer/Steam/Left", "You left your friend's game", false),
             new("Multiplayer/Steam/Stopped", "Stopped hosting", false),
             new("Multiplayer/Steam/LeaveFirst", "Stop hosting to join your friend", false),
@@ -94,9 +82,9 @@ namespace COTLMP.Language
             new("Multiplayer/Version/FriendLines", "Your friend's version: {0}\nYour version: {1}", false),
             new("Multiplayer/Version/Unknown", "unknown (0.2.8 or older)", false),
             new("Multiplayer/Version/Risk", "You can play, but different versions may cause errors or even damage the save.", false),
-            new("Multiplayer/Version/UpdateToHost", "Update to {0}? The game restarts and joins the host again by itself.", false),
+            new("Multiplayer/Version/UpdateToHost", "Update to {0}? It goes in right here in the main menu, then you join the host again by itself.", false),
             new("Multiplayer/Version/HostOlder", "The host has an older version. You can ask the host to update.", false),
-            new("Multiplayer/Version/HostUpdate", "Update now? The game restarts; then open the game online again and pick your save.", false),
+            new("Multiplayer/Version/HostUpdate", "Update now? It downloads while you play; then you pick how it goes in: back to the lobby on this save, or the game restarted.", false),
             new("Multiplayer/Version/FriendAsks", "Your friend asks you to update the mod", false),
             new("Multiplayer/Version/FriendHas", "Your friend's mod is {0}, yours is {1}", false),
             new("Multiplayer/Version/Update", "Update", false),
@@ -134,19 +122,38 @@ namespace COTLMP.Language
 
             /* Updates */
             new("Multiplayer/Update/Title", "A new version of the co-op mod", false),
-            new("Multiplayer/Update/Body", "Version {0} is out, you have {1}. Update now? The game will close, the installer will put in the new version and start the game again.", false),
+            new("Multiplayer/Update/Body", "Version {0} is out, you have {1}. Update now? It goes in right here, without leaving the game. Only a version that needs a new BepInEx or COTL API restarts the game for the installer.", false),
             new("Multiplayer/Update/Downloading", "Downloading the update…", false),
+            new("Multiplayer/Update/Screen", "Updating the co-op mod to {0}", false),
+            new("Multiplayer/Update/Progress", "Downloading: {0} of {1} KB", false),
+            new("Multiplayer/Update/Checking", "Checking the download", false),
+            new("Multiplayer/Update/Starting", "Starting the new version", false),
+            new("Multiplayer/Update/Restart", "This version needs the installer: the game will start again", false),
+            new("Multiplayer/Update/Ready", "The update is ready: it starts in the main menu", false),
+            new("Multiplayer/Update/Done", "The co-op mod is updated", false),
+            new("Multiplayer/Update/ReadyTitle", "The update is ready", false),
+            new("Multiplayer/Update/ReadyHost", "Version {0} is downloaded. To put it in, the game is saved, you go to the main menu and the lobby opens again on this save; your friend joins it as before. Nothing is played until you press Play.", false),
+            new("Multiplayer/Update/ReadyFriend", "Version {0} is downloaded. To put it in, you go to the main menu and join the host again.", false),
+            new("Multiplayer/Update/RestartLobby", "Restart the lobby", false),
+            new("Multiplayer/Update/OtherWays", "Other ways", false),
+            new("Multiplayer/Update/RestartGameBody", "Or the game is saved and starts again, then opens the same lobby. Later: the update goes in the next time you are in the main menu or start the game.", false),
+            new("Multiplayer/Update/RestartGame", "Restart the game", false),
+            new("Multiplayer/Update/Later", "Later", false),
+            new("Multiplayer/Update/Saving", "Saving the game...", false),
+
+            /* Coming back to the host */
+            new("Multiplayer/Rejoin/Going", "Going back to the host...", false),
+
+            /* Waiting for the partner in a room */
+            new("Multiplayer/Scene/GameSpeaker", "Game", false),
+            new("Multiplayer/Scene/HoldTalk", "Waiting for your partner: the conversation starts once they come into this room. You can move about the room meanwhile, its doors open after it.", false),
+            new("Multiplayer/Scene/PartnerWaits", "Your partner is waiting for you: a conversation starts once you join them", false),
             new("Multiplayer/Update/Failed", "Couldn't update by itself", false),
-            new("Multiplayer/Update/OpenPage", "Open the page of version {0} to download it?", false),
+            new("Multiplayer/Update/OpenPage", "Open the page of version {0} to download it?", false)
 
             /* The map between floors */
-            new("Multiplayer/Map/WaitingForHost", "Waiting for the host to choose the way", false),
 
             /* Back into the run after a crash */
-            new("Multiplayer/Recovery/Returning", "Going back to your friend's run", false),
-            new("Multiplayer/Recovery/Restored", "Back in the run", false),
-            new("Multiplayer/Recovery/RunOver", "Your friend's run is over", false),
-            new("Multiplayer/Recovery/Failed", "Couldn't go back to your friend's run", false)
         ];
     }
 }

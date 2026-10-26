@@ -64,7 +64,8 @@ namespace COTLMP.Api
         {
             int LanguageIndex;
             string[] SupportedLanguages = {"English", "Japanese", "Russian", "French", "German", "Spanish",
-                                           "Portuguese (Brazil)", "Chinese (Simplified)", "Chinese (Traditional)", "Korean"};
+                                           "Portuguese (Brazil)", "Chinese (Simplified)", "Chinese (Traditional)", "Korean",
+                                           "Italian", "Dutch", "Turkish", "French (Canadian)", "Arabic"};
 
             /* Check if the passed language locale argument is supported */
             for (LanguageIndex = 0;
@@ -129,8 +130,8 @@ namespace COTLMP.Api
             /* Log to the debugger the given translation string is overriden */
             if (Overriden == true)
             {
-                COTLMP.Debug.PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.LOCALIZATION_COMPONENT,
-                                               $"Overriding the {Term} term with {Translation}!");
+                COTLMP.Debug.PrintLogger.Print(DebugLevel.INFO_LEVEL, DebugComponent.LOCALIZATION_COMPONENT,
+                                               $"Overriding the {Term} term with {Translation}");
             }
 
             /* Add the string */
@@ -190,6 +191,21 @@ namespace COTLMP.Api
                     break;
                 }
 
+                /* The game's other languages */
+                case "Japanese": StringsTable = COTLMP.Language.Japanese.StringsTable; break;
+                case "French": StringsTable = COTLMP.Language.French.StringsTable; break;
+                case "German": StringsTable = COTLMP.Language.German.StringsTable; break;
+                case "Spanish": StringsTable = COTLMP.Language.Spanish.StringsTable; break;
+                case "Portuguese (Brazil)": StringsTable = COTLMP.Language.PortugueseBrazil.StringsTable; break;
+                case "Chinese (Simplified)": StringsTable = COTLMP.Language.ChineseSimplified.StringsTable; break;
+                case "Chinese (Traditional)": StringsTable = COTLMP.Language.ChineseTraditional.StringsTable; break;
+                case "Korean": StringsTable = COTLMP.Language.Korean.StringsTable; break;
+                case "Italian": StringsTable = COTLMP.Language.Italian.StringsTable; break;
+                case "Dutch": StringsTable = COTLMP.Language.Dutch.StringsTable; break;
+                case "Turkish": StringsTable = COTLMP.Language.Turkish.StringsTable; break;
+                case "French (Canadian)": StringsTable = COTLMP.Language.FrenchCanadian.StringsTable; break;
+                case "Arabic": StringsTable = COTLMP.Language.Arabic.StringsTable; break;
+
                 default:
                 {
                     StringsTable = null;
@@ -218,7 +234,7 @@ namespace COTLMP.Api
             /// <remarks>Returns TRUE if tthe original method of the game is to be executed. FALSE if our method is to be executed instead.</remarks>
             [HarmonyPatch(typeof(LocalizationManager), nameof(LocalizationManager.GetTranslation))]
             [HarmonyPrefix]
-            private static bool TranslationPatch(string Term, string overrideLanguage, ref string __result)
+            private static bool TranslationPatch(string Term, bool FixForRTL, string overrideLanguage, ref string __result)
             {
                 string GameLanguage, Translation;
 
@@ -229,7 +245,7 @@ namespace COTLMP.Api
                     Translation = Localization.TryGetTranslation(overrideLanguage, Term);
                     if (!string.IsNullOrEmpty(Translation))
                     {
-                        __result = Translation;
+                        __result = Shaped(Translation, FixForRTL);
                         return false;
                     }
 
@@ -242,11 +258,14 @@ namespace COTLMP.Api
                  * up for the game. Then retry obtaining the translation string
                  * and modify the resultant of the returned string with ours.
                  */
-                GameLanguage = SettingsManager.Settings.Game.Language;
+                /* The language the game shows its own text in (its setting can lag behind a change) */
+                GameLanguage = LocalizationManager.CurrentLanguage;
+                if (string.IsNullOrEmpty(GameLanguage))
+                    GameLanguage = SettingsManager.Settings.Game.Language;
                 Translation = Localization.TryGetTranslation(GameLanguage, Term);
                 if (!string.IsNullOrEmpty(Translation))
                 {
-                    __result = Translation;
+                    __result = Shaped(Translation, FixForRTL);
                     return false;
                 }
 
@@ -265,6 +284,21 @@ namespace COTLMP.Api
                 }
 
                 return true;
+            }
+
+            /* Arabic as the game gives its own lines: joined letters, right to left (the text boxes don't do it themselves) */
+            private static string Shaped(string Translation, bool FixForRTL)
+            {
+                if (!LocalizationManager.IsRight2Left || !FixForRTL)
+                    return Translation;
+                try
+                {
+                    return LocalizeIntegration.ConvertToRTL(Translation);
+                }
+                catch (System.Exception)
+                {
+                    return Translation;
+                }
             }
         }
     }

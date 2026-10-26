@@ -20,7 +20,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static COTLMPServer.Data.GameModes;
 
 /* CLASSES & CODE *************************************************************/
 
@@ -37,8 +36,6 @@ namespace COTLMPServer
         /// How many players are connected, the host's own game included
         /// </summary>
         public int PlayerCount => players.Count;
-        public readonly string serverName;
-        public readonly GameMode gameMode;
         public event EventHandler<ServerStoppedArgs> ServerStopped;
 
         private volatile int running;
@@ -53,10 +50,7 @@ namespace COTLMPServer
         private readonly object idLock;
         private int handlerErrors;
 
-        private static readonly IPAddress MulticastIp = IPAddress.Parse("239.15.7.11");
-        private static readonly IPEndPoint MulticastEndPoint = new IPEndPoint(MulticastIp, 1175);
-
-        public Server(string ver, int maxPlayers, string SrvName, GameMode gmMode, IPEndPoint endPoint, CancellationToken? cancellationToken = null, ILogger log = null)
+        public Server(string ver, int maxPlayers, IPEndPoint endPoint, CancellationToken? cancellationToken = null, ILogger log = null)
         {
             if (endPoint == null)
             {
@@ -76,8 +70,6 @@ namespace COTLMPServer
             Port = (client.Client.LocalEndPoint as IPEndPoint)?.Port ?? 0;
 
             gameVersion = ver;
-            serverName = SrvName;
-            gameMode = gmMode;
 
             if (cancellationToken == null)
                 token = CancellationToken.None;
@@ -87,33 +79,6 @@ namespace COTLMPServer
             sendLock = new SemaphoreSlim(1, 1);
             ids = new bool[maxPlayers];
             idLock = new object();
-        }
-
-        /// <summary>
-        /// Announces to every game client that the server is online and reachable,
-        /// of which it can be visible in the Multiplayer servers list browser.
-        /// </summary>
-        private async Task AnnounceBroadcast()
-        {
-            byte[] ServerPort = BitConverter.GetBytes(BitConverter.IsLittleEndian ? (uint)Port : Utils.ReverseEndianness((uint)Port));
-
-            while (!disposedValue && !token.IsCancellationRequested)
-            {
-                try
-                {
-                    await Send(MulticastEndPoint, ServerPort);
-                    await Task.Delay(5000, token);
-                }
-                catch (TaskCanceledException)
-                {
-                    logger?.LogInfo("Server is being stopped, terminate the server broadcast task!");
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogFatal($"Sending server broadcast packet ABORTED: {ex.GetType()} + ERROR MESSAGE: {ex.Message} + GUILTY METHOD: {ex.TargetSite}");
-                    return;
-                }
-            }
         }
 
         /// <summary>
@@ -270,9 +235,7 @@ namespace COTLMPServer
 
             var args = new ServerStoppedArgs(ServerStopReason.NormalShutdown, "");
             CancellationTokenRegistration registration = token.Register(client.Dispose);
-            logger?.LogInfo("Started server at port " + Port + " with name " + serverName + $" ( GameMode: {TranslateGameModeToString(gameMode)})!");
-
-            _ = System.Threading.Tasks.Task.Run(AnnounceBroadcast);
+            logger?.LogInfo("Started server at port " + Port);
 
             try
             {
@@ -302,7 +265,7 @@ namespace COTLMPServer
                                 plr.Lag = false;
                             }
                         }
-                        else if (message.Type != MessageType.Ping && message.Type != MessageType.Handshake && message.Type != MessageType.ServerInfo)
+                        else if (message.Type != MessageType.Ping && message.Type != MessageType.Handshake)
                             continue;
 
                         switch (message.Type)
@@ -490,13 +453,6 @@ namespace COTLMPServer
                                     lock (plr.Lock)
                                         seq = plr.Sequence++;
                                 await Send(result.RemoteEndPoint, new Message(MessageType.Ping, seq).Serialize());
-                                break;
-                            }
-
-                            case MessageType.ServerInfo:
-                            {
-                                var SrvInfo = new ServerInfo(serverName, gameMode, ids.Length, players.Count);
-                                await Send(result.RemoteEndPoint, new Message(MessageType.ServerInfo, 1, SrvInfo.Serialize()).Serialize());
                                 break;
                             }
 

@@ -42,6 +42,16 @@ namespace COTLMP.Network
         internal static int SentPositions, ReceivedPositions, PacketsIn, PacketsOut;
         internal static bool HasLocalPlayer => localPlayer != null;
 
+        /// <summary>
+        /// The session ended because the connection went quiet (not a goodbye): see Reconnect
+        /// </summary>
+        internal static bool Lost { get; private set; }
+
+        /// <summary>
+        /// How long the host may say nothing before the connection counts as lost
+        /// </summary>
+        private const int QuietLimitMs = 30000;
+
         private static UdpClient client;
         private static PlayerFarming localPlayer;
         private static CancellationToken cancelToken;
@@ -152,7 +162,7 @@ namespace COTLMP.Network
                 {
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
 
-                    var limit = System.Threading.Tasks.Task.Delay(30000, cts.Token);
+                    var limit = System.Threading.Tasks.Task.Delay(QuietLimitMs, cts.Token);
                     var recv = client.ReceiveAsync();
 
                     if (await System.Threading.Tasks.Task.WhenAny(limit, recv) == limit)
@@ -187,6 +197,8 @@ namespace COTLMP.Network
             }
             catch (Exception e)
             {
+                if (e is TimeoutException)
+                    Lost = true;
                 PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Recieve error type {e.GetType().Name} message {e.Message}");
                 while (messageQueue.TryDequeue(out _)) ;
                 messageQueue.Enqueue(new Message(MessageType.Disconnect, 0, Encoding.UTF8.GetBytes(e.Message)));
@@ -399,6 +411,9 @@ namespace COTLMP.Network
                             keepLooping = false;
                             if (msg.Data != null)
                                 PauseMenuPatches.Message = Encoding.UTF8.GetString(msg.Data);
+                            /* The server gave up on hearing from us: lost too, not sent away */
+                            if (PauseMenuPatches.Message == "Timed out")
+                                Lost = true;
                             break;
                         }
                     }
@@ -459,6 +474,7 @@ namespace COTLMP.Network
             messageQueue = new();
             transitionHappened = false;
             handlerErrors = 0;
+            Lost = false;
             lastPlace = null;
             localPlayer = null;
             lastPositionSentAt = 0f;

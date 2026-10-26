@@ -466,8 +466,9 @@ namespace COTLMP.Game
                         return Pooled;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                COTLMP.Debug.Faults.Note("Finding a pooled projectile", e);
             }
             return null;
         }

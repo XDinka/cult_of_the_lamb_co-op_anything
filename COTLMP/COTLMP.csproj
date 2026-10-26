@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>COTLMP</AssemblyName>
     <Product>Cult of the Lamb Multiplayer Mod Plug-In</Product>
-    <Version>0.3.5</Version>
+    <Version>0.3.6</Version>
     <Copyright>Copyright (c) 2026 GeoB99 &amp; Neco-Arc</Copyright>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
@@ -45,6 +45,16 @@
       <HintPath>$(CotlManagedDir)\UnifyLibrary.dll</HintPath>
       <Private>false</Private>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The main menu's "x CO-OP ANYTHING" under the game's logo (tools/make-menu-title.py draws it from the cover) -->
+    <EmbeddedResource Include="Assets\coop-anything.png" LogicalName="coop-anything.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Mod packages of releases, opened in the game (the game ships it) -->
+    <Reference Include="System.IO.Compression" />
   </ItemGroup>
 
   <ItemGroup>

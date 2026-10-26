@@ -113,7 +113,8 @@ namespace COTLMP.Game
 
         private static void Send(Event Type, string Text, int Value = 0)
         {
-            if (!CoopSync.InSession)
+            /* Scenes on the way back to the host are nobody's to wait for */
+            if (!CoopSync.InSession || Rejoin.Going)
                 return;
             CoopSync.Send(CoopSync.Kind.SceneState, Writer =>
             {
@@ -185,13 +186,17 @@ namespace COTLMP.Game
             Send(Event.Talk, OurPlace, Key);
         }
 
-        /* Whoever waits sees a black screen that says so, as at the opening's crown */
-        private static void StartWaiting()
+        /* Whoever waits for a film sees a black screen that says so, as at the opening's crown; for a scene
+           (a talk, a leader waking) it is a line of the game's in the talk's place */
+        private static void StartWaiting(bool Film)
         {
             HoldSince = Time.unscaledTime;
             try
             {
-                OnlineMenu.Wait("Multiplayer/Scene/WaitScene");
+                if (Film)
+                    OnlineMenu.Wait("Multiplayer/Scene/WaitScene");
+                else
+                    Dialogs.GameLine = I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/WaitScene");
             }
             catch (Exception e)
             {
@@ -204,9 +209,11 @@ namespace COTLMP.Game
             try
             {
                 OnlineMenu.Wait(null);
+                Dialogs.GameLine = null;
             }
-            catch
+            catch (Exception e)
             {
+                COTLMP.Debug.Faults.Note("Closing the waiting screen", e);
             }
         }
 
@@ -309,7 +316,10 @@ namespace COTLMP.Game
                 SyncShown = true;
                 try
                 {
-                    OnlineMenu.Wait("Multiplayer/Scene/WaitSync");
+                    if (SyncScene)
+                        Dialogs.GameLine = I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/WaitSync");
+                    else
+                        OnlineMenu.Wait("Multiplayer/Scene/WaitSync");
                 }
                 catch (Exception e)
                 {
@@ -382,7 +392,7 @@ namespace COTLMP.Game
             if (FilmPlayer?.GetValue(null) is VideoPlayer Player && Player.isPlaying)
                 Player.Pause();
             Send(Event.FilmOff, OurFilm);
-            StartWaiting();
+            StartWaiting(true);
         }
 
         /* Our film has a skip in a game, not on the title screen */
@@ -451,7 +461,7 @@ namespace COTLMP.Game
                 HoldPlace = OurPlace;
                 ++Held;
                 Time.timeScale = 0f;
-                StartWaiting();
+                StartWaiting(false);
                 Plugin.Logger?.LogInfo($"[COOP] Our scene in {OurPlace} is over, the partner's isn't: waiting for them");
             }
             catch (Exception e)

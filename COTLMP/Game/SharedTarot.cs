@@ -37,6 +37,11 @@ namespace COTLMP.Game
         /* Counters for the test harness report */
         internal static int Sent, Received, Applied;
 
+        /// <summary>
+        /// Both players dealt the same cards at a reader (as before 0.3.6); off: each draws their own
+        /// </summary>
+        internal static bool SameCards = false;
+
         private static string Key(Interaction_Tarot Reader, int Number) =>
             $"{CoopSync.CurrentRun}|{CoopSync.CurrentPlace()}|{Mathf.RoundToInt(Reader.transform.position.x * 2f)},{Mathf.RoundToInt(Reader.transform.position.y * 2f)}|{Number}";
 
@@ -61,7 +66,8 @@ namespace COTLMP.Game
             private static bool GetCard(Interaction_Tarot __instance, ref TarotCards.TarotCard __result, out string __state)
             {
                 __state = null;
-                if (!CoopSync.InSession || CoopSync.CurrentRun == 0)
+                /* Each player builds their own: their own cards from their own deck */
+                if (!SameCards || !CoopSync.InSession || CoopSync.CurrentRun == 0)
                     return true;
 
                 StrongBox<int> Count = Counts.GetOrCreateValue(__instance);

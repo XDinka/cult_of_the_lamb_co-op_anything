@@ -95,7 +95,7 @@ namespace COTLMP.Game
             "NextChestGold", "CurrentRoomCoordinates", "RoomVariant", "TakenBossDamage", "RedHeartsTemporarilyRemoved", "BlackSouls",
             "BlackSoulTarget", "PlayerEaten_COOP", "WorldMapCurrentSelection", "PlayerDeathDay"
         };
-        private static readonly string[] NotCultStarts = { "dungeon", "DUNGEON_", "PLAYER_", "COOP_PLAYER_", "Twitch", "playerDeaths", "CurrentRun" };
+        private static readonly string[] NotCultStarts = { "dungeon", "DUNGEON_", "PLAYER_", "COOP_PLAYER_", "Twitch", "playerDeaths", "CurrentRun", "ChoreXP" };
         private static readonly string[] NotCultEnds = { "ThisRun", "OnRun", "Run" };
 
         /* Counters for the test harness report */

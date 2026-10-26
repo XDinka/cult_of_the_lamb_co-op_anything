@@ -58,6 +58,7 @@ namespace COTLMP.Ui
                     __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure(MultiplayerModLocalization.UI.Disconnected, PauseMenuPatches.Message, true);
                     PauseMenuPatches.Message = null;
                 }
+
             }
         }
     }

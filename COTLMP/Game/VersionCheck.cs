@@ -59,6 +59,7 @@ namespace COTLMP.Game
         internal static void Announce()
         {
             CoopSync.Send(CoopSync.Kind.ModVersion, Writer => Writer.Write(Ours));
+            PatchCheck.Announce();
         }
 
         internal static void OnVersion(BinaryReader Reader)
@@ -184,7 +185,7 @@ namespace COTLMP.Game
         /// <summary>
         /// The game's own confirmation window, with our words on its buttons
         /// </summary>
-        private static UIMenuConfirmationWindow Open(string Body, string Yes, string No, string Header = null)
+        internal static UIMenuConfirmationWindow Open(string Body, string Yes, string No, string Header = null)
         {
             UIMenuConfirmationWindow Window = MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate.Instantiate();
             Window.Show();
