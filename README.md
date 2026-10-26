@@ -93,8 +93,8 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 | The night fox: the host makes its deals; with both there, the friend sees the fox come out and the host's talk, and the outcome counts for both | works in the automated test (on the shore at night) |
 | Enemy attacks of the room owner (shots incl. homing, beams, bombs, warning circles, other pooled attacks) show for the other player and move exactly as the owner's | works in the automated test (forced shots) |
 | Rewards roll from the host's unlocks (weapons, curses, tarot, relics) for both, without touching the joining player's save | works in the automated test (tarot: host 85 cards, joiner 15, same draws) |
-| Chests, weapon/relic podiums, tarot draws and interactions roll the same for both; each player opens and picks on their own | chests checked in the automated test |
-| The tarot reader in a dungeon deals both players the same two cards | works in the automated test |
+| Chests, weapon/relic podiums and interactions roll the same for both; each player opens and picks on their own; tarot cards are each player's own | chests checked in the automated test |
+| The tarot reader in a dungeon deals each player their own cards (from the host's deck), as in the game's co-op | works in the automated test |
 | One cult for both: the host's game runs it (followers, structures, time), the friend's shows it: followers walk and animate as the host's, new and gone followers and structures appear and go, the inventory is shared | works in the automated test (wood, stone, a bed, a torch, a new follower, a removed bed, both ways) |
 | What the friend does in the cult reaches the host: building, removing, items gained or spent, changes to followers and structures (as data) | works in the automated test (a renamed follower, a built torch, a removed bed) |
 | Rooms come up with the same grass, bushes and breakable decorations (barrel, crate or bone pile) for both, also when the two saves have had a different number of runs or flowers | works in the automated test (saves 1 and 10 runs apart) |
@@ -243,7 +243,7 @@ paths from environment variables (see the top of each).
   and place. The puppet plays exactly that (its own animator is switched off). That message is also
   the word that the partner's room has loaded: the puppet is made only then, in their look, and goes
   when they stop sending from the room. See `PuppetSync.cs`.
-- **Same rolls.** Before each chest, podium, tarot or interaction roll, and before each spot of a
+- **Same rolls.** Before each chest, podium or interaction roll (a tarot draw too, salted per player so the cards are each one's own), and before each spot of a
   room picks its grass, bush or breakable decoration, Unity's random state is set from the room seed,
   the run and what is rolled where. Chest drops stay with whoever opened that chest. See `RoomRandom.cs`.
 - **Bad connections.** Events (kills, pickups, cleared rooms, conversations) go reliable and in
@@ -278,7 +278,7 @@ paths from environment variables (see the top of each).
   once, so a restarted game doesn't wait for the 30 s timeout.
 - **Tarot readings.** A reader's cards come from the player's save (cards found, held or met this run,
   fleece, season) and a save without a reading yet gets the Lovers first, so a seed can't make them
-  match. Whoever draws first sends the two cards and the other reading deals those. See `SharedTarot.cs`.
+  match. Each player's reading is their own (SharedTarot.SameCards would deal the first drawer's cards to both). See `SharedTarot.cs`.
 - **The cult.** One world, run by the host's game: on the friend's side game time doesn't run (no
   follower or structure ticks); the host sends its day, part of day and clock every second, and its
   followers' positions and animations ten times a second. Followers and structures are compared as the
