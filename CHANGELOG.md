@@ -3,6 +3,28 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.3.7 (2026-10-27)
+
+**Arabic reads right in the mod's own boxes.** The partner's lines at the bottom of the screen and the
+chat are drawn by the mod (IMGUI), which lays every row out left to right with unjoined letters. The
+game joins and turns its Arabic only for its own boxes, and only when it is in Arabic. Now the mod takes
+the text as written, breaks it into rows by words first, and only then joins and turns each row with the
+game's own shaping (RTLTMPro): a long Arabic line reads its rows top to bottom and stands at the right,
+and an Arabic word inside a Latin line is joined and turned where it stands. This works whatever language
+the game is in (an Arabic-speaking friend writes to a player whose game is in English). See `Ui/Bidi.cs`.
+The partner's fox line in Arabic shows now too: the turned term wasn't found before.
+
+![The partner's line box in Arabic](Media/changelog/0.3.7-arabic-box.png)
+![The chat: an Arabic word in a Latin line, a long Arabic line](Media/changelog/0.3.7-chat-arabic.png)
+
+**Bigger heads on the minimap.** Each player's head is as high as the room now (it was about half), so
+the Lamb and the Goat side by side read at a glance.
+
+![The heads on the minimap](Media/changelog/0.3.7-minimap-heads.png)
+
+**Tested:** the partner's line box in all 15 languages (Arabic over four rows), the chat both ways in a
+run with a mixed and a long Arabic line, the minimap heads in a run.
+
 ## 0.3.6 (2026-10-27)
 
 **Coming from 0.3.5: run the installer once more.** From this version the mod is loaded by a small

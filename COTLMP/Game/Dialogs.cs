@@ -159,7 +159,8 @@ namespace COTLMP.Game
         {
             if (string.IsNullOrEmpty(Term))
                 return "";
-            string Value = LocalizationManager.GetTranslation(Term);
+            /* As written: right-to-left text is laid out by the box (Bidi), the game's turning would wrap backwards */
+            string Value = LocalizationManager.GetTranslation(Term, FixForRTL: false);
             return string.IsNullOrEmpty(Value) ? Term : Value;
         }
 
@@ -184,7 +185,7 @@ namespace COTLMP.Game
                     for (int Index = 0; Index < Count; Index++)
                     {
                         string OptionTerm = Reader.ReadString(), Theirs = Reader.ReadString();
-                        string Translated = string.IsNullOrEmpty(OptionTerm) ? null : LocalizationManager.GetTranslation(OptionTerm);
+                        string Translated = string.IsNullOrEmpty(OptionTerm) ? null : LocalizationManager.GetTranslation(OptionTerm, FixForRTL: false);
                         Options.Add(Plain(string.IsNullOrEmpty(Translated) ? Theirs : Translated));
                     }
                     if (Place != CoopSync.CurrentPlace() || MMConversation.isPlaying)
@@ -209,9 +210,9 @@ namespace COTLMP.Game
             if (Place != CoopSync.CurrentPlace() || MMConversation.isPlaying)
                 return;
 
-            string Ours = LocalizationManager.GetTranslation(Term);
+            string Ours = LocalizationManager.GetTranslation(Term, FixForRTL: false);
             Text = Plain(string.IsNullOrEmpty(Ours) ? Line : Ours);
-            string OurName = NameTerm == "-" || string.IsNullOrEmpty(NameTerm) ? "" : LocalizationManager.GetTranslation(NameTerm);
+            string OurName = NameTerm == "-" || string.IsNullOrEmpty(NameTerm) ? "" : LocalizationManager.GetTranslation(NameTerm, FixForRTL: false);
             Speaker = string.IsNullOrEmpty(OurName) ? Name : OurName;
             ShownAt = Time.unscaledTime;
             ++LinesShown;
@@ -501,7 +502,7 @@ namespace COTLMP.Game
 
                 /* As high as the line needs (a long one in German or Japanese takes three or four rows) */
                 float Width = Screen.width * 0.6f;
-                float Height = Mathf.Max(Size * 5.5f, TextStyle.CalcHeight(new GUIContent(Line), Width - Size * 1.6f) + Size * 2.6f);
+                float Height = Mathf.Max(Size * 5.5f, COTLMP.Ui.Bidi.Height(Line, TextStyle, Width - Size * 1.6f) + Size * 2.6f);
                 Rect Box = new((Screen.width - Width) / 2f, Screen.height - Height - Screen.height * 0.05f, Width, Height);
                 Color Old = GUI.color;
                 GUI.color = new Color(0.05f, 0.03f, 0.05f, 0.85f);
@@ -511,10 +512,10 @@ namespace COTLMP.Game
                 GUI.color = Old;
 
                 float Pad = Size * 0.8f;
-                string Name = Ours ? I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/GameSpeaker") : Speaker;
+                string Name = Ours ? I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/GameSpeaker", FixForRTL: false) : Speaker;
                 if (!string.IsNullOrEmpty(Name))
-                    GUI.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f, Box.width - Pad * 2f, Size * 1.6f), Plain(Name), NameStyle);
-                GUI.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f + Size * 1.7f, Box.width - Pad * 2f, Height - Size * 2.2f), Line, TextStyle);
+                    COTLMP.Ui.Bidi.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f, Box.width - Pad * 2f, Size * 1.6f), Plain(Name), NameStyle);
+                COTLMP.Ui.Bidi.Label(new Rect(Box.x + Pad, Box.y + Pad * 0.5f + Size * 1.7f, Box.width - Pad * 2f, Height - Size * 2.2f), Line, TextStyle);
 
                 List<string> Options = Ours ? null : RemoteOptions;
                 if (Options == null || Options.Count == 0)
@@ -534,7 +535,7 @@ namespace COTLMP.Game
                         Point(Index);
 
                     GUI.color = OurPick == Index ? new Color(0.96f, 0.82f, 0.45f, 1f) : Color.white;
-                    GUI.Box(Area, $"{Index + 1}. {Plain(Options[Index])}", OptionStyle);
+                    GUI.Box(Area, $"{Index + 1}. {COTLMP.Ui.Bidi.Row(Plain(Options[Index]))}", OptionStyle);
                     GUI.color = Old;
 
                     /* Icons at the answer's top right corner, the partner's outermost */

@@ -285,11 +285,11 @@ namespace COTLMP.Debug
                 string Code = I2.Loc.LocalizationManager.GetLanguageCode(Language);
                 I2.Loc.LocalizationManager.SetLanguageAndCode(Language, Code, RememberLanguage: false, Force: true);
                 yield return new WaitForSecondsRealtime(1.5f);
-                string Game = I2.Loc.LocalizationManager.GetTranslation("Conversation_NPC/Fox/Meeting/0");
+                string Game = I2.Loc.LocalizationManager.GetTranslation("Conversation_NPC/Fox/Meeting/0", FixForRTL: false);
                 if (string.IsNullOrEmpty(Game) || Game.Contains("Conversation_NPC"))
-                    Game = I2.Loc.LocalizationManager.GetTranslation("Conversation_NPC/Fox/Answer_CantAfford/0");
+                    Game = I2.Loc.LocalizationManager.GetTranslation("Conversation_NPC/Fox/Answer_CantAfford/0", FixForRTL: false);
                 COTLMP.Game.Dialogs.GameLine = Game + "\n" +
-                                               string.Format(I2.Loc.LocalizationManager.GetTranslation("Multiplayer/UI/PatchesFailed"), 2);
+                                               string.Format(I2.Loc.LocalizationManager.GetTranslation("Multiplayer/UI/PatchesFailed", FixForRTL: false), 2);
                 yield return new WaitForSecondsRealtime(1f);
                 Take($"lang-{Code}");
                 yield return new WaitForSecondsRealtime(0.5f);

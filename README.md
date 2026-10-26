@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.6, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.3.7, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.3.6, pre-release.**
+**Version 0.3.7, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.3.6.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.3.7.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs, and back up your saves.
 
@@ -114,12 +114,12 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 | Mod versions compared on joining: both shown, playing on allowed with a warning; a friend behind updates to the host's version and joins again by itself, a host behind can be asked to update | works in the automated test (both ways, the friend's update end to end) |
 | The mod updates itself without leaving the game: a newer release is offered in the main menu, downloaded, checked (SHA-256) and put in place of the running mod; one that doesn't start puts the old one back. During a game: restart the lobby, restart the game, or later. A version needing a new BepInEx or COTL API goes through the installer | works in the automated test (a fake release, end to end, and a broken one rolled back) |
 | A lost connection is taken up again: the friend's game waits behind the loading screen ("Connecting 1/3") and joins the host again, back in the host's room with their hearts and gear; after 3 tries, the main menu with the error | works in the automated test (a 45 s drop-out back on the 2nd try, a 300 s one ending after 3) |
-| Text chat: T opens it, Enter sends, Esc closes; the last lines at the bottom left with Steam names, the game's controls off while typing | works in the automated test (both ways, Chinese, Japanese, Korean) |
+| Text chat: T opens it, Enter sends, Esc closes; the last lines at the bottom left with Steam names, the game's controls off while typing | works in the automated test (both ways, Chinese, Japanese, Korean, Arabic) |
 | A game update that breaks some of the mod's patches: the rest work, the main menu says so (with an update button when a newer mod is out), both players hear it when entering a session | works in the automated test (a patch made not to fit) |
 | A friend who comes back (left, lost the connection, crashed) is taken to the host's room with what they had; each friend is a character of their own in the host's save | works in the automated test |
 | A conversation that starts while the partner is in another room waits for them, doors shut | works in the automated test |
 | On the dungeon's minimap each player's head stands on their room | works in the automated test |
-| All 15 languages of the game | the partner's line box checked in all 15; Arabic over several rows reads its rows in the wrong order |
+| All 15 languages of the game; Arabic laid out right to left in the mod's own boxes (the partner's lines, the chat), also inside a Latin line | the partner's line box checked in all 15, Arabic over several rows and inside a Latin chat line |
 | A sync check every 4 s: what still differs two checks in a row is taken from its owner (the host, or the friend for followers in their hands) and logged with what differed; once a minute the log says what the sync cost | works in the automated test (a lost rename, sermon day, stone, a missing and an extra torch all fixed) |
 | Trees, rocks and berry bushes: each hit shows for the player who watches (shake, bar, stump, smoke), the loot drops only for the one who hit | works in the automated test (a tree chopped, a rock broken, followers picking berries) |
 | The friend plays on the host's save: joins from the main menu without a save of their own; leaving (or the host stopping) takes them back to the main menu and the host's save is forgotten | works in the automated test (join, leave, join again) |
@@ -142,7 +142,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 
 ## По-русски
 
-Версия 0.3.6, предрелиз.
+Версия 0.3.7, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
@@ -272,6 +272,9 @@ paths from environment variables (see the top of each).
 - **Text chat.** IMGUI, drawn over the game: a line goes as co-op data (kind 53) with the sender's
   Steam name. While typing, the Rewired controller maps that were on go off and exactly those come
   back two frames after Enter or Esc. See `TextChat.cs`.
+- **Arabic in the mod's own boxes.** IMGUI has no right-to-left layout: `Bidi.cs` breaks the text as
+  written into rows by words, then joins and turns each row with the game's RTLTMPro (as its own boxes
+  do), right-aligned when it starts in Arabic; inside a Latin row only the Arabic stretches are turned.
 - **Rejoining.** A player who (re)joins says hello; the host answers with its run (even after the
   run is too old to be adopted by a newcomer), every room cleared in it and what is known of its
   enemies' health. A handshake from an address already in the game replaces the old connection at

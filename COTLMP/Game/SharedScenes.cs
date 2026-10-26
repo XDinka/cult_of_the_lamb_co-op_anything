@@ -403,7 +403,8 @@ namespace COTLMP.Game
 
         internal static int TalksHeld, TalksReleased, HoldsTold;
 
-        private static string T(string Key) => I2.Loc.LocalizationManager.GetTranslation(Key);
+        /* For the line box, as written (it lays right-to-left text out itself) */
+        private static string T(string Key) => I2.Loc.LocalizationManager.GetTranslation(Key, FixForRTL: false);
 
         /// <summary>
         /// We wait in this room for the partner: its doors aren't ours to go through meanwhile

@@ -46,6 +46,8 @@ namespace COTLMP.Debug
                 yield return Until(() => COTLMP.Ui.TextChat.Received > 0, 60f);
                 yield return new WaitForSecondsRealtime(1f);
                 COTLMP.Ui.TextChat.Say($"Got it ({COTLMP.Ui.TextChat.Received}) — مرحبا 안녕");
+                /* A long Arabic line over several rows: they must read top to bottom, right-aligned */
+                COTLMP.Ui.TextChat.Say("مرحبا يا صديقي، لنذهب معًا إلى الغرفة التالية الآن ونقاتل الزعيم الكبير قبل أن يحل الليل");
                 Plugin.Logger?.LogWarning($"{Tag} Chat test: answered");
             }
             yield return new WaitForSecondsRealtime(3f);

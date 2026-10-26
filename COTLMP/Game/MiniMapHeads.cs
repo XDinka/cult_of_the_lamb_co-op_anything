@@ -135,7 +135,7 @@ namespace COTLMP.Game
 
                 /* Together: side by side in the room's middle, the Lamb on the left as in the game's co-op */
                 bool Together = Mine != null && Mine == Partner;
-                float Apart = Together ? 0.28f : 0f;
+                float Apart = Together ? 0.3f : 0f;
                 Stand(Ours, Mine, Together ? (WeAreGoat ? Apart : -Apart) : 0f);
                 Stand(Theirs, Partner, Together ? (WeAreGoat ? -Apart : Apart) : 0f);
             }
@@ -159,7 +159,8 @@ namespace COTLMP.Game
                 Rect.anchorMin = Rect.anchorMax = Rect.pivot = new Vector2(0.5f, 0.5f);
                 Rect.localScale = Vector3.one;
                 Rect.localRotation = Quaternion.identity;
-                float Size = Mathf.Min(Box.rect.width, Box.rect.height) * 0.62f;
+                /* As high as the room (the room's own icon is smaller), so a head reads at a glance */
+                float Size = Box.rect.height;
                 Rect.sizeDelta = new Vector2(Size, Size);
                 Rect.anchoredPosition = new Vector2(Box.rect.width * Shift, 0f);
                 Head.gameObject.SetActive(true);

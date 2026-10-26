@@ -196,7 +196,7 @@ namespace COTLMP.Game
                 if (Film)
                     OnlineMenu.Wait("Multiplayer/Scene/WaitScene");
                 else
-                    Dialogs.GameLine = I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/WaitScene");
+                    Dialogs.GameLine = I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/WaitScene", FixForRTL: false);
             }
             catch (Exception e)
             {
@@ -317,7 +317,7 @@ namespace COTLMP.Game
                 try
                 {
                     if (SyncScene)
-                        Dialogs.GameLine = I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/WaitSync");
+                        Dialogs.GameLine = I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Scene/WaitSync", FixForRTL: false);
                     else
                         OnlineMenu.Wait("Multiplayer/Scene/WaitSync");
                 }

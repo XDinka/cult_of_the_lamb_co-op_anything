@@ -30,8 +30,8 @@ namespace COTLMP.Ui
     /// game hears nothing of the keyboard or the pad (the controller maps that were on go off, and exactly
     /// those come back after). The last lines stand at the bottom left with the sender's Steam name and fade
     /// after 10 s; with the line open the whole history shows. Drawn with IMGUI, whose default font takes
-    /// Chinese, Japanese and Korean from the system's fonts; IME input is on while typing. Arabic lines are
-    /// shaped the way the game shapes its own.
+    /// Chinese, Japanese and Korean from the system's fonts; IME input is on while typing. Arabic is laid
+    /// out right to left by Bidi, also within a Latin line.
     /// </remarks>
     internal static class TextChat
     {
@@ -225,26 +225,6 @@ namespace COTLMP.Ui
             }
         }
 
-        /*
-         * Arabic as the game shows its own lines (the box doesn't join or turn the letters itself). Only a line that is
-         * mostly Arabic: the game's turning is for whole lines, a word of it among Latin ones would come out wrong.
-         */
-        private static string Shaped(string Text)
-        {
-            int Arabic = Text.Count(Char => Char >= '؀' && Char <= 'ۿ');
-            int Letters = Text.Count(char.IsLetter);
-            if (Arabic == 0 || Arabic * 2 < Letters)
-                return Text;
-            try
-            {
-                return LocalizeIntegration.ConvertToRTL(Text);
-            }
-            catch (Exception)
-            {
-                return Text;
-            }
-        }
-
         private sealed class Runner : MonoBehaviour
         {
             private GUIStyle LineStyle, NameStyle, FieldStyle;
@@ -327,7 +307,7 @@ namespace COTLMP.Ui
                     if (string.IsNullOrEmpty(Typed))
                     {
                         GUI.color = new Color(1f, 1f, 1f, 0.45f);
-                        GUI.Label(new Rect(Field.x + Size * 0.4f, Field.y + Size * 0.2f, Field.width, Field.height), I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Chat/Hint"), LineStyle);
+                        Bidi.Label(new Rect(Field.x + Size * 0.4f, Field.y + Size * 0.2f, Field.width - Size * 0.8f, Field.height), I2.Loc.LocalizationManager.GetTranslation("Multiplayer/Chat/Hint", FixForRTL: false), LineStyle);
                         GUI.color = Old;
                     }
                     if (Focus)
@@ -345,9 +325,9 @@ namespace COTLMP.Ui
                     Entry Item = Lines[Index];
                     float Alpha = Open ? 1f : Mathf.Clamp01(FadeAfter + 1f - (Now - Item.At));
                     string Name = Item.Name + ":";
-                    float NameWidth = NameStyle.CalcSize(new GUIContent(Name)).x;
-                    string Text = Shaped(Item.Text);
-                    float Height = Mathf.Max(LineStyle.CalcHeight(new GUIContent(Text), Width - NameWidth - Size * 0.6f), Size * 1.4f);
+                    float NameWidth = NameStyle.CalcSize(new GUIContent(Bidi.Row(Name))).x;
+                    string Text = Item.Text;
+                    float Height = Mathf.Max(Bidi.Height(Text, LineStyle, Width - NameWidth - Size * 0.6f), Size * 1.4f);
                     Y -= Height + Size * 0.25f;
 
                     GUI.color = new Color(0.05f, 0.03f, 0.05f, 0.6f * Alpha);
@@ -357,8 +337,8 @@ namespace COTLMP.Ui
                     NameStyle.normal.textColor = Goat ? new Color(0.62f, 0.42f, 1f, Alpha) : new Color(0.93f, 0.25f, 0.22f, Alpha);
                     LineStyle.normal.textColor = new Color(0.97f, 0.94f, 0.88f, Alpha);
                     GUI.color = Old;
-                    GUI.Label(new Rect(X, Y, NameWidth + 2f, Size * 1.5f), Name, NameStyle);
-                    GUI.Label(new Rect(X + NameWidth + Size * 0.3f, Y, Width - NameWidth - Size * 0.3f, Height), Text, LineStyle);
+                    Bidi.Label(new Rect(X, Y, NameWidth + 2f, Size * 1.5f), Name, NameStyle);
+                    Bidi.Label(new Rect(X + NameWidth + Size * 0.3f, Y, Width - NameWidth - Size * 0.3f, Height), Text, LineStyle);
                 }
                 GUI.color = Old;
             }

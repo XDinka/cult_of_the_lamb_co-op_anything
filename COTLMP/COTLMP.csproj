@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>COTLMP</AssemblyName>
     <Product>Cult of the Lamb Multiplayer Mod Plug-In</Product>
-    <Version>0.3.6</Version>
+    <Version>0.3.7</Version>
     <Copyright>Copyright (c) 2026 GeoB99 &amp; Neco-Arc</Copyright>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
@@ -43,6 +43,11 @@
     <!-- The game's input and session library (the title screen's engagement, for the test harness) -->
     <Reference Include="UnifyLibrary">
       <HintPath>$(CotlManagedDir)\UnifyLibrary.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- The game's Arabic shaping (joining and turning), for the boxes the mod draws itself -->
+    <Reference Include="RTLTMPro">
+      <HintPath>$(CotlManagedDir)\RTLTMPro.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
