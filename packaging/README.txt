@@ -23,7 +23,8 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
     со своими вещами; у каждого друга свой персонаж в сохранении хоста.
   + Разговор ждёт напарника, если тот в другой комнате; двери закрыты.
   + Головы игроков на мини-карте подземелья, панели как в кооперативе игры.
-  + Все 15 языков игры.
+  + Все 15 языков игры; арабский в окнах мода справа налево, с соединёнными
+    буквами, даже внутри латинской строки.
   + Сцены и ролики кончаются у обоих вместе: кто досмотрел или пропустил
     первым, ждёт за чёрным экраном («Ждём, когда напарник досмотрит»);
     друг продолжает, когда у хоста прогрузился мир («Ждём подтверждения
@@ -170,7 +171,8 @@ WHAT IT DOES
     in the host's save.
   + A conversation waits for a partner in another room; the doors stay shut.
   + The players' heads on the dungeon's minimap, panels as in the game's co-op.
-  + All 15 languages of the game.
+  + All 15 languages of the game; Arabic right to left with joined letters in
+    the mod's own boxes, also inside a Latin line.
   + Scenes and films end for both together: whoever is done or skips first
     waits behind a black screen ("Waiting for your partner to finish
     watching"); the friend goes on once the host's world is up ("Waiting for
