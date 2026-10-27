@@ -5,9 +5,9 @@ Announces a GitHub release in the Discord releases channel through its webhook.
     python tools/discord-release.py TAG --dry-run  (prints the message instead)
 
 The webhook comes from DISCORD_WEBHOOK or from the file .discord-webhook at the repository root
-(git-ignored, never commit it). Run by tools/release.py after it publishes a release, or by
-.github/workflows/discord-release.yml when the repository has the DISCORD_WEBHOOK secret (use one of
-the two, not both, or the release is announced twice). The words for players can
+(git-ignored, never commit it). Run by .github/workflows/discord-release.yml with the repository
+secret DISCORD_WEBHOOK when a release is published; by hand only to preview (--dry-run) or to
+announce again. The words for players can
 sit in the release notes as hidden blocks, which GitHub doesn't show:
 
     <!-- discord-ru

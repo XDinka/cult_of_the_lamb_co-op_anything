@@ -1,5 +1,5 @@
-# Publishes a GitHub release with its files (the token comes from git's credential manager),
-# then announces it in Discord with tools/discord-release.py.
+# Publishes a GitHub release with its files (the token comes from git's credential manager).
+# GitHub then announces it in Discord (.github/workflows/discord-release.yml).
 # Usage: release.py VERSION "TITLE" NOTES.md INSTALLER.exe PACKAGE.zip MOD.zip
 #   INSTALLER.exe  out/CotlCoopInstaller-VERSION.exe, published as CotlCoopInstaller.exe (the README's button)
 #   PACKAGE.zip    out/cotl-coop-anything-VERSION.zip, the manual install
@@ -24,5 +24,3 @@ for path, name, ct in ((exe, 'CotlCoopInstaller.exe', 'application/octet-stream'
     r = urllib.request.Request(f'{up}?name={name}', data=open(path, 'rb').read(), headers={**H, 'Content-Type': ct}, method='POST')
     print(json.load(urllib.request.urlopen(r))['browser_download_url'])
 print(rel['html_url'], rel['name'])
-# The Discord releases channel (skipped when there's no .discord-webhook)
-subprocess.run([sys.executable, __file__.replace('release.py', 'discord-release.py'), 'v' + ver])
