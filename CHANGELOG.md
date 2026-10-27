@@ -3,6 +3,42 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.9.0 (2026-10-28), beta
+
+**The end of the game is played together.** The last place of the game works as every leader's room
+does: the first one in waits by the door, a scene starting for one pulls the other in, and the fight's
+keepers, the shadow and the great form stand, fall and carry the story on for both players — each body
+a player fells counts for the pair, and the staging (the broken chains, the darkened arena, the one
+who remains) follows on both screens. The ending and what it leaves behind land in the host's save.
+See `Game/FinalBoss.cs`.
+
+![Standing at the podiums together](Media/changelog/0.9.0-final-podiums.png)
+![The shadow falls for both players](Media/changelog/0.9.0-final-shadow.png)
+
+**The crown's question is asked of both.** The choice at the end comes up on both screens with the
+players' icons over the answers, as conversations already did: each player sees what the other points
+at, the friend's pick is a vote, and the host's hand decides for the pair. Nothing starts until that
+answer is given.
+
+**Two players, and the partner's puppet knows its place.** The lobby and the session are for two now.
+The partner's stand-in never springs a scene's walked-over triggers, never becomes the game's main
+player (that one took the camera, the controls and every icon with it on the friend's side), and the
+screen-edge markers, the heads by the hearts and the damage flash all follow who a player looks like,
+not the game's lamb-first seating.
+
+**The save is kept safe.** Before the friend's first join of a session the host's save is copied
+aside (`saves/cotlmp-backup`), so an early beta can't cost anyone their cult.
+
+**A log button for bug reports.** The pause menu's online page has a button that gathers the game's
+log and opens the Discord, so a stumble in the beta is a minute's work to report.
+
+**Smaller mendings.** A session leaves nothing behind for the next one (room ownership, held scenes,
+hearts panels, puppets); a knocked-out player can't stay down forever; a frozen leader dies properly
+on the partner's side and its heart is taken once for both.
+
+**Tested:** the full final fight on the test stand pair (entrance, podiums, the question, three
+stages, the ending) and the leaders of all four lands at all four layers, 16 pairs in one pass.
+
 ## 0.3.7 (2026-10-27)
 
 **Arabic reads right in the mod's own boxes.** The partner's lines at the bottom of the screen and the
