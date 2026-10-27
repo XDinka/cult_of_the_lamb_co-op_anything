@@ -60,6 +60,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Друг закрыл онлайн игру", false),
             new("Multiplayer/Reconnect/Connecting", "Подключение {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "Связь с другом потеряна: не удалось переподключиться за 3 попытки", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: отменить подключение", false),
+            new("Multiplayer/Reconnect/Cancel", "Отменить переподключение", false),
+            new("Multiplayer/Reconnect/Cancelled", "Переподключение отменено", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} точек подключения мода не подходят к этой версии игры: игра обновилась после мода. Кооператив может работать неправильно, пока не выйдет исправленная версия; мод предложит её здесь, как только она появится", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} точек подключения мода не подходят к этой версии игры: игра обновилась после мода. Вышла версия {1} (у вас {2}). Обновить сейчас?", false),
@@ -112,6 +115,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "Ждём друга...", false),
             new("Multiplayer/Lobby/WaitingHost", "Ждём, когда хост начнёт", false),
             new("Multiplayer/Lobby/Failed", "Не удалось открыть лобби", false),
+            new("Multiplayer/Online/JoinFailed", "Не удалось подключиться к лобби друга", false),
             new("Multiplayer/Intro/WaitCrown", "Ждём, пока друг получит корону...", false),
 
             /* Opening online play */

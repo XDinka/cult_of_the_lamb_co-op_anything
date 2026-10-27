@@ -79,6 +79,7 @@ namespace COTLMP.Ui
         private static readonly (ulong Friend, ulong Lobby)[] FriendRowsShown = new (ulong, ulong)[FriendRows];
         private static float NextFriendsLook;
         private static string Joining;
+        private static float JoinStarted;
 
         /* The key art's Lamb, the Goat beside it in the lobby, and their name tags */
         private static SkeletonAnimation LambArt, GoatArt;
@@ -251,6 +252,8 @@ namespace COTLMP.Ui
             NextFriendsLook = 0f;
             RestoreSlotsHeader();
             Go(Online);
+            /* Nobody hosts or joins on an old mod without hearing of the new one */
+            COTLMP.Network.Updater.OnlineOpened();
         }
 
         internal static void ShowLobby()
@@ -367,6 +370,15 @@ namespace COTLMP.Ui
                 return;
             NextFriendsLook = Time.unscaledTime + 2f;
 
+            /* A join that leads nowhere (the lobby closed as we knocked) lets go of the menu */
+            if (Joining != null && !Plugin.GlobalsInternal.InGameSession && Time.unscaledTime - JoinStarted > 20f)
+            {
+                Plugin.Logger?.LogWarning($"[LOBBY] Joining {Joining} led nowhere in 20 s: back to the menu");
+                Joining = null;
+                SteamBridge.CancelJoin();
+                Tell("Multiplayer/Online/JoinFailed");
+            }
+
             List<(ulong Friend, ulong Lobby)> Found = SteamBridge.FriendLobbies();
             for (int Index = 0; Index < FriendRows; Index++)
             {
@@ -388,6 +400,7 @@ namespace COTLMP.Ui
             if (Friend == 0 || Plugin.GlobalsInternal.InGameSession)
                 return;
             Joining = SteamBridge.NameOf(Friend);
+            JoinStarted = Time.unscaledTime;
             NextFriendsLook = 0f;
             SteamBridge.JoinFriend(Friend, FriendLobby);
         }

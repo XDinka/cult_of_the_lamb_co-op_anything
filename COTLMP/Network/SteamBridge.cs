@@ -166,12 +166,30 @@ namespace COTLMP.Network
                 if (!SteamManager.Initialized)
                     return Found;
                 AppId_t Ours = SteamUtils.GetAppID();
+                int InGame = 0;
                 int Count = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
                 for (int Index = 0; Index < Count; Index++)
                 {
                     CSteamID Friend = SteamFriends.GetFriendByIndex(Index, EFriendFlags.k_EFriendFlagImmediate);
-                    if (SteamFriends.GetFriendGamePlayed(Friend, out FriendGameInfo_t Game) && Game.m_gameID.AppID() == Ours && Game.m_steamIDLobby.IsValid())
+                    if (!SteamFriends.GetFriendGamePlayed(Friend, out FriendGameInfo_t Game) || Game.m_gameID.AppID() != Ours)
+                        continue;
+                    ++InGame;
+                    if (Game.m_steamIDLobby.IsValid())
+                    {
                         Found.Add((Friend.m_SteamID, Game.m_steamIDLobby.m_SteamID));
+                        continue;
+                    }
+                    /* The game info carries no lobby on some clients: the host's presence names it */
+                    SteamFriends.RequestFriendRichPresence(Friend);
+                    string Group = SteamFriends.GetFriendRichPresence(Friend, "steam_player_group");
+                    if (ulong.TryParse(Group, out ulong Named) && Named != 0)
+                        Found.Add((Friend.m_SteamID, Named));
+                }
+                if (InGame != FriendsInGameSeen || Found.Count != FriendLobbiesSeen)
+                {
+                    FriendsInGameSeen = InGame;
+                    FriendLobbiesSeen = Found.Count;
+                    Plugin.Logger?.LogInfo($"[STEAM] Friends in the game: {InGame}, with a lobby to join: {Found.Count}");
                 }
             }
             catch (Exception e)
@@ -180,6 +198,9 @@ namespace COTLMP.Network
             }
             return Found;
         }
+
+        /* What the last look at the friends found, logged only as it changes */
+        private static int FriendsInGameSeen = -1, FriendLobbiesSeen = -1;
 
         /// <summary>
         /// Joins a friend's lobby, as accepting their invite would
@@ -437,6 +458,9 @@ namespace COTLMP.Network
             SteamMatchmaking.SetLobbyData(Lobby, "cotlmp", Application.version);
             SteamMatchmaking.SetLobbyJoinable(Lobby, true);
             SteamFriends.SetRichPresence("connect", "+connect_lobby " + Lobby.m_SteamID);
+            /* Some clients never carry the lobby in the friend's game info: the presence names it too */
+            SteamFriends.SetRichPresence("steam_player_group", Lobby.m_SteamID.ToString());
+            SteamFriends.SetRichPresence("steam_player_group_size", "1");
             Plugin.Logger?.LogInfo($"[STEAM] Lobby {Lobby.m_SteamID} is open");
             if (InviteOnOpen)
                 SteamFriends.ActivateGameOverlayInviteDialog(Lobby);

@@ -82,10 +82,13 @@ namespace COTLMP.Game
         internal static float ReviveProgress => Progress;
 
         /// <summary>
-        /// The partner can still carry the run: they are alive and in a dungeon
+        /// The partner can still carry the run: they are alive and in a dungeon. In the opening each
+        /// plays alone (nobody can come to get anyone up), so the game's own death stands — a
+        /// knockout there left the player lying unkillable in their own prologue.
         /// </summary>
         private static bool PartnerFighting =>
-            CoopSync.InSession && Partner == Life.Alive && RoomSync.PartnerLastPlace != null && RoomSync.PartnerLastPlace.Contains("#");
+            CoopSync.InSession && !IntroCoop.Apart && Partner == Life.Alive &&
+            RoomSync.PartnerLastPlace != null && RoomSync.PartnerLastPlace.Contains("#");
 
         public static void Initialize()
         {

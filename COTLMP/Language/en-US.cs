@@ -60,6 +60,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Your friend stopped hosting", false),
             new("Multiplayer/Reconnect/Connecting", "Connecting {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "Lost the connection to your friend: couldn't connect again in 3 tries", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: stop trying", false),
+            new("Multiplayer/Reconnect/Cancel", "Stop reconnecting", false),
+            new("Multiplayer/Reconnect/Cancelled", "Connecting again was called off", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} of the mod's hooks don't fit this game version: the game was updated after the mod. Co-op may not work right until a fixed version is out; the mod offers it here as soon as it is", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} of the mod's hooks don't fit this game version: the game was updated after the mod. Version {1} is out (you have {2}). Update now?", false),
@@ -112,6 +115,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "Waiting for a friend...", false),
             new("Multiplayer/Lobby/WaitingHost", "Waiting for the host to start", false),
             new("Multiplayer/Lobby/Failed", "Couldn't open the lobby", false),
+            new("Multiplayer/Online/JoinFailed", "Couldn't reach the friend's lobby", false),
             new("Multiplayer/Intro/WaitCrown", "Waiting for your friend to receive the crown...", false),
 
             /* Opening online play */

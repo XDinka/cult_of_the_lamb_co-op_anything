@@ -59,6 +59,10 @@ namespace COTLMP.Network
         private static string InstallerUrl, InstallerSha256, PackageUrl, PackageSha256;
         private static bool Asked, Offered, Welcomed;
 
+        /* The main menu, for the multiplayer tab's own look at the releases */
+        private static MainMenu Menu;
+        private static float OnlineAsked = -600f;
+
         /* The test harness: the version we pretend to be, taking the offer by itself, the installer quiet,
            the installer's way even when the mod could go in the running game */
         internal static string PretendVersion, ReleaseFrom, OfferShot, ProgressShot;
@@ -438,6 +442,19 @@ namespace COTLMP.Network
         }
 
         /// <summary>
+        /// The multiplayer tab opened: look at the releases once more (at most once a minute) and
+        /// offer a newer mod over the menu, so nobody hosts or joins a session on an old one
+        /// </summary>
+        internal static void OnlineOpened()
+        {
+            if (Menu == null || !Menu.isActiveAndEnabled || Time.unscaledTime - OnlineAsked < 60f)
+                return;
+            OnlineAsked = Time.unscaledTime;
+            Offered = false;
+            Plugin.MonoInstance.StartCoroutine(Ask(Menu));
+        }
+
+        /// <summary>
         /// The new mod is in and the main menu up again: the update's screen goes, the player is told
         /// </summary>
         internal static void Welcome()
@@ -475,6 +492,7 @@ namespace COTLMP.Network
         [HarmonyPostfix]
         private static void MenuShown(MainMenu __instance)
         {
+            Menu = __instance;
             /* The main menu is up again after the new mod took the old one's place */
             Welcome();
             if (HotUpdate.Staged != null)

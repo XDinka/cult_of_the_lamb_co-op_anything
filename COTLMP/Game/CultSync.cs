@@ -605,6 +605,7 @@ namespace COTLMP.Game
             List<string> Differed = new();
             int Count = Reader.ReadUInt16();
             Dictionary<string, MemberInfo> ByName = DataMembers().ToDictionary(Member => Member.Name);
+            bool Quests = false;
             for (int Index = 0; Index < Count; Index++)
             {
                 string Member = Reader.ReadString();
@@ -618,11 +619,73 @@ namespace COTLMP.Game
                 if (DataLast.ContainsKey(Member))
                     DataLast[Member] = Get(Info, DataManager.Instance);
                 ++DataApplied;
+                Quests |= QuestMembers.Contains(Member);
                 if (DataSeen.Add(Member))
                     Plugin.Logger?.LogInfo($"[COOP] The partner's cult data: {Member}");
             }
+            if (Quests)
+                FreshenQuests();
             if (Fix)
                 Plugin.Logger?.LogInfo($"[COOP] Sync check: the cult's data differed from the partner's in {(Differed.Count > 0 ? string.Join(", ", Differed) : "nothing any more")}, took theirs");
+        }
+
+        /* The quest lists, as the save keeps them */
+        private static readonly HashSet<string> QuestMembers = new()
+            { "Objectives", "CompletedObjectives", "FailedObjectives", "TrackedObjectiveGroupIDs" };
+
+        private static float QuestsFreshened = -10f;
+        internal static int QuestRefreshes;
+
+        /// <summary>
+        /// The partner's hand moved the quests (finished one, took the next): the game's tracker still
+        /// draws the old entries and never hears of the change, so it is built again from the lists
+        /// the way a loaded save builds it
+        /// </summary>
+        private static void FreshenQuests()
+        {
+            if (Time.unscaledTime - QuestsFreshened < 2f)
+                return;
+            QuestsFreshened = Time.unscaledTime;
+            try
+            {
+                /* The partner's copies come in as plain data: wake each one and run the game's own
+                   completion check over it, so what either player finished counts here too */
+                foreach (ObjectivesData Quest in new List<ObjectivesData>(DataManager.Instance.Objectives))
+                {
+                    if (Quest == null || Quest is Objectives_Custom)
+                        continue;
+                    if (!Quest.IsInitialised())
+                        Quest.Init(false);
+                    ObjectiveManager.UpdateObjective(Quest);
+                }
+                foreach (string Group in new List<string>(DataManager.Instance.TrackedObjectiveGroupIDs))
+                    ObjectiveManager.UpdateQuestStatus(Group, false);
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Checking the partner's quests failed: {e.Message}");
+            }
+            try
+            {
+                var Tracker = UnityEngine.Object.FindObjectOfType<Lamb.UI.UIObjectivesController>();
+                if (Tracker == null)
+                    return;
+                if (AccessTools.Field(typeof(Lamb.UI.UIObjectivesController), "_objectiveGroups").GetValue(Tracker) is System.Collections.IDictionary Groups)
+                {
+                    foreach (object Group in new List<object>(Groups.Values.Cast<object>()))
+                        if (Group is Component Piece && Piece != null)
+                            UnityEngine.Object.Destroy(Piece.gameObject);
+                    Groups.Clear();
+                }
+                AccessTools.Field(typeof(Lamb.UI.UIObjectivesController), "_initialized").SetValue(Tracker, false);
+                AccessTools.Method(typeof(Lamb.UI.UIObjectivesController), "OnLoadComplete").Invoke(Tracker, null);
+                ++QuestRefreshes;
+                Plugin.Logger?.LogInfo("[COOP] The quest tracker reads the partner's changes");
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Refreshing the quest tracker failed: {e.Message}");
+            }
         }
 
         private static void ApplyWhole(Item Kind, int Id, string Name, BinaryReader Reader)

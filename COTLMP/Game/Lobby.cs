@@ -250,7 +250,10 @@ namespace COTLMP.Game
             Heard = null;
             Ours = Phase.Playing;
             if (Shown && InMenu)
+            {
+                Plugin.Logger?.LogInfo("[LOBBY] The lobby is gone: back to the online menu");
                 OnlineMenu.ShowOnline();
+            }
         }
 
         /* THE GAME'S SAVE SLOTS **********************************************/

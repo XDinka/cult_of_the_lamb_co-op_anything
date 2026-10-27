@@ -71,6 +71,69 @@ namespace COTLMP.Game
         public static void Initialize()
         {
             Plugin.MonoInstance.StartCoroutine(WatchPartner());
+            Plugin.MonoInstance.StartCoroutine(WatchHud());
+        }
+
+        /* How often the hearts healed themselves, for the test harness report */
+        internal static int HudHeals;
+
+        /// <summary>
+        /// Whatever hid the hearts mid-session (a scene's hide landing on a panel the co-op layout
+        /// keeps dark, a rebuild cut short), they come back: standing in the world with no panel on
+        /// screen for two looks in a row, the HUD is built again the way a room entry builds it
+        /// </summary>
+        private static IEnumerator WatchHud()
+        {
+            WaitForSecondsRealtime Wait = new(1f);
+            bool GoneOnce = false;
+            Health_Manager Manager = null;
+            while (true)
+            {
+                yield return Wait;
+                try
+                {
+                    if (!CoopSync.InSession || CoopManager.CoopActive || IntroCoop.Apart || PlayerFarming.Instance == null ||
+                        PlayerManager.CreatingPuppet || LetterBox.IsPlaying || MMTools.MMTransition.IsPlaying ||
+                        MMTools.MMConversation.isPlaying || SceneEnds.Waiting ||
+                        (MMTools.MMVideoPlayer.Instance != null && MMTools.MMVideoPlayer.Instance.activeSelf) ||
+                        PlayerFarming.Instance.health == null || PlayerFarming.Instance.health.HP <= 0f)
+                    {
+                        GoneOnce = false;
+                        continue;
+                    }
+                    if (Manager == null)
+                        Manager = UnityEngine.Object.FindObjectOfType<Health_Manager>();
+                    if (Manager == null)
+                        continue;
+                    bool Hearts = (HealthDungeonTwoPlayer(Manager) != null && HealthDungeonTwoPlayer(Manager).activeInHierarchy) ||
+                                  (HealthBaseSingle(Manager) != null && HealthBaseSingle(Manager).activeInHierarchy) ||
+                                  (Manager.health_SingleDungeon != null && Manager.health_SingleDungeon.gameObject.activeInHierarchy);
+                    /* The whole HUD can be left hidden too (a scene's hide whose show never came):
+                       the hearts stand alone then, with the day, the map and the bars gone */
+                    bool Rest = HUD_Manager.Instance == null || !HUD_Manager.Instance.Hidden;
+                    if (Hearts && Rest)
+                    {
+                        GoneOnce = false;
+                        continue;
+                    }
+                    if (!GoneOnce)
+                    {
+                        GoneOnce = true;
+                        continue;
+                    }
+                    GoneOnce = false;
+                    ++HudHeals;
+                    Plugin.Logger?.LogWarning($"[COOP] The HUD left the screen (hearts {(Hearts ? "up" : "gone")}, the rest {(Rest ? "up" : "gone")}): bringing it back");
+                    if (!Rest)
+                        HUD_Manager.Instance.Show(1, true);
+                    if (!Hearts)
+                        Manager.Init(PlayerFarming.Instance);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] The HUD watch stumbled: {e.Message}");
+                }
+            }
         }
 
         /// <summary>

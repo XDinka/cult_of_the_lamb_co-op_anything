@@ -113,6 +113,8 @@ namespace COTLMP.Debug
         private static float AutoTalk;
         private static bool AutoShoot;
         private static bool ChatTest, FinalTest;
+        /* -cotlmp-lobbyclose=N: the host closes its lobby N s after opening it (the friend must land back in the menu) */
+        private static float LobbyClose = -1f;
 
         /* -cotlmp-land=N: the land the dungeon tests go to (1 to 4, 5 and 6 for the DLC's) */
         private static int Land = 1;
@@ -195,6 +197,8 @@ namespace COTLMP.Debug
                     int.TryParse(Arg.Substring("-cotlmp-land=".Length), out Land);
                 else if (Arg.Equals("-cotlmp-finaltest", StringComparison.OrdinalIgnoreCase))
                     FinalTest = true;
+                else if (Arg.StartsWith("-cotlmp-lobbyclose=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-lobbyclose=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out LobbyClose);
                 else if (Arg.Equals("-cotlmp-chattest", StringComparison.OrdinalIgnoreCase))
                     ChatTest = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
@@ -387,6 +391,8 @@ namespace COTLMP.Debug
                 Run("ChatTogether", ChatTogether());
             if (FinalTest)
                 Run("FinalTogether", FinalTogether());
+            if (LobbyClose >= 0f)
+                Run("CloseLobbyLater", CloseLobbyLater());
             if (Sessions > 0)
                 Run("SessionsInARow", SessionsInARow());
             if (AutoShoot)

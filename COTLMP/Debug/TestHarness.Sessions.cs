@@ -143,6 +143,19 @@ namespace COTLMP.Debug
                     return Value.GetType().Name;
             }
         }
+
+        /// <summary>
+        /// -cotlmp-lobbyclose=N: the host closes its lobby N s after it opened, as its leave button
+        /// would; the friend standing in it must land back in the online menu
+        /// </summary>
+        private static IEnumerator CloseLobbyLater()
+        {
+            while (!Lobby.Open)
+                yield return null;
+            yield return new WaitForSecondsRealtime(LobbyClose);
+            Plugin.Logger?.LogWarning($"{Tag} Closing the lobby, as the host's leave button would");
+            Lobby.Close();
+        }
     }
 }
 
