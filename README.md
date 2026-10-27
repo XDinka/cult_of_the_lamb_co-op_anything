@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.9.0, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.9.1, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.9.0, pre-release.**
+**Version 0.9.1, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.9.0.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.9.1.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs: report them, and ideas, on [our Discord](https://discord.gg/52azdsYMD) (in the game:
 > Multiplayer → Bugs and ideas; an error window's "Copy the log" copies the log and opens it). The host's
@@ -145,7 +145,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 
 ## По-русски
 
-Версия 0.9.0, предрелиз.
+Версия 0.9.1, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно

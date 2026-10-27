@@ -3,6 +3,29 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.9.1 (2026-10-28)
+
+**A quest either player finishes counts for the pair.** The partner's quest lists are run through the
+game's own completion check as they come in, and the quest tracker is built anew from the lists —
+both ways, whoever did the deed.
+
+**The menu knows your friend.** The host names its lobby in the Steam presence too, and the menu
+reads it when the friend's game info carries no lobby, so the friend's row shows reliably; a join
+that leads nowhere lets the menu go after 20 s with a word. The lobby stays joinable through the
+whole game: a running game can be joined, and rejoined, from the menu. The multiplayer tab also
+looks at the releases as it opens and offers a newer mod.
+
+**Reconnecting can be called off.** The waiting screen has a real cancel button (Esc works too),
+and leaving it says "Connecting again was called off" instead of pretending it failed.
+
+**Smaller mendings.** The host closing the lobby sends the friend straight back to the online menu;
+the opening is each player's own again (a knockout there left the player lying unkillable in their
+prologue — the game's death stands); and the HUD heals itself: hearts gone mid-run come back, and a
+whole HUD left hidden by a scene (only the hearts standing in the base after the ending) shows again.
+
+**Tested:** the quest check and the HUD watch rode the stand pair's dungeon run; the lobby close,
+the menu join and the called-off reconnect each played out on the stand.
+
 ## 0.9.0 (2026-10-28), beta
 
 **The end of the game is played together.** The last place of the game works as every leader's room
