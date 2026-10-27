@@ -47,6 +47,21 @@ namespace COTLMP.Game
 
         private static Life Mine = Life.Alive;
         private static Life Partner = Life.Alive;
+
+        /// <summary>
+        /// The session is over: nothing of it is to steer the next one
+        /// </summary>
+        internal static void ResetSession()
+        {
+            Partner = Life.Alive;
+            /*
+             * A game over of the last session stays the game's; our state for the next one starts alive. Down stays down:
+             * the loop ends that (nobody is left to get us up)
+             */
+            if (Mine == Life.Dead && PlayerFarming.Instance != null && PlayerFarming.Instance.health != null && PlayerFarming.Instance.health.HP > 0f)
+                Mine = Life.Alive;
+        }
+
         private static float PartnerChanged;
 
         /* Revive bar: ours over the downed partner, or theirs over us, and when theirs last moved */
@@ -176,7 +191,7 @@ namespace COTLMP.Game
                 yield break;
             }
 
-            Plugin.Logger?.LogInfo("[COOP] Both of us are down, the run ends");
+            Plugin.Logger?.LogInfo("[COOP] Down for good (both down, or nobody left to get us up): the run ends");
             ++ForcedDeaths;
             try
             {
@@ -214,6 +229,10 @@ namespace COTLMP.Game
         /// <summary>
         /// Fills or drains the revive bar while the partner is down, and keeps our state in sync.
         /// </summary>
+        /* Down with no partner to get us up: since when (the friend may be connecting again) */
+        private static float AloneSince = -1f;
+        private const float AloneDownFor = 90f;
+
         private static IEnumerator Loop()
         {
             float NextAnnounce = 0f;
@@ -225,9 +244,33 @@ namespace COTLMP.Game
                 {
                     if (!CoopSync.InSession)
                     {
+                        /* The session ended while we were down: nobody can get us up, the run ends as alone */
+                        if (Mine == Life.Down && !Dying)
+                        {
+                            Plugin.Logger?.LogInfo("[COOP] The session ended while we were down: down for good");
+                            StartDying();
+                        }
                         Partner = Life.Alive;
                         Progress = PartnerProgress = 0f;
+                        AloneSince = -1f;
                         continue;
+                    }
+
+                    /* The host down and the friend gone from the session (longer than connecting again takes) */
+                    bool Alone = Plugin.GlobalsInternal.IsServerCreator && (COTLMP.Ui.PauseMenuPatches.Server?.PlayerCount ?? 0) < 2;
+                    if (Mine == Life.Down && Alone && !Dying)
+                    {
+                        if (AloneSince < 0f)
+                            AloneSince = Time.realtimeSinceStartup;
+                        else if (Time.realtimeSinceStartup - AloneSince > AloneDownFor)
+                        {
+                            Plugin.Logger?.LogInfo($"[COOP] Down and the friend gone for {AloneDownFor:F0} s: down for good");
+                            StartDying();
+                        }
+                    }
+                    else
+                    {
+                        AloneSince = -1f;
                     }
 
                     PlayerFarming Player = PlayerFarming.Instance;

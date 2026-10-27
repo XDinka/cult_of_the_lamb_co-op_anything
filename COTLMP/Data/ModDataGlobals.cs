@@ -28,18 +28,11 @@ namespace COTLMP.Data
         /// </summary>
         public string PlayerName;
 
-        /// <summary>
-        /// The maximum allowed number of players.
-        /// </summary>
-        public int MaxNumPlayers;
-
         public ModDataGlobals(bool Enable,
-                              string PlName,
-                              int PlNum)
+                              string PlName)
         {
             EnableMod = Enable;
             PlayerName = PlName;
-            MaxNumPlayers = PlNum;
         }
     }
 }

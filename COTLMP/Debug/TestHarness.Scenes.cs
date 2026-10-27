@@ -157,7 +157,7 @@ namespace COTLMP.Debug
 
         private static IEnumerator TalkOnce()
         {
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoTalk);
 
@@ -179,7 +179,7 @@ namespace COTLMP.Debug
         /// </summary>
         private static IEnumerator SceneTogether()
         {
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 6f : 7f);
@@ -232,7 +232,7 @@ namespace COTLMP.Debug
         /// </summary>
         private static IEnumerator SceneEndTogether()
         {
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 6f : 7f);
@@ -269,7 +269,7 @@ namespace COTLMP.Debug
         /// </summary>
         private static IEnumerator FilmEndTogether()
         {
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 6f : 11f);

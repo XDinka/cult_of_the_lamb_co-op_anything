@@ -32,6 +32,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-vanillacoop</c>: no session; in the cult the game's own second player joins (as a second pad
     /// would), then both go into the first dungeon: the game's co-op HUD to compare with</item>
     /// <item><c>-cotlmp-menushot</c>: with -cotlmp-hudshots, past the title screen by itself and a frame of the main menu</item>
+    /// <item><c>-cotlmp-onlineshot</c>: with -cotlmp-menushot, the mod's online menu opened and framed</item>
     /// <item><c>-cotlmp-langshots</c>: with -cotlmp-menushot, in the main menu each of the game's 15 languages in turn (in
     /// memory only: the game's settings and its remembered language stay as they are), the partner's line box drawn
     /// with a line of the game's and one of the mod's, and a frame of each</item>
@@ -47,7 +48,7 @@ namespace COTLMP.Debug
     {
         private const string Tag = "[QA]";
         private static string Dir;
-        private static bool VanillaCoop, GearTest, HoldTest, MenuShot, TitleShot, LangShots;
+        private static bool VanillaCoop, GearTest, HoldTest, MenuShot, TitleShot, LangShots, LogTest, OnlineShot;
         private static int Count;
 
         internal static void Initialize()
@@ -68,6 +69,10 @@ namespace COTLMP.Debug
                     TitleShot = true;
                 else if (Arg.Equals("-cotlmp-langshots", StringComparison.OrdinalIgnoreCase))
                     LangShots = true;
+                else if (Arg.Equals("-cotlmp-onlineshot", StringComparison.OrdinalIgnoreCase))
+                    OnlineShot = true;
+                else if (Arg.Equals("-cotlmp-logtest", StringComparison.OrdinalIgnoreCase))
+                    LogTest = COTLMP.Ui.LogButton.Quiet = true;
             }
             if (GearTest)
                 Plugin.MonoInstance.StartCoroutine(Gear());
@@ -270,8 +275,39 @@ namespace COTLMP.Debug
                 yield return new WaitForSecondsRealtime(0.5f);
             yield return new WaitForSecondsRealtime(3f);
             Take("menu");
+            if (OnlineShot)
+            {
+                COTLMP.Ui.OnlineMenu.Open();
+                yield return new WaitForSecondsRealtime(3f);
+                Take("online");
+            }
+            if (LogTest)
+                yield return PressCopyLog();
             if (LangShots)
                 yield return Languages();
+        }
+
+        /* The window's "Copy the log", pressed: the clipboard must hold the log */
+        private static IEnumerator PressCopyLog()
+        {
+            float Until = Time.realtimeSinceStartup + 20f;
+            GameObject Button = null;
+            while ((Button = GameObject.Find("COTLMP Copy Log")) == null && Time.realtimeSinceStartup < Until)
+                yield return new WaitForSecondsRealtime(0.5f);
+            if (Button == null)
+            {
+                Plugin.Logger?.LogWarning($"{Tag} Log test: no copy button in the window");
+                yield break;
+            }
+            /* The clipboard is the player's: what was on it goes back after */
+            string Before = GUIUtility.systemCopyBuffer;
+            GUIUtility.systemCopyBuffer = "";
+            Button.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return new WaitForSecondsRealtime(1f);
+            string Got = GUIUtility.systemCopyBuffer ?? "";
+            GUIUtility.systemCopyBuffer = Before ?? "";
+            Plugin.Logger?.LogWarning($"{Tag} Log test: {Got.Length} characters on the clipboard, {(Got.Contains("Chainloader startup complete") ? "the log" : "NOT THE LOG")}");
+            Take("log-copied");
         }
 
         /* Every language the game has, in memory only, with the line box the mod draws itself (IMGUI, the default font) */

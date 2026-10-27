@@ -83,6 +83,9 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-hurt=N</c>: N seconds after both stand in one dungeon room, the host's hearts go to two, one and back (bruises test); the joining copy logs and frames the looks the host's puppet takes on</item>
     /// <item><c>-cotlmp-runcount=N</c>: our save has had N runs (the grass of the first land grows from it), so two copies' saves differ; <c>-cotlmp-nograssfix</c> grows the grass from our own save as before</item>
     /// <item><c>-cotlmp-shots=DIR</c>: save the game's own frame to DIR a few seconds into every room shared with the partner</item>
+    /// <item><c>-cotlmp-sessions=N</c>, <c>-cotlmp-sessionlen=S</c>: N sessions in one running game, the host stopping
+    /// S s after the friend came and opening online again, the friend joining again; after each both log what of the
+    /// mod's state is still set (TestHarness.Sessions.cs)</item>
     /// <item><c>-cotlmp-chattest</c>: in the cult together, the host types a line (the chat opens, the text goes in, a frame,
     /// Enter) and checks the game got its input back; the friend answers what it got; frames of both chats</item>
     /// <item><c>-cotlmp-steamselftest</c>: after hosting, send a packet to our own SteamID over real Steam</item>
@@ -109,7 +112,12 @@ namespace COTLMP.Debug
         private static int[] WindowRect;
         private static float AutoTalk;
         private static bool AutoShoot;
-        private static bool ChatTest;
+        private static bool ChatTest, FinalTest;
+
+        /* -cotlmp-land=N: the land the dungeon tests go to (1 to 4, 5 and 6 for the DLC's) */
+        private static int Land = 1;
+        private static string DungeonScene => $"Dungeon{Land}";
+        private static FollowerLocation DungeonStart => (FollowerLocation)Enum.Parse(typeof(FollowerLocation), $"Dungeon{Land}_1");
         private static bool DrawTest;
         private static int RunCount = -1;
         private static float BossLate;
@@ -179,6 +187,14 @@ namespace COTLMP.Debug
                     int.TryParse(Arg.Substring("-cotlmp-runcount=".Length), out RunCount);
                 else if (Arg.Equals("-cotlmp-nograssfix", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Game.RunGrass.Off = true;
+                else if (Arg.StartsWith("-cotlmp-sessions=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-sessions=".Length), out Sessions);
+                else if (Arg.StartsWith("-cotlmp-sessionlen=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-sessionlen=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SessionLength);
+                else if (Arg.StartsWith("-cotlmp-land=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-land=".Length), out Land);
+                else if (Arg.Equals("-cotlmp-finaltest", StringComparison.OrdinalIgnoreCase))
+                    FinalTest = true;
                 else if (Arg.Equals("-cotlmp-chattest", StringComparison.OrdinalIgnoreCase))
                     ChatTest = true;
                 else if (Arg.Equals("-cotlmp-autoshoot", StringComparison.OrdinalIgnoreCase))
@@ -369,6 +385,10 @@ namespace COTLMP.Debug
                 Run("TalkOnce", TalkOnce());
             if (ChatTest)
                 Run("ChatTogether", ChatTogether());
+            if (FinalTest)
+                Run("FinalTogether", FinalTogether());
+            if (Sessions > 0)
+                Run("SessionsInARow", SessionsInARow());
             if (AutoShoot)
                 Run("Shoot", Shoot());
             if (DrawTest)

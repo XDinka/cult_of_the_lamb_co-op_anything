@@ -48,6 +48,11 @@ namespace COTLMP.Game
             public string Place;
             public int Skin;
             public string Weapon;
+            /*
+             * What the partner holds: the game asks every player in the room for a weapon and a curse
+             * before it opens some doors (the last place's podium room), the puppet included
+             */
+            public EquipmentType WeaponType, CurseType;
             /* Bruises, black and white, the mop: see Appearance.Look */
             public int Look;
             /* Its hearts, see CoopHud */
@@ -72,6 +77,16 @@ namespace COTLMP.Game
         private static string SentPlace;
         private static string SentFirst;
         private static float SentAt, PlaceSince;
+
+        /// <summary>
+        /// The session is over: nothing of it is to steer the next one
+        /// </summary>
+        internal static void ResetSession()
+        {
+            Poses.Clear();
+            SentPlace = SentFirst = null;
+        }
+
 
         /* Counters for the test harness report */
         internal static int Sent, Received, Applied, Appeared, Vanished;
@@ -138,6 +153,8 @@ namespace COTLMP.Game
                 Writer.Write(Place);
                 Writer.Write(Appearance.LocalSkin());
                 Writer.Write(WeaponSkin(Player));
+                Writer.Write((int)Player.currentWeapon);
+                Writer.Write((int)Player.currentCurse);
                 Writer.Write(Appearance.Look);
                 CoopHud.WriteHearts(Writer);
                 Vector3 At = Player.transform.position;
@@ -176,6 +193,8 @@ namespace COTLMP.Game
                 Place = Reader.ReadString(),
                 Skin = Reader.ReadInt32(),
                 Weapon = Reader.ReadString(),
+                WeaponType = (EquipmentType)Reader.ReadInt32(),
+                CurseType = (EquipmentType)Reader.ReadInt32(),
                 Look = Reader.ReadInt32(),
                 Hearts = CoopHud.ReadHearts(Reader),
                 Position = new Vector3(Reader.ReadSingle(), Reader.ReadSingle(), Reader.ReadSingle()),
@@ -233,6 +252,9 @@ namespace COTLMP.Game
                     PlayerManager.SetPuppetLook(Id, Item.Look);
                     CoopHud.ApplyHearts(Puppet, Item.Hearts);
                 }
+
+                Puppet.currentWeapon = Item.WeaponType;
+                Puppet.currentCurse = Item.CurseType;
 
                 /* Its own animator would put idle or running back every frame */
                 if (Driven.Add(Id) && Puppet.simpleSpineAnimator != null && Puppet.simpleSpineAnimator.enabled)

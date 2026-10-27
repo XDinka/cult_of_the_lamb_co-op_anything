@@ -28,7 +28,6 @@ namespace COTLMP.Language
             new("Multiplayer/UI/Settings", "Настройки мультиплеера", false),
             new("Multiplayer/UI/Settings/DisableMod", "Мод включён", false),
             new("Multiplayer/UI/Settings/PlayerName", "Имя игрока", false),
-            new("Multiplayer/UI/Settings/PlayerCount", "Наибольшее число игроков", false),
 
             /* Servers browser UI resource strings */
 
@@ -66,6 +65,9 @@ namespace COTLMP.Language
             new("Multiplayer/UI/PatchesUpdate", "{0} точек подключения мода не подходят к этой версии игры: игра обновилась после мода. Вышла версия {1} (у вас {2}). Обновить сейчас?", false),
             new("Multiplayer/UI/PatchesOurs", "{0} точек подключения мода не подходят к вашей версии игры: кооператив может работать неправильно", false),
             new("Multiplayer/UI/PatchesPartner", "{0}: {1} точек подключения мода не подходят к его версии игры, кооператив может работать неправильно", false),
+            new("Multiplayer/UI/CopyLog", "Скопировать лог", false),
+            new("Multiplayer/UI/LogCopied", "Лог скопирован", false),
+            new("Multiplayer/Online/Discord", "Ошибки и идеи", false),
             new("Multiplayer/Chat/Tip", "Нажмите T, чтобы написать другу", false),
             new("Multiplayer/Chat/Hint", "Сообщение… Enter — отправить, Esc — закрыть", false),
             new("Multiplayer/Steam/Left", "Вы вышли из игры друга", false),

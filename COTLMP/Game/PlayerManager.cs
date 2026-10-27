@@ -355,8 +355,16 @@ namespace COTLMP.Game
             if (plr > players.Length - 1 || players[plr] == null)
                 return;
 
-            players[plr].AbortGoTo();
-            CoopManager.RemoveCoopPlayerStatic(players[plr], withDelay: false);
+            /* A puppet half torn down by a scene change deletes quietly (seen in the final fight's ending) */
+            try
+            {
+                players[plr].AbortGoTo();
+                CoopManager.RemoveCoopPlayerStatic(players[plr], withDelay: false);
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Deleting player {plr} left pieces behind: {e.Message}");
+            }
             players[plr] = null;
             targets[plr] = null;
         }
@@ -729,6 +737,16 @@ namespace COTLMP.Game
                 var farming = collision.GetComponent<PlayerFarming>();
                 return !players.Contains(farming);
             }
+
+            /// <summary>
+            /// The partner's puppet never becomes the main player: the game's scenes walk its player
+            /// list expecting the couch co-op lambs (the final fight's slow walk left the puppet as
+            /// PlayerFarming.Instance on the friend's game — controls, icons and camera went with it)
+            /// </summary>
+            [HarmonyPatch(typeof(PlayerFarming), nameof(PlayerFarming.SetMainPlayer), typeof(PlayerFarming))]
+            [HarmonyPrefix]
+            private static bool MainPlayer(PlayerFarming playerFarming) =>
+                playerFarming == null || !players.Contains(playerFarming);
 
             /// <summary>
             /// The doors out of a room, to the next floor, the base and the bosses are for the

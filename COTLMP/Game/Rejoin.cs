@@ -333,6 +333,19 @@ namespace COTLMP.Game
             catch (Exception e)
             {
                 Plugin.Logger?.LogWarning($"[COOP] Can't read the friends' characters: {e.Message}");
+                /* Kept aside as it is: the next save would write a new file over it */
+                try
+                {
+                    string File = CharactersFile(CharactersSlot);
+                    if (System.IO.File.Exists(File))
+                        System.IO.File.Move(File, $"{File}.bad-{DateTime.Now:yyyyMMdd-HHmmss}");
+                    Characters.Clear();
+                    Kept.Clear();
+                }
+                catch (Exception Moving)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] Can't keep the unreadable characters file aside: {Moving.Message}");
+                }
             }
         }
 

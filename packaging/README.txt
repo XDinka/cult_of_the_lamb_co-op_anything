@@ -7,6 +7,9 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 подключение через Steam: без IP-адресов, без проброса портов, работает
 с включённым VPN или WARP. Трафик идёт через сеть ретрансляторов Valve.
 
+ОШИБКИ И ИДЕИ: Discord https://discord.gg/52azdsYMD (в игре: «Мультиплеер» →
+«Ошибки и идеи»; в окне ошибки «Скопировать лог» копирует лог и открывает его).
+
 ЧТО ЭТА СБОРКА УМЕЕТ
   + Пропала связь (30 с от хоста ничего): друг не вылетает, а за чёрным
     экраном загрузки («Подключение 1/3») сам заходит к хосту снова и
@@ -154,6 +157,9 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 Based on the COTLMP mod (github.com/GeoB99/COTLMP, MIT), with joining over
 Steam added: no IP addresses, no port forwarding, works behind a VPN or WARP.
 Traffic goes through Valve's relays.
+
+BUGS AND IDEAS: Discord https://discord.gg/52azdsYMD (in the game: Multiplayer >
+Bugs and ideas; an error window's "Copy the log" copies the log and opens it).
 
 WHAT IT DOES
   + A lost connection (nothing from the host for 30 s) is taken up again: the

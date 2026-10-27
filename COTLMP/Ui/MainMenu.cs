@@ -55,7 +55,9 @@ namespace COTLMP.Ui
             {
                 if(PauseMenuPatches.Message != null)
                 {
-                    __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure(MultiplayerModLocalization.UI.Disconnected, PauseMenuPatches.Message, true);
+                    UIMenuConfirmationWindow Window = __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate);
+                    Window.Configure(MultiplayerModLocalization.UI.Disconnected, PauseMenuPatches.Message, true);
+                    COTLMP.Ui.LogButton.Add(Window);
                     PauseMenuPatches.Message = null;
                 }
 

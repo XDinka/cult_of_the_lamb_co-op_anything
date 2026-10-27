@@ -41,6 +41,8 @@ namespace COTLMP.Game
             public Rigidbody2D Body;
             public SkeletonAnimation Spine;
             public UnitObject[] Units;
+            /* A leader's units, whose own death (the fall, the heart, the room opening) still runs while frozen */
+            public List<UnitObject> Leaders = new();
             public Vector3? Target;
             /* The model's own height above the unit (spawn drops, flyers), from the owner */
             public float? SpineZ;
@@ -81,6 +83,15 @@ namespace COTLMP.Game
         internal static string PartnerLastPlace { get; private set; }
         private static bool PartnerOwns;
         private static string MyPlace;
+
+        /// <summary>
+        /// The session is over: nothing of it is to steer the next one
+        /// </summary>
+        internal static void ResetSession()
+        {
+            PartnerOwns = false;
+        }
+
         private static bool IOwn = true;
 
         private static readonly Dictionary<Health, Followed> FollowedEnemies = new();
@@ -328,6 +339,12 @@ namespace COTLMP.Game
                 {
                     Unit.StopAllCoroutines();
                     Unit.enabled = false;
+                    /* Disabled, a unit stops hearing its health's death; a leader's death is its whole ending */
+                    if (IsLeader(Unit))
+                    {
+                        Entry.Enemy.OnDie += Unit.OnDie;
+                        Entry.Leaders.Add(Unit);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -347,6 +364,15 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// A land's leader the way the game tells them (its tarot and relics spare them). In the final
+        /// fight every actor counts: each one's own death is what carries the fight to its next stage,
+        /// and the guardians stand beside the fight's controller, not under it
+        /// </summary>
+        private static bool IsLeader(UnitObject Unit) =>
+            Unit.IsBoss || Unit.GetComponentInParent<BossIntro>() != null || Unit.GetComponentInParent<DeathCatController>() != null ||
+            PlayerFarming.Location == FollowerLocation.Boss_5;
+
+        /// <summary>
         /// Gives the enemies back their own minds, when the owner left or we became the owner.
         /// </summary>
         private static void ReleaseAll()
@@ -355,6 +381,13 @@ namespace COTLMP.Game
             {
                 if (Entry.Enemy == null || !Entry.Frozen)
                     continue;
+                /* Enabled again, they hear their death themselves */
+                foreach (UnitObject Unit in Entry.Leaders)
+                {
+                    if (Unit != null)
+                        Entry.Enemy.OnDie -= Unit.OnDie;
+                }
+                Entry.Leaders.Clear();
                 foreach (UnitObject Unit in Entry.Units)
                 {
                     try

@@ -34,11 +34,11 @@ namespace COTLMP.Debug
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoDungeon);
 
-            Plugin.Logger?.LogWarning($"{Tag} Starting a run into Dungeon1 like the base door does");
-            GameManager.NewRun("", false, FollowerLocation.Dungeon1_1);
-            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Dungeon1", 1f, "", null);
+            Plugin.Logger?.LogWarning($"{Tag} Starting a run into {DungeonScene} like the base door does");
+            GameManager.NewRun("", false, DungeonStart);
+            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, DungeonScene, 1f, "", null);
 
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null)
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null)
                 yield return null;
             yield return new WaitForSecondsRealtime(3f);
             MMTransition.CanResume = true;
@@ -46,7 +46,7 @@ namespace COTLMP.Debug
             Plugin.Logger?.LogWarning($"{Tag} In the dungeon at {COTLMP.Game.CoopSync.CurrentPlace()}");
 
             /* Walk the same way through the rooms on both sides: the first unvisited door, N, E, S, W */
-            while (SceneManager.GetActiveScene().name == "Dungeon1")
+            while (SceneManager.GetActiveScene().name == DungeonScene)
             {
                 yield return new WaitForSecondsRealtime(Plugin.GlobalsInternal.IsServerCreator ? 5f : 1f);
                 MMBiomeGeneration.BiomeRoom Room = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
@@ -137,7 +137,8 @@ namespace COTLMP.Debug
             while (true)
             {
                 yield return Wait;
-                if (PlayerFarming.Instance == null || MMTransition.IsPlaying || PlayerFarming.Instance.IsKnockedOut)
+                /* A player can't swing during a cinematic: hitting through one would outrun the fight's stages */
+                if (PlayerFarming.Instance == null || MMTransition.IsPlaying || PlayerFarming.Instance.IsKnockedOut || LetterBox.IsPlaying)
                     continue;
 
                 /* Collect what the fight dropped, as walking over it would */
@@ -157,11 +158,20 @@ namespace COTLMP.Debug
                     continue;
 
                 Health Nearest = null;
-                foreach (Health Enemy in Health.team2)
+                try
                 {
-                    if (Enemy != null && Enemy.HP > 0f && Enemy.gameObject.activeInHierarchy &&
-                        (Nearest == null || Enemy.transform.position.sqrMagnitude < Nearest.transform.position.sqrMagnitude))
-                        Nearest = Enemy;
+                    foreach (Health Enemy in new System.Collections.Generic.List<Health>(Health.team2))
+                    {
+                        if (Enemy != null && Enemy.HP > 0f && Enemy.gameObject.activeInHierarchy &&
+                            (Nearest == null || Enemy.transform.position.sqrMagnitude < Nearest.transform.position.sqrMagnitude))
+                            Nearest = Enemy;
+                    }
+                }
+                catch (Exception e)
+                {
+                    /* A body can be torn down between frames while we look at it */
+                    Plugin.Logger?.LogWarning($"{Tag} Looking for an enemy threw: {e.Message}");
+                    continue;
                 }
                 if (Nearest == null)
                     continue;
@@ -171,15 +181,17 @@ namespace COTLMP.Debug
                  * way tarot damage does (the enemy as its own attacker). The HP change is what gets synced.
                  */
                 bool Hit = false;
+                string Name = Nearest.name;
                 try
                 {
                     Hit = Nearest.DealDamage(Mathf.Max(1f, Nearest.totalHP * 0.4f), Nearest.gameObject, Nearest.transform.position, false, Health.AttackTypes.Melee, true);
+                    Plugin.Logger?.LogWarning($"{Tag} Hit {Name} -> {Hit}, hp {Nearest.HP:F1}/{Nearest.totalHP:F1}");
                 }
                 catch (Exception e)
                 {
-                    Plugin.Logger?.LogWarning($"{Tag} Hitting {Nearest.name} threw: {e.Message}");
+                    /* A killing blow can tear the body down mid-swing */
+                    Plugin.Logger?.LogWarning($"{Tag} Hitting {Name} threw: {e.Message}");
                 }
-                Plugin.Logger?.LogWarning($"{Tag} Hit {Nearest.name} -> {Hit}, hp {Nearest.HP:F1}/{Nearest.totalHP:F1}");
             }
         }
 
@@ -263,16 +275,19 @@ namespace COTLMP.Debug
         /// </summary>
         private static IEnumerator FightLeader()
         {
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             /* Both standing in the room before either changes anything */
             yield return new WaitForSecondsRealtime(3f);
             MMBiomeGeneration.BiomeGenerator Generator = MMBiomeGeneration.BiomeGenerator.Instance;
-            /* The land's leader of a later layer (the first land's fourth is the Leshy), for both at once */
-            if (BossLayer > 1 && Generator != null && Generator.LeaderRoomPath != null && Generator.LeaderRoomPath.EndsWith("_1.prefab"))
+            /*
+             * A layer's guardian (layers 1 to 3: the land's one guardian room, whose guardian goes by the layer) or
+             * the land's bishop (layer 4: "Boss Room Dungeon 1_N" is land N's), for both at once
+             */
+            if (BossLayer > 0 && Generator != null)
             {
-                Generator.LeaderRoomPath = Generator.LeaderRoomPath.Substring(0, Generator.LeaderRoomPath.Length - "_1.prefab".Length) + $"_{BossLayer}.prefab";
+                Generator.LeaderRoomPath = BossLayer < 4 ? $"Assets/_Rooms/MiniBoss Room Dungeon {Land}.prefab" : $"Assets/_Rooms/Boss Room Dungeon 1_{Land}.prefab";
                 GameManager.CurrentDungeonLayer = BossLayer;
             }
             yield return new WaitForSecondsRealtime((Host ? 8f : 9.5f) + BossLate);
@@ -297,16 +312,28 @@ namespace COTLMP.Debug
             while (MMTransition.IsPlaying)
                 yield return null;
             yield return new WaitForSecondsRealtime(Host ? 2f : 3.5f);
+            yield return WalkInAndWatch("Boss test");
+        }
+
+        /// <summary>
+        /// Into the room ahead, where its fight starts, then its state every 2 s for 150 s, reading its talk on
+        /// as a player would (the friend faster than the host)
+        /// </summary>
+        private static IEnumerator WalkInAndWatch(string Name)
+        {
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
             /* Into the room, where its fight starts */
-            Plugin.Logger?.LogWarning($"{Tag} Boss test: walking into the room from {PlayerFarming.Instance.transform.position}");
+            Plugin.Logger?.LogWarning($"{Tag} {Name}: walking into the room from {PlayerFarming.Instance.transform.position}");
             for (int Step = 0; Step < 14 && !LetterBox.IsPlaying && !MMTools.MMConversation.isPlaying; Step++)
             {
                 PlayerFarming.Instance.GoToAndStop(PlayerFarming.Instance.transform.position + new Vector3(0f, 5f), null, false, false, null, 4f, true);
                 yield return new WaitForSecondsRealtime(2.5f);
             }
-            Plugin.Logger?.LogWarning($"{Tag} Boss test: stopped at {PlayerFarming.Instance.transform.position}, letterbox {LetterBox.IsPlaying}, talk {MMTools.MMConversation.isPlaying}, enemies {Health.team2.Count}");
+            Plugin.Logger?.LogWarning($"{Tag} {Name}: stopped at {PlayerFarming.Instance.transform.position}, letterbox {LetterBox.IsPlaying}, talk {MMTools.MMConversation.isPlaying}, enemies {Health.team2.Count}");
             float Since = Time.unscaledTime;
             string Last = null;
+            /* The room's leader, kept after it leaves the enemies: what it does once dead */
+            Health Boss = null;
             while (Time.unscaledTime - Since < 150f)
             {
                 yield return new WaitForSecondsRealtime(2f);
@@ -316,11 +343,31 @@ namespace COTLMP.Debug
                     if (Enemy != null && (Leader == null || Enemy.totalHP > Leader.totalHP))
                         Leader = Enemy;
                 }
+                if (Leader != null && (Boss == null || Leader.totalHP > Boss.totalHP))
+                    Boss = Leader;
+                var BossState = Boss == null ? null : Boss.GetComponent<StateMachine>();
+                var BossSpine = Boss == null ? null : Boss.GetComponentInChildren<Spine.Unity.SkeletonAnimation>();
+                string BossNow = Boss == null ? "-" : $"{Boss.name}:{Boss.HP:F0}:{(Boss.gameObject.activeInHierarchy ? "on" : "off")}:{BossState?.CURRENT_STATE}:{BossSpine?.AnimationState?.GetCurrent(0)?.Animation?.Name}:{(Boss.GetComponent<UnitObject>()?.enabled == true ? "mind" : "nomind")}";
                 string State = $"place={COTLMP.Game.CoopSync.CurrentPlace()} letterbox={LetterBox.IsPlaying} talk={MMTools.MMConversation.isPlaying}:{MMTools.MMConversation.Position} " +
-                               $"leader={Leader?.name}:{Leader?.HP:F0}/{Leader?.totalHP:F0} enemies={Health.team2.Count} own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} state={PlayerFarming.Instance?.state?.CURRENT_STATE}";
+                               $"leader={Leader?.name}:{Leader?.HP:F0}/{Leader?.totalHP:F0} enemies={Health.team2.Count} boss={BossNow} own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} state={PlayerFarming.Instance?.state?.CURRENT_STATE}";
                 if (State != Last)
-                    Plugin.Logger?.LogWarning($"{Tag} Boss test {Time.unscaledTime - Since:F0}s: {State}");
+                    Plugin.Logger?.LogWarning($"{Tag} {Name} {Time.unscaledTime - Since:F0}s: {State}");
                 Last = State;
+                /* The friend takes the leader's heart, once it's out: the host's must go with it */
+                var Heart = UnityEngine.Object.FindObjectOfType<Interaction_MonsterHeart>();
+                if (!Host && Heart != null && Heart.enabled && (bool)AccessTools.Field(typeof(Interaction_MonsterHeart), "Enabled").GetValue(Heart) &&
+                    !LetterBox.IsPlaying && PlayerFarming.Instance != null)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} {Name}: taking the leader's heart");
+                    Heart.OnInteract(PlayerFarming.Instance.state);
+                }
+                /* A tutorial window (the first leader's heart) closed as a player would, after a look */
+                var Tutorial = UnityEngine.Object.FindObjectOfType<src.UI.Overlays.TutorialOverlay.UITutorialOverlayController>();
+                if (Tutorial != null && Tutorial.isActiveAndEnabled)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} {Name}: closing a tutorial window");
+                    Tutorial.Hide();
+                }
                 /* Read on as a player would, the friend faster than the host */
                 var Box = MMTools.MMConversation.mmConversation;
                 if (MMTools.MMConversation.isPlaying && Box != null)
@@ -333,10 +380,153 @@ namespace COTLMP.Debug
             }
         }
 
+        /// <summary>
+        /// -cotlmp-finaltest: from the cult into the last place of the game (as its chained door does), the host first,
+        /// then the fight's state as in the leader test
+        /// </summary>
+        private static IEnumerator FinalTogether()
+        {
+            yield return Until(() => Plugin.GlobalsInternal.InGameSession && PlayerFarming.Instance != null && AnyRemotePlayer() && !MMTransition.IsPlaying, 400f);
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            yield return new WaitForSecondsRealtime(Host ? 6f : 10f);
+            Plugin.Logger?.LogWarning($"{Tag} Final test: through the chained door");
+            GameManager.NewRun("", false);
+            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Dungeon Final", 1f, "", null);
+            yield return Until(() => SceneManager.GetActiveScene().name == "Dungeon Final" && PlayerFarming.Instance != null, 60f);
+            yield return new WaitForSecondsRealtime(3f);
+            MMTransition.CanResume = true;
+            MMTransition.ResumePlay();
+            Plugin.Logger?.LogWarning($"{Tag} Final test: in {SceneManager.GetActiveScene().name} at {COTLMP.Game.CoopSync.CurrentPlace()}");
+            if (PlayerFarming.Instance != null)
+                PlayerFarming.Instance.health.invincible = true;
+            yield return new WaitForSecondsRealtime(Host ? 4f : 6f);
+            /* The landing room comes first; the intro, the podiums and the fight are a room north — go as its door would, the host a moment ahead */
+            var Generator = MMBiomeGeneration.BiomeGenerator.Instance;
+            MMBiomeGeneration.BiomeRoom IntroRoom = Generator?.Rooms.FirstOrDefault(Room => Room?.GameObject != null &&
+                Room.GameObject.GetComponentInChildren<FinalBossIntroManager>(true) != null);
+            Plugin.Logger?.LogWarning($"{Tag} Final test: rooms {string.Join(", ", Generator.Rooms.Select(Room => $"{Room.x},{Room.y}:{(Room.GameObject == null ? "-" : Room.GameObject.name)}{(Generator.CurrentRoom == Room ? "*" : "")}"))}; the intro's {IntroRoom?.x},{IntroRoom?.y}");
+            if (IntroRoom != null && Generator.CurrentRoom != IntroRoom)
+            {
+                MMBiomeGeneration.BiomeGenerator.ChangeRoom(IntroRoom.x, IntroRoom.y);
+                yield return new WaitForSecondsRealtime(1f);
+                while (MMTransition.IsPlaying)
+                    yield return null;
+            }
+            /* The intro lands everyone at the pentagram and brings the demons */
+            yield return new WaitForSecondsRealtime(8f);
+            FinalBossIntroManager Final = UnityEngine.Object.FindObjectOfType<FinalBossIntroManager>();
+            Plugin.Logger?.LogWarning($"{Tag} Final test: manager {(Final == null ? "none" : "on")}, me {PlayerFarming.Instance.transform.position}, " +
+                                      $"players {string.Join(",", PlayerFarming.players.Select(Player => $"{Player.transform.position}"))}");
+            /* The podiums: a weapon and a curse each, the door opens once everyone holds both */
+            if (Final != null)
+            {
+                foreach (string Kind in new[] { "weaponPodiums", "cursePodiums" })
+                {
+                    var Podiums = (Interaction_WeaponSelectionPodium[])AccessTools.Field(typeof(FinalBossIntroManager), Kind).GetValue(Final);
+                    foreach (Interaction_WeaponSelectionPodium Podium in Host ? Podiums : Podiums.Reverse())
+                    {
+                        EquipmentType Before = Kind == "weaponPodiums" ? PlayerFarming.Instance.currentWeapon : PlayerFarming.Instance.currentCurse;
+                        if (Before != EquipmentType.None)
+                            break;
+                        if (Podium == null || !Podium.isActiveAndEnabled)
+                            continue;
+                        Podium.OnInteract(PlayerFarming.Instance.state);
+                        yield return new WaitForSecondsRealtime(4f);
+                    }
+                }
+                RoomLockController Door = (RoomLockController)AccessTools.Field(typeof(FinalBossIntroManager), "blockingDoor").GetValue(Final);
+                for (int Look = 0; Look < 10 && Door != null && !Door.Completed; Look++)
+                    yield return new WaitForSecondsRealtime(2f);
+                Plugin.Logger?.LogWarning($"{Tag} Final test: holding {PlayerFarming.Instance.currentWeapon}/{PlayerFarming.Instance.currentCurse}, " +
+                                          $"partner {string.Join(",", PlayerFarming.players.Where(Player => Player != PlayerFarming.Instance).Select(Player => $"{Player.currentWeapon}/{Player.currentCurse}"))}, door open {Door?.Completed}");
+            }
+            /* The entrance scene: each game plays it as its walked-over trigger would (the test's walker
+             * teleports and never crosses it), then reads the talk on as a player would */
+            DeathCatController Fight = UnityEngine.Object.FindObjectOfType<DeathCatController>();
+            Plugin.Logger?.LogWarning($"{Tag} Final test: fight controller {(Fight == null ? "none" : "found")}");
+            if (Fight != null)
+            {
+                yield return new WaitForSecondsRealtime(Host ? 0f : 2f);
+                Fight.Play();
+                yield return Until(() => MMTools.MMConversation.isPlaying, 20f);
+                float Reading = Time.unscaledTime;
+                while ((MMTools.MMConversation.isPlaying || LetterBox.IsPlaying) && Time.unscaledTime - Reading < 90f)
+                {
+                    var Box = MMTools.MMConversation.mmConversation;
+                    if (MMTools.MMConversation.isPlaying && Box != null)
+                    {
+                        Box.TextPlayer?.SkipTypewriter();
+                        AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked").Invoke(Box, null);
+                        if (!Host)
+                            AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked").Invoke(Box, null);
+                    }
+                    yield return new WaitForSecondsRealtime(1f);
+                }
+                Plugin.Logger?.LogWarning($"{Tag} Final test: entrance scene done after {Time.unscaledTime - Reading:0}s");
+                yield return new WaitForSecondsRealtime(3f);
+            }
+            /* The altar north: the host walks up and refuses the crown, the friend looks on from behind;
+             * the friend's fight must start from the partner's choice alone */
+            Interaction_FinalBossAltar Altar = UnityEngine.Object.FindObjectOfType<Interaction_FinalBossAltar>();
+            Plugin.Logger?.LogWarning($"{Tag} Final test: altar {(Altar == null ? "none" : $"at {Altar.transform.position}")}");
+            if (Altar != null)
+            {
+                /* The walk can't thread the arena: the test jumps to the spot, the host close enough to kneel */
+                Vector3 Spot = Altar.transform.position + new Vector3(Host ? 0f : -1f, Host ? -2f : -7f);
+                PlayerFarming.Instance.transform.position = Spot;
+                yield return new WaitForSecondsRealtime(2f);
+                Plugin.Logger?.LogWarning($"{Tag} Final test: by the altar at {PlayerFarming.Instance.transform.position}");
+                if (Host)
+                {
+                    /* As a player would: the kneel bow plays, the question comes up for both, then the refusal */
+                    var WheelField = AccessTools.Field(typeof(Interaction_FinalBossAltar), "c");
+                    yield return Until(() => Altar == null || WheelField.GetValue(Altar) != null, 20f);
+                    Plugin.Logger?.LogWarning($"{Tag} Final test: the crown's question is {(Altar != null && WheelField.GetValue(Altar) != null ? "up" : "missing")}");
+                    yield return new WaitForSecondsRealtime(3f);
+                    AccessTools.Method(typeof(Interaction_FinalBossAltar), "Refuse").Invoke(Altar, null);
+                    Plugin.Logger?.LogWarning($"{Tag} Final test: refused the crown");
+                }
+            }
+            Run("FinalGuardian", GuardianWatch());
+            yield return WalkInAndWatch("Final test");
+        }
+
+        /* The first guardian's side of the fight every 5 s: whether its object woke and joined the enemies */
+        private static IEnumerator GuardianWatch()
+        {
+            DeathCatController Fight = UnityEngine.Object.FindObjectOfType<DeathCatController>();
+            if (Fight == null)
+                yield break;
+            var Guardian = AccessTools.Field(typeof(DeathCatController), "guardian1");
+            var Parts = AccessTools.Field(typeof(DeathCatController), "guardian1Components");
+            for (int Look = 0; Look < 24; Look++)
+            {
+                yield return new WaitForSecondsRealtime(5f);
+                var Unit = (UnitObject)Guardian.GetValue(Fight);
+                var List = (System.Collections.Generic.List<BaseMonoBehaviour>)Parts.GetValue(Fight);
+                Health Life = Unit == null ? null : Unit.GetComponent<Health>();
+                Plugin.Logger?.LogWarning($"{Tag} Final test guardian {Look * 5}s: unit={(Unit == null ? "-" : Unit.name)} " +
+                                          $"active={(Unit != null && Unit.gameObject.activeInHierarchy)} " +
+                                          $"parts={(List == null ? -1 : List.Count(Part => Part != null && Part.enabled))}/{List?.Count ?? -1} " +
+                                          $"hp={(Life == null ? "-" : $"{Life.HP}/{Life.totalHP}")} team2={Health.team2.Count}");
+                var WidgetOne = (UnityEngine.UI.Image)AccessTools.Field(typeof(HUD_Manager), "_playerOneWidget").GetValue(HUD_Manager.Instance);
+                var WidgetTwo = (UnityEngine.UI.Image)AccessTools.Field(typeof(HUD_Manager), "_playerTwoWidget").GetValue(HUD_Manager.Instance);
+                Plugin.Logger?.LogWarning($"{Tag} Final test markers {Look * 5}s: count={PlayerFarming.playersCount} " +
+                                          $"players={string.Join(",", PlayerFarming.players.Select(Player => $"{Player.name}:lamb={Player.isLamb}:goatlook={COTLMP.Game.CoopHud.IsGoatPlayer(Player)}:puppet={COTLMP.Game.PlayerManager.IsPuppet(Player.health)}:us={Player == PlayerFarming.Instance}"))} " +
+                                          $"one={(WidgetOne == null ? "-" : $"{(WidgetOne.gameObject.activeSelf ? "on" : "off")}:{WidgetOne.sprite?.name}")} " +
+                                          $"two={(WidgetTwo == null ? "-" : $"{(WidgetTwo.gameObject.activeSelf ? "on" : "off")}:{WidgetTwo.sprite?.name}")} " +
+                                          $"wearegoat={COTLMP.Game.Appearance.WeAreGoat} ingame={Plugin.GlobalsInternal.InGameSession}");
+                var Talk = MMTools.MMConversation.CURRENT_CONVERSATION;
+                Plugin.Logger?.LogWarning($"{Tag} Final test scenes {Look * 5}s: talk={(Talk == null ? "-" : $"{Talk.Entries?.Count ?? -1}lines")}:{MMTools.MMConversation.isPlaying} " +
+                                          $"letterbox={LetterBox.IsPlaying} ts={Time.timeScale:0.00} " +
+                                          $"held={COTLMP.Game.SharedScenes.TalksHeld}/{COTLMP.Game.SharedScenes.TalksReleased} gated={COTLMP.Game.SharedScenes.Gated} pulled={COTLMP.Game.SharedScenes.Pulled}");
+            }
+        }
+
         private static IEnumerator DieOnce()
         {
             /* Counted from the first moment both stand in one dungeon room */
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoDie);
 
@@ -356,7 +546,7 @@ namespace COTLMP.Debug
         /// </summary>
         private static IEnumerator HurtTest()
         {
-            while (SceneManager.GetActiveScene().name != "Dungeon1" || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             /* Hosting starts after the switches are read */
             if (!Plugin.GlobalsInternal.IsServerCreator)

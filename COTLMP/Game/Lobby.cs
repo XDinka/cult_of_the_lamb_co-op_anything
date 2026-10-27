@@ -138,6 +138,7 @@ namespace COTLMP.Game
             }
             else
             {
+                SaveBackup.Take(Slot, "the lobby's game");
                 AccessTools.Method(typeof(LoadMenu), "ContinueGame").Invoke(Menu, new object[] { Slot });
             }
         }

@@ -125,14 +125,6 @@ namespace I2.Loc
                     }
                 }
 
-                public static string MultiplayerSettings_PlayerCount
-                {
-                    get
-                    {
-                        return LocalizationManager.GetTranslation("Multiplayer/UI/Settings/PlayerCount");
-                    }
-                }
-
             }
 
 

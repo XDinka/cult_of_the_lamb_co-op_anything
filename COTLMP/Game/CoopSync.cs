@@ -126,7 +126,11 @@ namespace COTLMP.Game
             /* PatchCheck: how many of our patches this game version didn't take */
             PatchReport = 52,
             /* TextChat: a line typed to the partner */
-            ChatLine = 53
+            ChatLine = 53,
+            /* LeaderHeart: we took a defeated leader's heart */
+            HeartTaken = 54,
+            /* FinalBoss: our step in the final fight (refused / knelt / the boss fell) */
+            FinalChoice = 55
         }
 
         /// <summary>
@@ -398,6 +402,14 @@ namespace COTLMP.Game
 
                 case Kind.ChatLine:
                     COTLMP.Ui.TextChat.OnLine(Reader);
+                    break;
+
+                case Kind.HeartTaken:
+                    LeaderHeart.OnRelay(Reader);
+                    break;
+
+                case Kind.FinalChoice:
+                    FinalBoss.OnRelay(Reader);
                     break;
 
                 case Kind.UpdateSuggest:
@@ -724,8 +736,15 @@ namespace COTLMP.Game
                         foreach (DropMultipleLootOnDeath Drop in Enemy.GetComponentsInChildren<DropMultipleLootOnDeath>())
                             Drop.enabled = false;
 
-                        /* The way the game kills an enemy itself (tarot damage): the enemy hits itself with ForceKill */
+                        /*
+                         * The way the game kills an enemy itself (tarot damage): the enemy hits itself with ForceKill.
+                         * Whatever holds it off here (a leader frozen in its entrance, untouchable and waiting) doesn't
+                         * matter: it is dead there.
+                         */
                         Enemy.invincible = false;
+                        Enemy.untouchable = false;
+                        if (Enemy.state != null && Enemy.state.CURRENT_STATE == StateMachine.State.InActive)
+                            Enemy.state.CURRENT_STATE = StateMachine.State.Idle;
                         Enemy.HP = Mathf.Min(Enemy.HP, 0.01f);
                         if (Enemy.DealDamage(Enemy.HP, Enemy.gameObject, Enemy.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill))
                         {
@@ -744,6 +763,10 @@ namespace COTLMP.Game
                 }
                 yield return Wait;
             }
+            /* (One put away unspawned, as a leader's brood is when it falls, is no matter) */
+            if (Enemy != null && Enemy.HP > 0f && Enemy.gameObject.activeInHierarchy)
+                PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT,
+                    $"{Enemy.name} won't die here as it did there (enabled {Enemy.enabled}, active {Enemy.gameObject.activeInHierarchy}, state {Enemy.state?.CURRENT_STATE})");
         }
 
         private static void OnHealthChanged(Health Enemy)

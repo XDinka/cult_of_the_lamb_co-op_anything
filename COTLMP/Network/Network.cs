@@ -191,7 +191,7 @@ namespace COTLMP.Network
                     Interlocked.Increment(ref PacketsIn);
                 }
             }
-            catch (OperationCanceledException)
+            catch (Exception e) when (e is OperationCanceledException || (e is ObjectDisposedException && cancelToken.IsCancellationRequested))
             {
                 PrintLogger.Print(DebugLevel.INFO_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, "Disconnecting...");
             }

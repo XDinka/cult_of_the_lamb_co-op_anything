@@ -212,7 +212,9 @@ namespace COTLMP.Ui
             {
                 if (!StartHosting())
                 {
-                    __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate).Configure(LocalizationManager.GetTranslation("Multiplayer/UI/OnlineFailed"), "", true);
+                    UIMenuConfirmationWindow Failed = __instance.Push<UIMenuConfirmationWindow>(MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate);
+                    Failed.Configure(LocalizationManager.GetTranslation("Multiplayer/UI/OnlineFailed"), "", true);
+                    COTLMP.Ui.LogButton.Add(Failed);
                     return false;
                 }
 
@@ -237,12 +239,16 @@ namespace COTLMP.Ui
                  * Acknowledge the player hosts the server through LAN which makes
                  * themselves a server so to speak.
                  */
+                /* Opening online from our own game: its save as last written, kept aside first */
+                if (PlayerFarming.Instance != null && !COTLMP.Game.HostSave.Playing && !COTLMP.Game.Lobby.Open)
+                    COTLMP.Game.SaveBackup.Take(SaveAndLoad.SAVE_SLOT, "opening online");
+
                 Plugin.GlobalsInternal.InGameSession = true;
                 Plugin.GlobalsInternal.IsServerCreator = true;
 
                 /* Only this PC talks to it (our own game and the Steam bridge), so nothing else can reach it */
                 LanPoint = new IPEndPoint(IPAddress.Loopback, 0);
-                Server = new Server(Application.version, Plugin.Globals.MaxNumPlayers, LanPoint, cancellationToken: tokenSource.Token, log: new ServerLogger());
+                Server = new Server(Application.version, Data.InternalData.Players, LanPoint, cancellationToken: tokenSource.Token, log: new ServerLogger());
                 Server.ServerStopped += ServerStopped;
             }
             catch (System.Exception e)
@@ -357,6 +363,15 @@ namespace COTLMP.Ui
             COTLMP.Game.CultSync.Reset();
             COTLMP.Game.VersionCheck.Reset();
             COTLMP.Game.Lobby.Reset();
+            /* What each session leaves in these (found by the harness's -cotlmp-sessions test) */
+            COTLMP.Game.RoomSync.ResetSession();
+            COTLMP.Game.SceneEnds.ResetSession();
+            COTLMP.Game.SharedScenes.ResetSession();
+            COTLMP.Game.CoopHud.ResetSession();
+            COTLMP.Game.CoopLife.ResetSession();
+            COTLMP.Game.PuppetSync.ResetSession();
+            COTLMP.Game.LeaderHeart.ResetSession();
+            COTLMP.Game.FinalBoss.ResetSession();
             if (KeepGame)
                 COTLMP.Game.HostSave.Pause();
             else

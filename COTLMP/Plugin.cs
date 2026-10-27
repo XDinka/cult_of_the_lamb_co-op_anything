@@ -52,7 +52,6 @@ public class Plugin : BaseUnityPlugin
     private void Awake()
     {
         System.Object SettingData;
-        int MaxPlayers;
         string PlayerName;
         bool ToggleMod;
         bool Success;
@@ -123,34 +122,9 @@ public class Plugin : BaseUnityPlugin
         /* Retrieve the setting data from the setting object */
         PlayerName = COTLMP.Api.Configuration.GetSettingData<string>(SettingData, false);
 
-        /* Initialize the "Max Players In Server" setting */
-        SettingData = COTLMP.Api.Configuration.CreateSetting(CONFIGURATION_SECTION.ServerSettings,
-                                                             "Max Players",
-                                                             "The maximum count of players that can join a server",
-                                                             12);
-        if (SettingData == null)
-        {
-            Logger.LogFatal("Failed to set default or load the \"Max Players\" setting!");
-            HarmonyInstance.UnpatchSelf();
-            return;
-        }
-
-        /* Retrieve the setting data from the setting object */
-        MaxPlayers = COTLMP.Api.Configuration.GetSettingData<int>(SettingData, false);
-
         /* Now store all the cached settings into the globals data store */
         Globals = new ModDataGlobals(ToggleMod,
-                                     PlayerName,
-                                     MaxPlayers);
-
-        /* Initialize the Settings UI */
-        Success = COTLMP.Ui.Settings.InitializeUI();
-        if (!Success)
-        {
-            Logger.LogFatal("Failed to initialize the Settings UI!");
-            HarmonyInstance.UnpatchSelf();
-            return;
-        }
+                                     PlayerName);
 
         /* Initialize the network features */
         COTLMP.Game.MainThread.Initialize();

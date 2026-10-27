@@ -60,6 +60,14 @@ namespace COTLMP.Game
 
         private static bool WasTogether;
 
+        /// <summary>
+        /// The session is over: nothing of it is to steer the next one
+        /// </summary>
+        internal static void ResetSession()
+        {
+            WasTogether = false;
+        }
+
         public static void Initialize()
         {
             Plugin.MonoInstance.StartCoroutine(WatchPartner());
@@ -453,6 +461,77 @@ namespace COTLMP.Game
                 DifficultyManager.Difficulty.ExtraHard => 2,
                 _ => 4,
             };
+        }
+
+        /* WHO LOOKS LIKE WHOM: the game's icons assume player one is the Lamb ***/
+
+        private static readonly AccessTools.FieldRef<HUD_Manager, UnityEngine.UI.Image> PlayerOneWidget =
+            AccessTools.FieldRefAccess<HUD_Manager, UnityEngine.UI.Image>("_playerOneWidget");
+        private static readonly AccessTools.FieldRef<HUD_Manager, UnityEngine.UI.Image> PlayerTwoWidget =
+            AccessTools.FieldRefAccess<HUD_Manager, UnityEngine.UI.Image>("_playerTwoWidget");
+
+        /* The heads the widgets came with: the first is drawn as the Lamb, the second as the Goat */
+        private static Sprite LambHead, GoatHead;
+
+        /// <summary>
+        /// The marker of a player off the screen's edge shows who they LOOK like: the game gives the
+        /// first player the Lamb's head and the second the Goat's, but the friend plays the Goat as
+        /// the first player of their own game, with the host's puppet second
+        /// </summary>
+        [HarmonyPatch(typeof(HUD_Manager), "Update")]
+        [HarmonyPostfix]
+        private static void EdgeMarkers(HUD_Manager __instance)
+        {
+            if (CoopManager.CoopActive || !CoopSync.InSession || PlayerFarming.playersCount < 2)
+                return;
+            UnityEngine.UI.Image One = PlayerOneWidget(__instance), Two = PlayerTwoWidget(__instance);
+            if (One == null || Two == null)
+                return;
+            if (LambHead == null)
+            {
+                LambHead = One.sprite;
+                GoatHead = Two.sprite;
+            }
+            if (LambHead == null || GoatHead == null)
+                return;
+            One.sprite = IsGoat(PlayerFarming.players[0]) ? GoatHead : LambHead;
+            Two.sprite = IsGoat(PlayerFarming.players[1]) ? GoatHead : LambHead;
+        }
+
+        /// <summary>
+        /// The head by a hearts row follows its player's look too, wherever the game rebuilt the row
+        /// (the final fight respawns the HUD on its own)
+        /// </summary>
+        [HarmonyPatch(typeof(HUD_Hearts), nameof(HUD_Hearts.InitDungeon))]
+        [HarmonyPatch(typeof(HUD_Hearts), nameof(HUD_Hearts.InitBase))]
+        [HarmonyPostfix]
+        private static void RowHead(HUD_Hearts __instance)
+        {
+            if (CoopManager.CoopActive || !CoopSync.InSession || __instance.coopIndicatorIcon == null || __instance.playerFarming == null)
+                return;
+            __instance.coopIndicatorIcon.SetIcon(IsGoat(__instance.playerFarming) ? CoopIndicatorIcon.CoopIcon.Goat : CoopIndicatorIcon.CoopIcon.Lamb);
+        }
+
+        /// <summary>
+        /// The damage flash finds the hurt player's icon by its look, not by the game's lamb-first seating
+        /// </summary>
+        [HarmonyPatch(typeof(CoopIndicatorIcon), nameof(CoopIndicatorIcon.AnimateDamageOnIcons))]
+        [HarmonyPrefix]
+        private static void FlashWho(PlayerFarming playerFarming, out (PlayerFarming, bool)? __state)
+        {
+            __state = null;
+            if (CoopManager.CoopActive || !CoopSync.InSession || playerFarming == null)
+                return;
+            __state = (playerFarming, playerFarming.isLamb);
+            playerFarming.isLamb = !IsGoat(playerFarming);
+        }
+
+        [HarmonyPatch(typeof(CoopIndicatorIcon), nameof(CoopIndicatorIcon.AnimateDamageOnIcons))]
+        [HarmonyPostfix]
+        private static void FlashedWho((PlayerFarming, bool)? __state)
+        {
+            if (__state != null)
+                __state.Value.Item1.isLamb = __state.Value.Item2;
         }
     }
 }

@@ -168,6 +168,7 @@ namespace COTLMP.Network
                 Window.Configure(LocalizationManager.GetTranslation("Multiplayer/UI/PatchesFailedTitle"),
                     string.Format(LocalizationManager.GetTranslation("Multiplayer/UI/PatchesFailed"), Count), true);
             }
+            COTLMP.Ui.LogButton.Add(Window);
             Plugin.Logger?.LogInfo($"[UPDATE] {Count} patches left out: told the player{(Behind ? $", with version {Latest} to update to" : ", no newer version yet")}");
         }
 
@@ -354,6 +355,7 @@ namespace COTLMP.Network
             UIMenuConfirmationWindow Window = MonoSingleton<UIManager>.Instance.ConfirmationWindowTemplate.Instantiate();
             Window.Show();
             Window.Configure(LocalizationManager.GetTranslation("Multiplayer/Update/Failed"), string.Format(LocalizationManager.GetTranslation("Multiplayer/Update/OpenPage"), Taking));
+            COTLMP.Ui.LogButton.Add(Window);
             Window.OnConfirm += () => Application.OpenURL($"https://github.com/{Repo}/releases/tag/v{Taking}");
         }
 

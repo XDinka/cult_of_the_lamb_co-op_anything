@@ -263,6 +263,19 @@ namespace COTLMP.Game
         private static Vector3 GateAt;
         private static float GateSince, GateNoted;
         private static bool Gating;
+
+        /// <summary>
+        /// The session is over: nothing of it is to steer the next one
+        /// </summary>
+        internal static void ResetSession()
+        {
+            /* Not waiting at a door any more: its line goes too */
+            if (Gating)
+                Dialogs.GameLine = null;
+            GatePlace = null;
+            Gating = false;
+        }
+
         private static float PullAt = -1f;
         private static Vector3 PullTo;
 
@@ -291,6 +304,12 @@ namespace COTLMP.Game
             string Place = Player != null && !MMTools.MMTransition.IsPlaying ? CoopSync.CurrentPlace() : null;
             if (Place == null)
                 return;
+            /* Out of a session nothing is waited for: a session that starts in this room looks at it anew */
+            if (!CoopSync.InSession && !Gating)
+            {
+                GatePlace = null;
+                return;
+            }
 
             if (Place != GatePlace)
             {

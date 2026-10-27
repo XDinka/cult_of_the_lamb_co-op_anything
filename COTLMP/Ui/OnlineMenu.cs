@@ -128,7 +128,11 @@ namespace COTLMP.Ui
                 OnlineBack = Buttons[5];
                 Label(OnlineBack, T("Multiplayer/Online/Back"));
                 OnlineBack.onClick.AddListener(BackToMain);
-                Buttons[6].gameObject.SetActive(false);
+                /* Bugs and ideas: the mod's Discord, over Back */
+                MMButton DiscordButton = Buttons[6];
+                Label(DiscordButton, T("Multiplayer/Online/Discord"));
+                DiscordButton.onClick.AddListener(LogButton.OpenDiscord);
+                DiscordButton.transform.SetSiblingIndex(OnlineBack.transform.GetSiblingIndex());
                 Online.Default(CreateButton);
                 Online.Cancel = BackToMain;
                 Online.Tick = TickOnline;

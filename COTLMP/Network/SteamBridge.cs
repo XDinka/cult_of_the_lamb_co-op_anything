@@ -419,7 +419,7 @@ namespace COTLMP.Network
 
             if (!IsFake)
             {
-                LobbyCreatedResult.Set(SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypeFriendsOnly, Math.Max(2, Plugin.Globals.MaxNumPlayers)));
+                LobbyCreatedResult.Set(SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypeFriendsOnly, Data.InternalData.Players));
             }
 
             Plugin.Logger?.LogInfo($"[STEAM] Hosting as {Link.LocalId}, relaying to server port {Port}");

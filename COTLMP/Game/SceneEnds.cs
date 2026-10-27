@@ -76,6 +76,18 @@ namespace COTLMP.Game
         private static float PartnerSince;
         private static readonly HashSet<int> PartnerTalks = new();
         private static string PartnerFilm;
+
+        /// <summary>
+        /// The session is over: nothing of it is to steer the next one
+        /// </summary>
+        internal static void ResetSession()
+        {
+            OurScene = PartnerScene = false;
+            OurPlace = PartnerPlace = PartnerFilm = null;
+            OurTalks.Clear();
+            PartnerTalks.Clear();
+        }
+
         private static float PartnerFilmSince;
 
         /* Our film */

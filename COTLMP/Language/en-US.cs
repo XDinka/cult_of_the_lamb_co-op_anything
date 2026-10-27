@@ -28,7 +28,6 @@ namespace COTLMP.Language
             new("Multiplayer/UI/Settings", "Multiplayer Settings", false),
             new("Multiplayer/UI/Settings/DisableMod", "Mod Toggle", false),
             new("Multiplayer/UI/Settings/PlayerName", "Player Name", false),
-            new("Multiplayer/UI/Settings/PlayerCount", "Number of maximum players to join", false),
 
             /* Servers browser UI resource strings */
 
@@ -66,6 +65,9 @@ namespace COTLMP.Language
             new("Multiplayer/UI/PatchesUpdate", "{0} of the mod's hooks don't fit this game version: the game was updated after the mod. Version {1} is out (you have {2}). Update now?", false),
             new("Multiplayer/UI/PatchesOurs", "{0} of the mod's hooks don't fit your game version: co-op may not work right", false),
             new("Multiplayer/UI/PatchesPartner", "{0}: {1} of the mod's hooks don't fit their game version, co-op may not work right", false),
+            new("Multiplayer/UI/CopyLog", "Copy the log", false),
+            new("Multiplayer/UI/LogCopied", "Log copied", false),
+            new("Multiplayer/Online/Discord", "Bugs and ideas", false),
             new("Multiplayer/Chat/Tip", "Press T to chat with your friend", false),
             new("Multiplayer/Chat/Hint", "Message… Enter sends, Esc closes", false),
             new("Multiplayer/Steam/Left", "You left your friend's game", false),

@@ -34,6 +34,11 @@ namespace COTLMP.Data
         /// </summary>
         internal const int MaxPlayersPerServerInternal = 12;
 
+        /// <summary>
+        /// Players in a session: the host and one friend, as the game's own co-op (the Lamb and the Goat)
+        /// </summary>
+        internal const int Players = 2;
+
 
         /******************************************************************************
          *                 THE FOLLOWING FIELDS ARE UPDATED AT RUNTIME.               *
