@@ -1,0 +1,30 @@
+# Announces each published release in the Discord releases channel.
+# Needs the repository secret DISCORD_WEBHOOK (Settings → Secrets and variables → Actions).
+name: Discord release announcement
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to announce, e.g. v0.3.7"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post to Discord
+        # Skipped until the secret is added
+        if: ${{ env.DISCORD_WEBHOOK != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: python tools/discord-release.py "$TAG"
