@@ -17,3 +17,6 @@ Assets/UI/.vsconfig
 
 # local build and test output
 out/
+
+# Discord webhook for release announcements: a secret, never commit it
+.discord-webhook

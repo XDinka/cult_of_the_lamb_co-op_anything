@@ -1,10 +1,13 @@
 """
 Announces a GitHub release in the Discord releases channel through its webhook.
 
-    python tools/discord-release.py TAG            (DISCORD_WEBHOOK set: posts)
+    python tools/discord-release.py TAG            (posts)
     python tools/discord-release.py TAG --dry-run  (prints the message instead)
 
-Run by .github/workflows/discord-release.yml when a release is published. The words for players can
+The webhook comes from DISCORD_WEBHOOK or from the file .discord-webhook at the repository root
+(git-ignored, never commit it). Run by tools/release.py after it publishes a release, or by
+.github/workflows/discord-release.yml when the repository has the DISCORD_WEBHOOK secret (use one of
+the two, not both, or the release is announced twice). The words for players can
 sit in the release notes as hidden blocks, which GitHub doesn't show:
 
     <!-- discord-ru
@@ -23,6 +26,7 @@ import re
 import sys
 import urllib.request
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = "XDinka/cult_of_the_lamb_co-op_anything"
 SITE = f"https://github.com/{REPO}"
 AVATAR = f"https://raw.githubusercontent.com/{REPO}/main/Media/readme/lamb.png"
@@ -72,6 +76,13 @@ def message(rel):
     return {"username": "Co-op Anything", "avatar_url": AVATAR, "embeds": embeds}
 
 
+def webhook():
+    if os.environ.get("DISCORD_WEBHOOK"):
+        return os.environ["DISCORD_WEBHOOK"]
+    path = os.path.join(ROOT, ".discord-webhook")
+    return open(path, encoding="utf-8").read().strip() if os.path.exists(path) else None
+
+
 def main():
     tag = sys.argv[1]
     rel = release(tag)
@@ -82,7 +93,11 @@ def main():
     if "--dry-run" in sys.argv:
         print(json.dumps(data, ensure_ascii=False, indent=2))
         return
-    req = urllib.request.Request(os.environ["DISCORD_WEBHOOK"] + "?wait=true",
+    url = webhook()
+    if not url:
+        print("No DISCORD_WEBHOOK and no .discord-webhook file, not announced")
+        return
+    req = urllib.request.Request(url + "?wait=true",
                                  data=json.dumps(data).encode(), method="POST",
                                  headers={"Content-Type": "application/json", "User-Agent": "discord-release"})
     print("Posted", json.load(urllib.request.urlopen(req))["id"])
