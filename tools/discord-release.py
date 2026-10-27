@@ -58,7 +58,9 @@ def embed(lang, text, rel, version):
     flag, download, wiki, changes, wiki_url, note = LINKS[lang]
     links = (f"⬇️ **[{download}]({SITE}/releases/latest/download/CotlCoopInstaller.exe)**  ·  "
              f"📖 [{wiki}]({wiki_url})  ·  📝 [{changes}]({rel['html_url']})")
-    return {"title": f"{flag} Co-op Anything {version}", "url": rel["html_url"], "color": RED,
+    # Each embed gets its own link: Discord folds embeds with the same link into one, keeping only
+    # the first one's text
+    return {"title": f"{flag} Co-op Anything {version}", "url": f"{rel['html_url']}#{lang}", "color": RED,
             "description": f"{text.strip()}\n\n{links}\n*{note}*"}
 
 
