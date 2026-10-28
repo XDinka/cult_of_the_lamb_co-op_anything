@@ -93,6 +93,11 @@ namespace COTLMP.Game
                 farming.health.invincible = down || !puppetsTargetable;
             farming.IsKnockedOut = down;
 
+            /* The game's own revive stands at the downed puppet, price and labels included */
+            Interaction_CoopRevive revive = farming.GetComponent<Interaction_CoopRevive>();
+            if (revive != null)
+                revive.enabled = down;
+
             if (!down)
             {
                 farming.playerController?.ResetSpecificMovementAnimations();
@@ -128,6 +133,19 @@ namespace COTLMP.Game
             {
                 if (farming != null)
                     return farming.CameraBone != null ? farming.CameraBone : farming.gameObject;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// The (first) other player's puppet itself, if there is one
+        /// </summary>
+        internal static PlayerFarming GetAnyPuppet()
+        {
+            foreach (PlayerFarming farming in players)
+            {
+                if (farming != null)
+                    return farming;
             }
             return null;
         }

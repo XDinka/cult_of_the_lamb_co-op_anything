@@ -44,6 +44,9 @@ namespace COTLMP.Debug
             MMTransition.CanResume = true;
             MMTransition.ResumePlay();
             Plugin.Logger?.LogWarning($"{Tag} In the dungeon at {COTLMP.Game.CoopSync.CurrentPlace()}");
+            /* The floors test is about the maps: nobody dies on the way to the exit */
+            if (NextFloor && PlayerFarming.Instance != null)
+                PlayerFarming.Instance.health.invincible = true;
 
             /* Walk the same way through the rooms on both sides: the first unvisited door, N, E, S, W */
             while (SceneManager.GetActiveScene().name == DungeonScene)
@@ -529,6 +532,10 @@ namespace COTLMP.Debug
             while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoDie);
+            /* Fall standing in one room with the partner (their side has our body to kneel at), not mid-transition */
+            yield return Until(() => PlayerFarming.Instance != null && !MMTransition.IsPlaying && !COTLMP.Game.SceneEnds.Waiting &&
+                                     COTLMP.Game.RoomSync.PartnerLastPlace == COTLMP.Game.CoopSync.CurrentPlace(), 90f);
+            yield return new WaitForSecondsRealtime(1f);
 
             PlayerFarming Player = PlayerFarming.Instance;
             Plugin.Logger?.LogWarning($"{Tag} Dying on purpose, hp {Player.health.HP}");
@@ -597,23 +604,23 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
-        /// Stands next to the downed partner until the bar fills, as a player would
+        /// Walks to the downed partner and pays the game's own price (two hearts at their puppet's
+        /// revive interaction) to get them up, as a player would
         /// </summary>
         private static IEnumerator Rescue()
         {
             while (true)
             {
-                yield return null;
+                yield return new WaitForSecondsRealtime(0.5f);
                 if (!COTLMP.Game.CoopLife.PartnerDown || PlayerFarming.Instance == null || MMTransition.IsPlaying)
                     continue;
-                Vector3? Downed = COTLMP.Game.PlayerManager.GetAnyPuppetPosition();
-                if (!Downed.HasValue)
+                PlayerFarming Downed = COTLMP.Game.PlayerManager.GetAnyPuppet();
+                if (Downed == null)
                     continue;
-                PlayerFarming.Instance.transform.position = Downed.Value + new Vector3(0.6f, 0f, 0f);
-                if (Time.frameCount % 60 == 0)
-                    Plugin.Logger?.LogWarning($"{Tag} Reviving the partner, bar {COTLMP.Game.CoopLife.ReviveProgress:F2}");
-                /* -cotlmp-dieonrevive: we fall halfway through getting them up */
-                if (DieOnRevive && COTLMP.Game.CoopLife.ReviveProgress > 0.5f)
+                PlayerFarming.Instance.transform.position = Downed.transform.position + new Vector3(0.6f, 0f, 0f);
+                yield return new WaitForSecondsRealtime(1f);
+                /* -cotlmp-dieonrevive: we fall at their side instead of helping (both down test) */
+                if (DieOnRevive)
                 {
                     DieOnRevive = false;
                     PlayerFarming Player = PlayerFarming.Instance;
@@ -622,7 +629,17 @@ namespace COTLMP.Debug
                     Player.health.untouchable = false;
                     Player.health.HP = 0.5f;
                     Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+                    continue;
                 }
+                var Revive = Downed.GetComponent<Interaction_CoopRevive>();
+                if (Revive == null || !Revive.enabled || !COTLMP.Game.CoopLife.PartnerDown)
+                    continue;
+                float Hearts = PlayerFarming.Instance.health.CurrentHP;
+                Revive.playerFarming = PlayerFarming.Instance;
+                Plugin.Logger?.LogWarning($"{Tag} Reviving the partner for the game's price, our hearts {Hearts}");
+                Revive.OnInteract(PlayerFarming.Instance.state);
+                yield return new WaitForSecondsRealtime(2f);
+                Plugin.Logger?.LogWarning($"{Tag} After the revive: our hearts {PlayerFarming.Instance.health.CurrentHP} (were {Hearts}), partner down {COTLMP.Game.CoopLife.PartnerDown}");
             }
         }
 

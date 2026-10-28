@@ -28,8 +28,9 @@ namespace COTLMP.Game
     /// <list type="bullet">
     /// <item>Our death becomes the game's knockout while the partner is alive in a dungeon.</item>
     /// <item>The partner's puppet plays the same downed animations while they are down.</item>
-    /// <item>Standing next to the downed partner for 3 seconds fills a bar and gets them up;
-    /// walking away drains it slowly. Clearing the room wakes them through the game itself.</item>
+    /// <item>Getting them up is the game's own deal: the downed puppet carries the game's revive
+    /// interaction, with its label, its "can't afford" refusal and its price — two hearts off the
+    /// reviver, spirit and spare hearts first. Clearing the room wakes them through the game itself.</item>
     /// <item>If we die while the partner is down, it's game over for both.</item>
     /// </list>
     /// </remarks>
@@ -41,9 +42,6 @@ namespace COTLMP.Game
             Down = 1,
             Dead = 2
         }
-
-        private const float ReviveSeconds = 3f;
-        private const float ReviveRadius = 1.6f;
 
         private static Life Mine = Life.Alive;
         private static Life Partner = Life.Alive;
@@ -64,22 +62,17 @@ namespace COTLMP.Game
 
         private static float PartnerChanged;
 
-        /* Revive bar: ours over the downed partner, or theirs over us, and when theirs last moved */
-        private static float Progress, PartnerProgress;
-        private static float LastProgressSent, PartnerProgressAt;
-
         /* Both down: our lamb is on its way out, nothing may stand it up again meanwhile */
         private static bool Dying;
         private static float DyingSince;
         private static readonly System.Reflection.MethodInfo GameOnDie = AccessTools.Method(typeof(PlayerController), "OnDie");
 
         /* Counters for the test harness report */
-        internal static int KnockOuts, Revives, ForcedDeaths;
+        internal static int KnockOuts, Revives, ForcedDeaths, RevivesGiven;
 
         internal static bool PartnerDown => Partner == Life.Down;
         internal static bool PartnerFallen => Partner != Life.Alive;
         internal static bool WeAreDown => Mine == Life.Down;
-        internal static float ReviveProgress => Progress;
 
         /// <summary>
         /// The partner can still carry the run: they are alive and in a dungeon. In the opening each
@@ -93,9 +86,6 @@ namespace COTLMP.Game
         public static void Initialize()
         {
             Plugin.MonoInstance.StartCoroutine(Loop());
-            GameObject Bar = new("COTLMP Revive Bar");
-            UnityEngine.Object.DontDestroyOnLoad(Bar);
-            Bar.AddComponent<ReviveBar>();
         }
 
         private static void SendLife()
@@ -129,9 +119,6 @@ namespace COTLMP.Game
                     PartnerChanged = Time.realtimeSinceStartup;
                     Plugin.Logger?.LogInfo($"[COOP] The partner is {Value}");
                     PlayerManager.SetPuppetsDown(Value == Life.Down);
-                    Progress = 0f;
-                    if (Value != Life.Alive)
-                        PartnerProgress = 0f;
 
                     /* They fell for good while we were down: the run is over for both */
                     if (Value == Life.Dead && Mine == Life.Down)
@@ -141,9 +128,8 @@ namespace COTLMP.Game
 
                 case CoopSync.Kind.Revive:
                 {
+                    /* The partner paid the game's price at our puppet: we get up */
                     float Value = Reader.ReadSingle();
-                    PartnerProgress = Partner == Life.Alive ? Value : 0f;
-                    PartnerProgressAt = Time.realtimeSinceStartup;
                     if (Value >= 1f && Mine == Life.Down)
                         GetUp();
                     break;
@@ -159,10 +145,10 @@ namespace COTLMP.Game
 
             Plugin.Logger?.LogInfo("[COOP] The partner got us up");
             ++Revives;
-            PartnerProgress = 0f;
             try
             {
-                CoopManager.WakeKnockedOutPlayer(Player, 2f, null, Interaction_HeartPickupBase.HeartPickupType.Red, false);
+                /* The partner's puppet is the reviver: the game plays its whole revive scene from them */
+                CoopManager.WakeKnockedOutPlayer(Player, 2f, PlayerManager.GetAnyPuppet(), Interaction_HeartPickupBase.HeartPickupType.Red, false);
 
                 /* Local co-op pauses the game for a revive; without that pause, a moment to get clear */
                 Player.playerController?.MakeInvincible(2f);
@@ -230,7 +216,7 @@ namespace COTLMP.Game
         }
 
         /// <summary>
-        /// Fills or drains the revive bar while the partner is down, and keeps our state in sync.
+        /// Keeps our life state in sync and ends a run nobody can save.
         /// </summary>
         /* Down with no partner to get us up: since when (the friend may be connecting again) */
         private static float AloneSince = -1f;
@@ -254,7 +240,6 @@ namespace COTLMP.Game
                             StartDying();
                         }
                         Partner = Life.Alive;
-                        Progress = PartnerProgress = 0f;
                         AloneSince = -1f;
                         continue;
                     }
@@ -284,110 +269,16 @@ namespace COTLMP.Game
                     if (Partner == Life.Dead && Mine == Life.Down && !Dying && Time.realtimeSinceStartup - DyingSince > 3f)
                         StartDying();
 
-                    /* Their bar stopped coming (they fell, the connection dropped): it isn't filling */
-                    if (PartnerProgress > 0f && Time.realtimeSinceStartup - PartnerProgressAt > 1.5f)
-                        PartnerProgress = 0f;
-
                     if (Time.realtimeSinceStartup >= NextAnnounce)
                     {
                         NextAnnounce = Time.realtimeSinceStartup + 2f;
                         SendLife();
                     }
-
-                    UpdateRevive(Player);
                 }
                 catch (Exception e)
                 {
                     PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Life sync failed: {e.Message}");
                 }
-            }
-        }
-
-        private static void UpdateRevive(PlayerFarming Player)
-        {
-            float Before = Progress;
-            Vector3? Downed = Partner == Life.Down ? PlayerManager.GetAnyPuppetPosition() : null;
-
-            if (Player == null || Mine != Life.Alive || !Downed.HasValue || MMTools.MMTransition.IsPlaying)
-            {
-                Progress = 0f;
-            }
-            else
-            {
-                Vector3 Gap = Player.transform.position - Downed.Value;
-                Gap.z = 0f;
-                if (Gap.magnitude < ReviveRadius)
-                    Progress = Mathf.Min(1f, Progress + Time.deltaTime / ReviveSeconds);
-                else
-                    Progress = Mathf.Max(0f, Progress - Time.deltaTime / (ReviveSeconds * 2f));
-            }
-
-            if (Progress >= 1f)
-            {
-                Plugin.Logger?.LogInfo("[COOP] Got the partner up");
-                CoopSync.Send(CoopSync.Kind.Revive, Writer => Writer.Write(1f));
-                Progress = 0f;
-                LastProgressSent = Time.realtimeSinceStartup;
-                return;
-            }
-
-            /* Let them watch the bar fill, ten times a second while it moves */
-            if (Progress != Before && Time.realtimeSinceStartup - LastProgressSent > 0.1f || (Before > 0f && Progress == 0f))
-            {
-                LastProgressSent = Time.realtimeSinceStartup;
-                float Value = Progress;
-                CoopSync.Send(CoopSync.Kind.Revive, Writer => Writer.Write(Value));
-            }
-        }
-
-        /// <summary>
-        /// Draws the revive bar over whoever is down.
-        /// </summary>
-        private sealed class ReviveBar : MonoBehaviour
-        {
-            private static Texture2D Pixel;
-
-            private void OnGUI()
-            {
-                if (!CoopSync.InSession || Camera.main == null)
-                    return;
-
-                Vector3? Over = null;
-                float Value = 0f;
-                if (Partner == Life.Down && Progress > 0f)
-                {
-                    Over = PlayerManager.GetAnyPuppetPosition();
-                    Value = Progress;
-                }
-                else if (Mine == Life.Down && PartnerProgress > 0f && PlayerFarming.Instance != null)
-                {
-                    Over = PlayerFarming.Instance.transform.position;
-                    Value = PartnerProgress;
-                }
-                if (!Over.HasValue)
-                    return;
-
-                if (Pixel == null)
-                {
-                    Pixel = new Texture2D(1, 1);
-                    Pixel.SetPixel(0, 0, Color.white);
-                    Pixel.Apply();
-                }
-
-                Vector3 Screen = Camera.main.WorldToScreenPoint(Over.Value + Vector3.back * 1.6f);
-                if (Screen.z < 0f)
-                    return;
-
-                float Width = UnityEngine.Screen.height * 0.09f, Height = Mathf.Max(6f, UnityEngine.Screen.height * 0.012f);
-                Rect Back = new(Screen.x - Width / 2f, UnityEngine.Screen.height - Screen.y - Height / 2f, Width, Height);
-                Color Old = GUI.color;
-                GUI.color = new Color(0f, 0f, 0f, 0.75f);
-                GUI.DrawTexture(new Rect(Back.x - 2f, Back.y - 2f, Back.width + 4f, Back.height + 4f), Pixel);
-                GUI.color = new Color(0.25f, 0.05f, 0.05f, 0.9f);
-                GUI.DrawTexture(Back, Pixel);
-                GUI.color = new Color(0.93f, 0.18f, 0.16f, 1f);
-                GUI.DrawTexture(new Rect(Back.x, Back.y, Back.width * Mathf.Clamp01(Value), Back.height), Pixel);
-                GUI.color = Old;
             }
         }
 
@@ -425,6 +316,58 @@ namespace COTLMP.Game
                     PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Knockout failed, dying normally: {e}");
                 }
                 return true;
+            }
+
+            /// <summary>
+            /// The game's own revive, used at the downed partner's puppet: the price (two hearts,
+            /// spirit and spare ones first, as the game takes them) is paid here, and the word goes
+            /// to the partner, whose own game gets them up. The puppet itself stands up when the
+            /// partner's life state comes back as alive.
+            /// </summary>
+            [HarmonyPatch(typeof(Interaction_CoopRevive), nameof(Interaction_CoopRevive.OnInteract))]
+            [HarmonyPrefix]
+            private static bool ReviveAtPuppet(Interaction_CoopRevive __instance, StateMachine state)
+            {
+                try
+                {
+                    PlayerFarming Downed = __instance.GetComponent<PlayerFarming>();
+                    if (Downed == null || Downed.health == null || !PlayerManager.IsPuppet(Downed.health))
+                        return true;
+
+                    PlayerFarming Reviver = __instance.playerFarming != null ? __instance.playerFarming : PlayerFarming.Instance;
+                    if (Reviver == null || Reviver.health == null || Partner != Life.Down)
+                        return false;
+
+                    /* Not enough hearts: the game's own refusal */
+                    int Cost = __instance.reviveCost;
+                    if (Reviver.health.CurrentHP <= Cost)
+                    {
+                        CameraManager.instance?.ShakeCameraForDuration(1f, 3f, 1f);
+                        Reviver.indicator?.PlayShake();
+                        return false;
+                    }
+
+                    /* The game's price, taken the way Interaction_CoopRevive takes it */
+                    Health Purse = Reviver.health;
+                    while (Purse.SpiritHearts > 0f && Cost > 0) { Purse.SpiritHearts--; Cost--; }
+                    while (Purse.BlackHearts > 0f && Cost > 0) { Purse.BlackHearts--; Cost--; }
+                    while (Purse.FireHearts > 0f && Cost > 0) { Purse.FireHearts--; Cost--; }
+                    while (Purse.IceHearts > 0f && Cost > 0) { Purse.IceHearts--; Cost--; }
+                    while (Purse.BlueHearts > 0f && Cost > 0) { Purse.BlueHearts--; Cost--; }
+                    while (Purse.HP > 0f && Cost > 0) { Purse.HP--; Cost--; }
+
+                    ++RevivesGiven;
+                    Plugin.Logger?.LogInfo($"[COOP] Got the partner up for {__instance.reviveCost} hearts (ours now {Purse.CurrentHP})");
+                    AudioManager.Instance?.PlayOneShot("event:/player/goat_player/goat_bell", Downed.gameObject);
+                    CoopSync.Send(CoopSync.Kind.Revive, Writer => Writer.Write(1f));
+                    __instance.enabled = false;
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Reviving at the puppet failed: {e}");
+                    return false;
+                }
             }
 
             /// <summary>
