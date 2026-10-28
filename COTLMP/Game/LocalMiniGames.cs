@@ -130,31 +130,59 @@ namespace COTLMP.Game
             Away.Clear();
         }
 
-        [HarmonyPatch(typeof(Interaction_KnucklebonesBuilding), nameof(Interaction_KnucklebonesBuilding.GetLabel))]
-        [HarmonyPostfix]
-        private static void NoMatchForTwo(Interaction_KnucklebonesBuilding __instance)
+        /*
+         * Knucklebones for two, at the cult's own table and at Ratau's or another player's in the world: the second
+         * seat is the game's second player, here the partner's puppet, whose turn never comes
+         */
+        private static readonly Type[] Tables = { typeof(Interaction_KnucklebonesBuilding), typeof(Interaction_Knucklebones) };
+
+        private static IEnumerable<MethodBase> TableMethods(string Name)
         {
-            if (PuppetsIn())
-                __instance.HasSecondaryInteraction = false;
+            foreach (Type Table in Tables)
+            {
+                MethodInfo Method = AccessTools.DeclaredMethod(Table, Name);
+                if (Method != null)
+                    yield return Method;
+            }
         }
 
-        [HarmonyPatch(typeof(Interaction_KnucklebonesBuilding), nameof(Interaction_KnucklebonesBuilding.GetSecondaryLabel))]
-        [HarmonyPostfix]
-        private static void NoMatchForTwoLabel(Interaction_KnucklebonesBuilding __instance)
+        [HarmonyPatch]
+        private static class NoMatchForTwo
         {
-            if (PuppetsIn())
-                __instance.SecondaryLabel = "";
+            private static IEnumerable<MethodBase> TargetMethods() => TableMethods(nameof(Interaction.GetLabel));
+
+            private static void Postfix(Interaction __instance)
+            {
+                if (PuppetsIn())
+                    __instance.HasSecondaryInteraction = false;
+            }
         }
 
-        [HarmonyPatch(typeof(Interaction_KnucklebonesBuilding), nameof(Interaction_KnucklebonesBuilding.OnSecondaryInteract))]
-        [HarmonyPrefix]
-        private static bool NoMatchForTwoPlayed()
+        [HarmonyPatch]
+        private static class NoMatchForTwoLabel
         {
-            if (!PuppetsIn())
-                return true;
-            ++MatchesForTwoRefused;
-            Plugin.Logger?.LogInfo("[COOP] Knucklebones for two isn't played online (the other seat would be the partner's puppet)");
-            return false;
+            private static IEnumerable<MethodBase> TargetMethods() => TableMethods(nameof(Interaction.GetSecondaryLabel));
+
+            private static void Postfix(Interaction __instance)
+            {
+                if (PuppetsIn())
+                    __instance.SecondaryLabel = "";
+            }
+        }
+
+        [HarmonyPatch]
+        private static class NoMatchForTwoPlayed
+        {
+            private static IEnumerable<MethodBase> TargetMethods() => TableMethods(nameof(Interaction.OnSecondaryInteract));
+
+            private static bool Prefix(Interaction __instance)
+            {
+                if (!PuppetsIn())
+                    return true;
+                ++MatchesForTwoRefused;
+                Plugin.Logger?.LogInfo($"[COOP] Knucklebones for two isn't played online at {__instance.name} (the other seat would be the partner's puppet)");
+                return false;
+            }
         }
     }
 }

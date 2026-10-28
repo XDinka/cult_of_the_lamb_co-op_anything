@@ -125,6 +125,8 @@ namespace COTLMP.Debug
         private static int Fleece;
         /* -cotlmp-menutest: a new thing's card stands 5 s in the dungeon (the HUD watchdog must leave the game's hide be) */
         private static bool MenuTesting;
+        /* -cotlmp-kbtest: the knucklebones tables are asked for a match for two with the puppet in the room */
+        private static bool KnucklebonesTesting;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -324,6 +326,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-kbtest", StringComparison.OrdinalIgnoreCase))
+                    KnucklebonesTesting = true;
                 else if (Arg.Equals("-cotlmp-menutest", StringComparison.OrdinalIgnoreCase))
                     MenuTesting = true;
                 else if (Arg.StartsWith("-cotlmp-fleece=", StringComparison.OrdinalIgnoreCase))
@@ -412,6 +416,8 @@ namespace COTLMP.Debug
                 Run("Fleece", FleeceTest());
             if (MenuTesting)
                 Run("MenuTest", MenuTest());
+            if (KnucklebonesTesting)
+                Run("Knucklebones", KnucklebonesTest());
             if (AutoDungeon > 0f)
                 Run("StrayCards", CloseStrayCards());
             if (AutoDungeon > 0f)

@@ -601,6 +601,46 @@ namespace COTLMP.Debug
         /// </summary>
         private static Lamb.UI.UINewItemOverlayController OwnCard;
 
+        /// <summary>
+        /// -cotlmp-kbtest: with the partner's puppet in our room, the knucklebones tables (Ratau's kind and the cult's)
+        /// are asked what they offer: a match for two would seat the puppet
+        /// </summary>
+        private static IEnumerator KnucklebonesTest()
+        {
+            yield return Until(() => SceneManager.GetActiveScene().name == DungeonScene && PlayerFarming.Instance != null && COTLMP.Game.GhostLoot.PartnerHere() != null && !MMTransition.IsPlaying, 300f);
+            yield return new WaitForSecondsRealtime(3f);
+            foreach (Type Kind in new[] { typeof(Interaction_Knucklebones), typeof(Interaction_KnucklebonesBuilding) })
+            {
+                GameObject Table = new($"COTLMP test {Kind.Name}");
+                Table.transform.position = PlayerFarming.Instance.transform.position + new Vector3(1f, 0f, 0f);
+                Interaction Seat = null;
+                try
+                {
+                    Seat = (Interaction)Table.AddComponent(Kind);
+                    Seat.GetLabel();
+                    Seat.GetSecondaryLabel();
+                    Plugin.Logger?.LogWarning($"{Tag} Knucklebones test: {Kind.Name} with {PlayerFarming.playersCount} players offers a match for two: {Seat.HasSecondaryInteraction}, label '{Seat.SecondaryLabel}'");
+                    if (!Seat.HasSecondaryInteraction)
+                    {
+                        int Before = COTLMP.Game.LocalMiniGames.MatchesForTwoRefused;
+                        Seat.OnSecondaryInteract(PlayerFarming.Instance.state);
+                        Plugin.Logger?.LogWarning($"{Tag} Knucklebones test: {Kind.Name} pressed for two anyway: refused {COTLMP.Game.LocalMiniGames.MatchesForTwoRefused - Before}");
+                    }
+                    else
+                    {
+                        ++Failed;
+                        Plugin.Logger?.LogError($"[QA] Knucklebones test: {Kind.Name} offers a match for two with the partner's puppet in the second seat");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Knucklebones test: {Kind.Name} stumbled: {e.GetType().Name}: {e.Message}");
+                }
+                UnityEngine.Object.Destroy(Table);
+                yield return new WaitForSecondsRealtime(1f);
+            }
+        }
+
         /* A frame of every INV-HUD as it is told: what the player had on screen then */
         private static IEnumerator ShootLostHud()
         {
