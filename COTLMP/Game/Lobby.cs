@@ -317,8 +317,26 @@ namespace COTLMP.Game
         /// </summary>
         internal static IEnumerator AutoHost()
         {
+            float Told = Time.unscaledTime;
+            bool Shot = false;
             while (!InMenu || MMTransition.IsPlaying || !OnlineMenu.Shown)
+            {
+                /* Where it waits, now and then: the lobby test opens nothing until all three hold */
+                if (Time.unscaledTime - Told > 10f)
+                {
+                    Told = Time.unscaledTime;
+                    Plugin.Logger?.LogWarning($"[QA host] Waiting to open the lobby: in the menu {InMenu}, transition {MMTransition.IsPlaying}, online menu ready {OnlineMenu.Ready}, " +
+                                              $"main menu {(UIMainMenuController.Instance == null ? "none" : UIMainMenuController.Instance.MainMenu.gameObject.activeInHierarchy ? "shown" : "hidden")}, " +
+                                              $"title: session {(Unify.SessionManager.instance == null ? "none" : Unify.SessionManager.instance.HasStarted ? "started" : "not started")}, press on {COTLMP.Debug.PressStart.On}, {Time.realtimeSinceStartup:F0} s up, focused {Application.isFocused}, in background {Application.runInBackground}, " +
+                                              $"menus up [{string.Join(", ", System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(UIMenuBase.ActiveMenus, Menu => Menu != null && Menu.gameObject.activeInHierarchy), Menu => Menu.GetType().Name))}]");
+                    if (!Shot)
+                    {
+                        Shot = true;
+                        yield return LobbyShots.Take("waiting");
+                    }
+                }
                 yield return null;
+            }
             yield return new WaitForSecondsRealtime(4f);
 
             OnlineMenu.ShowOnline();

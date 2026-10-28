@@ -127,6 +127,8 @@ namespace COTLMP.Debug
         private static bool MenuTesting;
         /* -cotlmp-kbtest: the knucklebones tables are asked for a match for two with the puppet in the room */
         private static bool KnucklebonesTesting;
+        /* -cotlmp-nopress: no press on the title (the lobby test's host stays there: run-pair's retry is tried so) */
+        private static bool NoPress;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -326,6 +328,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-nopress", StringComparison.OrdinalIgnoreCase))
+                    NoPress = true;
                 else if (Arg.Equals("-cotlmp-kbtest", StringComparison.OrdinalIgnoreCase))
                     KnucklebonesTesting = true;
                 else if (Arg.Equals("-cotlmp-menutest", StringComparison.OrdinalIgnoreCase))
@@ -451,6 +455,7 @@ namespace COTLMP.Debug
                 Plugin.MonoInstance.StartCoroutine(EnterCult(AutoHost));
             /* Past the title by itself for the tests that start in the main menu (others may have asked for it too) */
             PressStart.On |= COTLMP.Game.Lobby.AutoLobby != null || LobbyJoin || COTLMP.Network.Updater.TakeOffer;
+            PressStart.On &= !NoPress;
             if (COTLMP.Game.Lobby.AutoLobby != null)
                 Run("AutoHost", COTLMP.Game.Lobby.AutoHost());
             if (LobbyJoin)

@@ -112,14 +112,27 @@ if [ -n "${LOBBY:-}" ]; then
 else
     HOST_MODE="-cotlmp-autohost"; HOST_READY="StartHosting returned True"; CLIENT_MODE="-cotlmp-join=1"
 fi
-launch "$G1" "$WIN -logFile $LOGS\\host-player.log -cotlmp-window=0,0,$WIN_W,$WIN_H -cotlmp-fakesteam=1 $HOST_MODE -cotlmp-report -cotlmp-quitafter=600 ${HOST_EXTRA:-}"
-if ! wait_for "$G1/BepInEx/LogOutput.log" "$HOST_READY" 150; then echo "HOST DID NOT START"; fi
+# The lobby test's host now and then stays on the title (its press never lands, see Lobby.AutoHost):
+# once more then, told as a retry, so the run isn't taken for a clean one
+Retries=0
+while :; do
+    launch "$G1" "$WIN -logFile $LOGS\\host-player.log -cotlmp-window=0,0,$WIN_W,$WIN_H -cotlmp-fakesteam=1 $HOST_MODE -cotlmp-report -cotlmp-quitafter=600 ${HOST_EXTRA:-}"
+    wait_for "$G1/BepInEx/LogOutput.log" "$HOST_READY" 150 && break
+    echo "HOST DID NOT START"
+    if [ -z "${LOBBY:-}" ] || [ "$Retries" -ge 1 ]; then break; fi
+    Retries=$((Retries + 1))
+    echo "RETRY lobby ($Retries): the host never opened it"
+    cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex-try$Retries.log" 2>/dev/null
+    kill_test_copies
+    timeout 3 cat /dev/zero > /dev/null 2>&1
+    rm -f "$G1/BepInEx/LogOutput.log"
+done
 
 # CLIENT_MENU=1: the client joins from the main menu and plays on the host's save
 CLIENT_ENTER=$([ -n "${CLIENT_MENU:-}" ] || [ -n "${LOBBY:-}" ] || echo -cotlmp-autoenter)
 launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 $CLIENT_MODE $CLIENT_ENTER -cotlmp-report -cotlmp-quitafter=600 $EXTRA"
 if ! wait_for "$G2/BepInEx/LogOutput.log" "Joined host" 150; then
-    echo "CLIENT DID NOT CONNECT"
+    echo "CLIENT DID NOT CONNECT (retries $Retries)"
     # Nothing to hold for: the logs as they are, the games closed, a code of its own
     cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex.log" 2>/dev/null; cp "$G2/BepInEx/LogOutput.log" "$OUT/client-bepinex.log" 2>/dev/null
     kill_test_copies
@@ -155,6 +168,7 @@ for Dir in $(comm -13 <(echo "$CrashesBefore") <(ls "$CRASHES" 2>/dev/null | sor
     Who=$(ls "$CRASHES/$Dir" 2>/dev/null | grep -oE "^(host|client)-player" | head -1)
     echo "CRASH ${Who%-player} report $CRASHES/$Dir (available $Avail MB at the start)"; Crashed=1
 done
+echo "retries $Retries"
 for f in host client; do
     echo "== $f exceptions (Unity log, minus the vanilla LOD one)"
     grep -E "Exception" -A2 "$OUT/$f-player.log" | grep -vE "SkeletonAnimationLOD|^--" | grep -A2 Exception | head -12
