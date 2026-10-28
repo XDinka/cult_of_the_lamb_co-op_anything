@@ -121,6 +121,8 @@ namespace COTLMP.Debug
         private static float SceneQuiet;
         /* -cotlmp-hudbreak: after the scene test the hearts' bar goes out under a shown HUD (the INV-HUD probe must catch it) */
         private static bool HudBreak;
+        /* -cotlmp-fleece=N: the run starts with that fleece (4 or 6: four tarot cards in the first room) */
+        private static int Fleece;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -320,6 +322,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.StartsWith("-cotlmp-fleece=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-fleece=".Length), out Fleece);
                 else if (Arg.Equals("-cotlmp-hudbreak", StringComparison.OrdinalIgnoreCase))
                     HudBreak = true;
                 else if (Arg.StartsWith("-cotlmp-scenequiet=", StringComparison.OrdinalIgnoreCase))
@@ -400,6 +404,8 @@ namespace COTLMP.Debug
 
             if (WindowRect != null)
                 Run("KeepWindow", KeepWindow());
+            if (Fleece > 0)
+                Run("Fleece", FleeceTest());
             if (AnimTest)
                 Run("PlayAttacks", PlayAttacks());
             if (CultTest)

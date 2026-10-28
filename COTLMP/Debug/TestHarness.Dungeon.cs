@@ -591,6 +591,51 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
+        /// -cotlmp-fleece=N: the run starts with fleece N (4 and 6 deal four tarot cards in its first room). In the
+        /// dungeon every tarot overlay is counted with who holds its input, and closed after a look as a player does
+        /// </summary>
+        private static IEnumerator FleeceTest()
+        {
+            yield return Until(() => SceneManager.GetActiveScene().name == "Base Biome 1" && DataManager.Instance != null && PlayerFarming.Instance != null, 300f);
+            if (SceneManager.GetActiveScene().name != "Base Biome 1" || DataManager.Instance == null)
+            {
+                Plugin.Logger?.LogError($"[QA] Fleece test: never in the cult, the fleece is left as it was");
+                ++Failed;
+                yield break;
+            }
+            DataManager.Instance.PlayerFleece = Fleece;
+            Plugin.Logger?.LogWarning($"{Tag} Fleece test: fleece {Fleece}, free tarot cards {PlayerFleeceManager.GetFreeTarotCards()}");
+            yield return Until(() => SceneManager.GetActiveScene().name == DungeonScene && PlayerFarming.Instance != null, 300f);
+            float Entered = Time.unscaledTime;
+            int Overlays = 0;
+            bool ActiveTold = false;
+            Lamb.UI.UIFleeceTarotRewardOverlayController Seen = null;
+            while (Time.unscaledTime - Entered < 90f)
+            {
+                yield return new WaitForSecondsRealtime(0.5f);
+                var Room = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
+                if (!ActiveTold && Room != null && Room.Active)
+                {
+                    ActiveTold = true;
+                    Plugin.Logger?.LogWarning($"{Tag} Fleece test: the first room is on {Time.unscaledTime - Entered:F1} s in, {Overlays} tarot overlays so far");
+                }
+                var Overlay = UnityEngine.Object.FindObjectOfType<Lamb.UI.UIFleeceTarotRewardOverlayController>();
+                if (Overlay == null || !Overlay.isActiveAndEnabled || Overlay == Seen)
+                    continue;
+                Seen = Overlay;
+                ++Overlays;
+                var Owner = MonoSingleton<src.UINavigator.UINavigatorNew>.Instance.AllowInputOnlyFromPlayer;
+                Plugin.Logger?.LogWarning($"{Tag} Fleece test: tarot overlay {Overlays} up, its input {(Owner == null ? "nobody's" : Owner == PlayerFarming.Instance ? "our lamb's" : COTLMP.Game.PlayerManager.IsPuppet(Owner.health) ? "the PUPPET's" : Owner.name)}, letterbox {LetterBox.IsPlaying}");
+                yield return new WaitForSecondsRealtime(2f);
+                Shot($"fleece-tarot-{Overlays}");
+                yield return new WaitForSecondsRealtime(1f);
+                Overlay.Hide();
+            }
+            Plugin.Logger?.LogWarning($"{Tag} Fleece test: {Overlays} tarot overlays in the first 90 s, room on {ActiveTold}, letterbox {LetterBox.IsPlaying}, HUD {COTLMP.Game.SceneTrace.HudNow()}");
+            Shot("fleece-after");
+        }
+
+        /// <summary>
         /// After the ending, back in the cult: who the fallen one is now, on this side (the host's save, the friend's copy of it)
         /// </summary>
         private static IEnumerator FateAfter()

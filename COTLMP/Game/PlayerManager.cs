@@ -45,6 +45,9 @@ namespace COTLMP.Game
 
         /* The game's talks that went to the nearest player, the partner's puppet, given to our lamb */
         internal static int TalksTakenBack;
+
+        /* The run's first-room modifiers (fleece, demons, dungeon) the puppet was left out of */
+        internal static int ModifiersLeftOut;
         private static bool puppetsTargetable;
 
         /// <summary>
@@ -846,6 +849,41 @@ namespace COTLMP.Game
                 ++TalksTakenBack;
                 Plugin.Logger?.LogInfo($"[COOP] The talk of {__instance.name} would be the partner's puppet's (the nearest player): it is our lamb's");
                 player = PlayerFarming.Instance.gameObject;
+            }
+
+            /// <summary>
+            /// A run's first room applies the fleece's, the demons' and the dungeon's modifiers to every player
+            /// in the game's list (BiomeGenerator.DelayActivateRoom), the partner's puppet too: fleece 4 and 6
+            /// then deal the puppet its own four tarot cards, an overlay that waits for its input. The puppet's
+            /// run is the partner's own, played on their side: here its modifiers are left out
+            /// </summary>
+            [HarmonyPatch]
+            private static class PuppetRunStart
+            {
+                private static IEnumerable<MethodBase> TargetMethods()
+                {
+                    foreach (string Name in new[] { "ApplyCurrentFleeceModifiersIE", "ApplyCurrentDemonModifiersIE", "ApplyCurrentDungeonModifiersIE" })
+                    {
+                        MethodInfo Method = AccessTools.Method(typeof(MMBiomeGeneration.BiomeGenerator), Name, new[] { typeof(PlayerFarming) });
+                        if (Method != null)
+                            yield return Method;
+                    }
+                }
+
+                private static bool Prefix(MethodBase __originalMethod, PlayerFarming playerFarming, ref IEnumerator __result)
+                {
+                    if (playerFarming == null || !players.Contains(playerFarming))
+                        return true;
+                    ++ModifiersLeftOut;
+                    Plugin.Logger?.LogInfo($"[COOP] The run's {__originalMethod.Name.Replace("ApplyCurrent", "").Replace("ModifiersIE", "").ToLowerInvariant()} modifiers are the partner's own: not for their puppet here");
+                    __result = Nothing();
+                    return false;
+                }
+
+                private static IEnumerator Nothing()
+                {
+                    yield break;
+                }
             }
 
             /// <summary>

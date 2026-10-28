@@ -118,7 +118,13 @@ if ! wait_for "$G1/BepInEx/LogOutput.log" "$HOST_READY" 150; then echo "HOST DID
 # CLIENT_MENU=1: the client joins from the main menu and plays on the host's save
 CLIENT_ENTER=$([ -n "${CLIENT_MENU:-}" ] || [ -n "${LOBBY:-}" ] || echo -cotlmp-autoenter)
 launch "$G2" "$WIN -logFile $LOGS\\client-player.log -cotlmp-window=$WIN_X,0,$WIN_W,$WIN_H -cotlmp-fakesteam=2 $CLIENT_MODE $CLIENT_ENTER -cotlmp-report -cotlmp-quitafter=600 $EXTRA"
-if ! wait_for "$G2/BepInEx/LogOutput.log" "Joined host" 150; then echo "CLIENT DID NOT CONNECT"; fi
+if ! wait_for "$G2/BepInEx/LogOutput.log" "Joined host" 150; then
+    echo "CLIENT DID NOT CONNECT"
+    # Nothing to hold for: the logs as they are, the games closed, a code of its own
+    cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex.log" 2>/dev/null; cp "$G2/BepInEx/LogOutput.log" "$OUT/client-bepinex.log" 2>/dev/null
+    kill_test_copies
+    exit 5
+fi
 wait_for "$G2/BepInEx/LogOutput.log" "QA client\].* scene=Base Biome 1 .*local=" 90
 
 client_running() {
