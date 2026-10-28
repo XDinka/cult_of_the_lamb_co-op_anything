@@ -3,6 +3,85 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.9.2 (2026-10-29)
+
+Both players need this version.
+
+**Your hearts stay on screen when you're alone in a room** (the likely cause of "the friend's
+interface is gone"). When the partner went on ahead, or you came into a room on your own, the game
+rebuilt the hearts panel out of sight and the HUD stood without hearts until the partner came back.
+The panel now comes back in as the game's own does.
+
+![Alone in a room, the hearts stay](Media/changelog/0.9.2-hearts-alone.png)
+
+**Conversations hold together.** A conversation that waited for the partner now starts with its
+letterbox and the lamb held still; a copy started as a room comes in waits for the host's; a host
+whose game lags is waited for, with a line saying so, instead of the friend's copy being cut off
+(after a lag the room, the fight or the next talk that hang on it now come on both sides). A
+conversation the host leads always ends for the friend too.
+
+![The host's game lags: the friend waits with a line of the game's (a test conversation)](Media/changelog/0.9.2-host-lags.png)
+
+**One death screen for the pair.** Both see the same rooms and the same run time, a lamb no longer
+gets up behind its death screen, going home ends the run for both, and nobody lies down for good.
+Getting a fallen partner up is the game's own deal: you give them one heart at their side.
+
+**The One Who Waits' fate is asked of both.** At the very end the host's answer decides for the
+pair, the friend's pick shows as a vote, and the follower is spared or killed once.
+
+![The One Who Waits' fate on the friend's screen](Media/changelog/0.9.2-fate-wheel.png)
+
+**The partner's puppet keeps out of your way.** The game's own conversations and menus no longer
+hand their input to the puppet, so they read on; fleece 4 and 6 deal the tarot only to you, not a
+second time to the puppet; and knucklebones at Ratau's or another player's table no longer offers
+the match for two with the puppet in the second seat.
+
+**Smaller mendings.** The HUD watchdog leaves the game's own scenes and menus alone (it brought the
+HUD up over a chest's new item card); found in a test run and fixed by the code, not tested since:
+it also leaves alone the game's room of coming back to life, which hides the HUD on purpose; the
+game's walks are never cut short, so a room comes alive
+behind its door; the HUD comes in and out in step when the panels are rebuilt.
+
+**Tested** (two copies of the game on one PC, a loopback stand-in for Steam, the host on a copy of a
+real save, on this release's build): getting a fallen partner up both ways, by the logs (one heart
+given, the partner up with one heart, their figure standing again); the HUD after scenes and alone in
+a room, with both sides' frames. On earlier builds of 0.9.2: a conversation that waits and a lagging
+host, fleece 4, with both sides' frames; knucklebones, the lobby with a join from the friend's menu
+and a called-off reconnect, by the logs. On the stand without a save: the fate and the death screen.
+
+**Not tested:** real two-account Steam play; the game's real conversations (Ratau's, a mini-boss's
+intro) and the menus' watchdog with anything but a test conversation; coming into a room alone; the
+host left alone; knucklebones at a real table (only test tables); fishing; the host coming into the
+first room second.
+
+**Known issues:**
+- In the cult the friend sometimes has only the hearts, without the faith circle and the hunger bar;
+  going out of the cult and back in helps. The cause isn't found yet.
+- The game's ways back from death (the corrupted monolith after the final boss, the crown's pyre,
+  the Deal) aren't tested in online co-op; in our runs both players stayed in the monolith's room.
+  Deaths on the same save went the same way on an early build of 0.9.2; not compared with 0.9.1.
+- In the final fight the great form's eyes don't die on the friend's side; the fight still plays
+  through to the end for both.
+- The friend can still get stuck after a scene (black bars, no HUD). Then press the log button in
+  the pause menu and send us the log.
+
+<!-- discord-ru
+**Сердца не пропадают, когда вы одни в комнате** (вероятная причина «у друга пропал интерфейс»).
+**Разговоры держатся вместе.** Разговор, ждавший напарника, начинается как положено; при лаге хоста друг ждёт со строкой «Игра хоста отстаёт», и продолжение не теряется.
+**Один экран смерти на двоих.** Павшего поднимают, отдав ему одно сердце рядом с ним; уход домой любого заканчивает забег обоим.
+**Судьбу Того-кто-ждёт решают за обоих.**
+**Кукла напарника не мешает:** разговоры игры, руно с таро и кости у Ратау больше не цепляют её.
+Известное: в культе у друга бывают только сердца, без круга веры и шкалы голода (помогает перезайти в культ); воскрешения игры (монолит после финала, костёр, «Сделка») в онлайн-коопе не проверены; у друга в финале не умирают глаза босса, бой при этом доходит до конца; если друг застрял после сцены — кнопка лога в паузе, пришлите лог.
+-->
+<!-- discord-en
+**Your hearts stay when you're alone in a room** (the likely cause of "the friend's interface is gone"): whoever is left behind keeps the HUD.
+**Conversations hold together.** A talk that waited for the partner starts properly; with a lagging host the friend waits with a line saying so, and nothing after it is lost.
+**One death screen for the pair.** A fallen partner is got up by giving them one heart at their side; either player going home ends the run for both.
+**The One Who Waits' fate is decided for both.**
+**The partner's puppet keeps out of the way:** the game's talks, the fleece's tarot and Ratau's knucklebones leave it be.
+Known: in the cult the friend sometimes has only the hearts, without the faith circle and the hunger bar (going back into the cult helps); the game's ways back from death (the monolith after the final boss, the pyre, the Deal) aren't tested online; the friend's copy of the boss's eyes doesn't die, the fight still ends; if the friend gets stuck after a scene, use the log button in the pause menu and send us the log.
+-->
+
 ## 0.9.1 (2026-10-28)
 
 **A quest either player finishes counts for the pair.** The partner's quest lists are run through the

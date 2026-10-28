@@ -1,4 +1,4 @@
-Cult of the Lamb Co-op Anything 0.9.1: онлайн-кооператив через Steam (предрелиз)
+Cult of the Lamb Co-op Anything 0.9.2: онлайн-кооператив через Steam (предрелиз)
 ==================================================================================
 (English below)
 
@@ -59,7 +59,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
     они повторяют их движения. Враги атакуют обоих. Урон и убийства общие.
   + Общий лут: что подобрал один, получают оба.
   + Смерть: если друг жив, вы падаете без сознания. Друг поднимает вас,
-    постояв рядом 3 секунды (шкала над вами), или зачистив комнату.
+    подойдя и отдав вам одно своё сердце (как в кооперативе игры), или зачистив комнату.
     Экран смерти только когда пали оба.
   + Значок плохой связи в правом верхнем углу (появляется, только если
     связь плохая дольше 2 секунд):
@@ -150,7 +150,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 
 
 ==================================================================================
-Cult of the Lamb Co-op Anything 0.9.1: online co-op over Steam (pre-release)
+Cult of the Lamb Co-op Anything 0.9.2: online co-op over Steam (pre-release)
 ==================================================================================
 
 github.com/XDinka/cult_of_the_lamb_co-op_anything
@@ -186,6 +186,10 @@ WHAT IT DOES
   + At a land's leader the first in waits by the door for the partner; the
     scene and the fight start for both together.
   + Both players' hearts on screen as in the game's co-op (the Goat in purple).
+  + Fallen in battle while the partner fights on: you are knocked down. The
+    partner gets you up by giving you one of their hearts at your side, or
+    clears the room. The death screen comes only when both fall, the same
+    rooms and run time for both.
   + The map between floors shows both crowns and where each points.
   + Conversations and scenes in one place go at the host's pace, for both.
   + A newcomer is recruited once, never twice.

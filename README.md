@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.9.1, free" src="Media/readme/download.png" width="700"></a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe"><img alt="Download now: Windows installer, v0.9.2, free" src="Media/readme/download.png" width="700"></a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 # Cult of the Lamb Co-op Anything
 
-**Version 0.9.1, pre-release.**
+**Version 0.9.2, pre-release.**
 
 You invite a friend through the Steam overlay. As in the game's own co-op, the friend plays in your
 game: they join from the main menu, no save of their own needed, and play on your save (nothing of it
@@ -23,7 +23,7 @@ is written on their side, their own saves stay as they were). You see each other
 dungeon runs. Dungeon runs are shared: same floors, same rooms, and
 damage to enemies counts on both sides.
 
-> **Pre-release 0.9.1.** Tested with two copies of the game on one PC and a loopback stand-in for
+> **Pre-release 0.9.2.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam, including a simulated bad connection. Real two-account Steam play has not been tested yet.
 > Expect bugs: report them, and ideas, on [our Discord](https://discord.gg/52azdsYMD) (in the game:
 > Multiplayer → Bugs and ideas; an error window's "Copy the log" copies the log and opens it). The host's
@@ -81,7 +81,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 | Enemies attack both players, hits on your lamb come from the owner's game (a dodge in time still saves you) | works in the automated test |
 | Shared enemy health and kills | works in the automated test |
 | Shared pickups: what one picks up, both get | works in the automated test |
-| Knocked out instead of dead while the partner fights on; stand next to them for 3 s to revive, or clear the room | works in the automated test |
+| Knocked out instead of dead while the partner fights on; give them one of your hearts at their side (the game's own deal) to revive, or clear the room | works in the automated test |
 | Game over only when both are down | works in the automated test |
 | The map between floors is the host's for both; either player picks the way, whoever picks first, and the other is taken there. The next floor gets the same seed | works in the automated test (two floors, the joining player picked, the host followed) |
 | Each player walks a floor on their own (the partner's puppet at a door takes nobody along); rooms one player opened show on the other's minimap | works in the automated test |
@@ -145,12 +145,12 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 
 ## По-русски
 
-Версия 0.9.1, предрелиз.
+Версия 0.9.2, предрелиз.
 
 Онлайн-кооператив для Cult of the Lamb через Steam. Как в обычном кооперативе, друг играет в вашей
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
 не записывается, его собственные сохранения не трогаются). Вы видите друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
-получают оба, павшего друга можно поднять (постоять рядом 3 секунды) или зачистить комнату.
+получают оба, павшего друга можно поднять (подойти и отдать ему одно своё сердце, как в кооперативе игры) или зачистить комнату.
 Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива).
 Хост: в главном меню «Мультиплеер», «Создать лобби», выбрать сохранение (или пустой слот для новой игры вдвоём),
 «Пригласить друга», потом «Играть». Друг: «Мультиплеер», имя друга в «Лобби друзей» (или принять приглашение).
@@ -217,7 +217,7 @@ paths from environment variables (see the top of each).
   the other game stops its copies' AI once they have spawned in and removes any the owner doesn't
   have. See `COTLMP/Game/RoomSync.cs`.
 - **Knockout.** Uses the game's own co-op knockout (`CoopManager.KnockOutPlayer`, woken on room
-  clear), plus a 3 second stand-next-to-revive bar. See `COTLMP/Game/CoopLife.cs`.
+  clear) and its own revive deal: one heart given at the fallen one's side. See `COTLMP/Game/CoopLife.cs`.
 - **Cleared rooms.** A completed room is sent to the partner (per run); when they walk in, their
   copy is completed the way the game marks a finished room, without a second fight or a second
   reward. Remote kills drop no loot, since the killer's loot is shared. See `ClearedRooms.cs`.
