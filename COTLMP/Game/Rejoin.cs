@@ -633,6 +633,8 @@ namespace COTLMP.Game
             }
             ++Arrived;
             Plugin.Logger?.LogInfo($"[COOP] Back with the host: {(There ? "in their room" : $"at {Now}, the host at {HostNow(HostPlace)}")} after {Hops} floors");
+            /* On the host's run without a map of ours made for it: its floors are the host's */
+            MapSync.AlignFloors("back with the host");
             OnlineMenu.Wait(null);
             yield return new WaitForSecondsRealtime(2f);
             if (Player != null)

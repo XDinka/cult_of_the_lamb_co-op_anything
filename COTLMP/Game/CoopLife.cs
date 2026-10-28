@@ -68,11 +68,12 @@ namespace COTLMP.Game
         private static readonly System.Reflection.MethodInfo GameOnDie = AccessTools.Method(typeof(PlayerController), "OnDie");
 
         /* Counters for the test harness report */
-        internal static int KnockOuts, Revives, ForcedDeaths, RevivesGiven;
+        internal static int KnockOuts, Revives, ForcedDeaths, RevivesGiven, WakesRefused;
 
         internal static bool PartnerDown => Partner == Life.Down;
         internal static bool PartnerFallen => Partner != Life.Alive;
         internal static bool WeAreDown => Mine == Life.Down;
+        internal static bool WeAreDead => Mine == Life.Dead;
 
         /// <summary>
         /// The partner can still carry the run: they are alive and in a dungeon. In the opening each
@@ -377,8 +378,24 @@ namespace COTLMP.Game
             [HarmonyPostfix]
             private static void Woke(PlayerFarming playerFarming)
             {
-                if (playerFarming != null && playerFarming == PlayerFarming.Instance && !playerFarming.IsKnockedOut)
+                if (playerFarming != null && playerFarming == PlayerFarming.Instance && !playerFarming.IsKnockedOut && !Dying && Mine != Life.Dead)
                     SetMine(Life.Alive);
+            }
+
+            /// <summary>
+            /// The run is over for us (both fell, or nobody is left to get us up): nothing gets us up again. The game
+            /// wakes the fallen as a room comes alive or is cleared, a second or more later and in real time, so
+            /// such a wake could stand our lamb up as we die, its game over taken back, its death screen never shown
+            /// </summary>
+            [HarmonyPatch(typeof(CoopManager), nameof(CoopManager.WakeKnockedOutPlayer))]
+            [HarmonyPrefix]
+            private static bool NoWakeAfterTheEnd(PlayerFarming playerFarming)
+            {
+                if (playerFarming == null || playerFarming != PlayerFarming.Instance || !(Dying || Mine == Life.Dead))
+                    return true;
+                ++WakesRefused;
+                Plugin.Logger?.LogInfo("[COOP] The game would get us up, but our run is over: staying down");
+                return false;
             }
 
             /// <summary>

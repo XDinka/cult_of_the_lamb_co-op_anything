@@ -34,9 +34,15 @@ namespace COTLMP.Debug
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoDungeon);
 
-            Plugin.Logger?.LogWarning($"{Tag} Starting a run into {DungeonScene} like the base door does");
-            GameManager.NewRun("", false, DungeonStart);
-            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, DungeonScene, 1f, "", null);
+            /* Already taken into the partner's run on the way (going back to the host): no base door to go through */
+            if (SceneManager.GetActiveScene().name == DungeonScene)
+                Plugin.Logger?.LogWarning($"{Tag} Already in {DungeonScene} with the partner, no new run");
+            else
+            {
+                Plugin.Logger?.LogWarning($"{Tag} Starting a run into {DungeonScene} like the base door does");
+                GameManager.NewRun("", false, DungeonStart);
+                MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, DungeonScene, 1f, "", null);
+            }
 
             while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null)
                 yield return null;
@@ -93,6 +99,21 @@ namespace COTLMP.Debug
                     continue;
                 }
 
+                /* -cotlmp-floorrush: straight to the first floor's way down (the floors test is about the maps, not the walk) */
+                if (FloorRush && GameManager.CurrentDungeonFloor < 2 && AnyRemotePlayer())
+                {
+                    MMBiomeGeneration.BiomeRoom Exit = MMBiomeGeneration.BiomeGenerator.Instance?.Rooms?.Find(HasNextLayer);
+                    if (Exit != null && Exit != Room)
+                    {
+                        Plugin.Logger?.LogWarning($"{Tag} Floor rush: to the way down at {Exit.x},{Exit.y}");
+                        MMBiomeGeneration.BiomeGenerator.ChangeRoom(Exit.x, Exit.y);
+                        continue;
+                    }
+                    yield return new WaitForSecondsRealtime(3f);
+                    yield return GoToNextFloor(Room, true);
+                    continue;
+                }
+
                 /* The host waits for the partner in this room, then for the fight to end (or 40 s) */
                 float Waited = 0f;
                 while (!Solo && Waited < 90f && !AnyRemotePlayer())
@@ -144,8 +165,9 @@ namespace COTLMP.Debug
                 if (PlayerFarming.Instance == null || MMTransition.IsPlaying || PlayerFarming.Instance.IsKnockedOut || LetterBox.IsPlaying)
                     continue;
 
-                /* Collect what the fight dropped, as walking over it would */
-                foreach (PickUp Item in new System.Collections.Generic.List<PickUp>(PickUp.PickUps))
+                /* Collect what the fight dropped, as walking over it would (not while tracing pickups: there
+                   the game's own magnet decides who gets it, the nearest lamb, which may be the partner's) */
+                foreach (PickUp Item in PickupTrace ? new System.Collections.Generic.List<PickUp>() : new System.Collections.Generic.List<PickUp>(PickUp.PickUps))
                 {
                     if (Item != null && Item.gameObject.activeInHierarchy && Item.CanBePickedUp && Item.AddToInventory)
                     {
@@ -526,15 +548,240 @@ namespace COTLMP.Debug
             }
         }
 
+        /// <summary>
+        /// Each death screen, once its rooms are all out: a frame and how many rooms and what time it shows
+        /// </summary>
+        private static IEnumerator DeathScreenShots()
+        {
+            Lamb.UI.DeathScreen.UIDeathScreenOverlayController Seen = null;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                var Screen = UnityEngine.Object.FindObjectOfType<Lamb.UI.DeathScreen.UIDeathScreenOverlayController>();
+                if (Screen == null || Screen == Seen || !Screen.isActiveAndEnabled)
+                    continue;
+                Seen = Screen;
+                yield return new WaitForSecondsRealtime(8f);
+                int Rooms = Screen.GetComponentsInChildren<UIDeathScreenLevelNode>(false).Length;
+                string Time = string.Join(" | ", Screen.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(Text => Text.text).Where(Text => Text != null && Text.Contains(":")).Take(3));
+                Plugin.Logger?.LogWarning($"{Tag} Death screen: {Rooms} rooms shown, texts with a time: {Time}");
+                Shot("death-screen");
+            }
+        }
+
+        /// <summary>
+        /// -cotlmp-deathruns=K: K runs in a row from the base, each ended by a fall for good (in a session the friend
+        /// first, the host at their side; alone just us) after a while on the first floor; each death screen
+        /// is framed and its time put next to the run's time as measured here; then on at once as a player
+        /// would (continue, and through the base door again)
+        /// </summary>
+        private static bool Guarded;
+
+        /* When the room we stand in came alive: the game gets the fallen up 1 s after that, and again 3 s later */
+        private static float RoomActiveAt;
+
+        private static IEnumerator GuardLamb()
+        {
+            MMBiomeGeneration.BiomeGenerator.OnRoomActive += () => RoomActiveAt = Time.unscaledTime;
+            while (true)
+            {
+                yield return null;
+                if (Guarded && PlayerFarming.Instance != null && PlayerFarming.Instance.health != null)
+                {
+                    PlayerFarming.Instance.health.invincible = true;
+                    PlayerFarming.Instance.health.untouchable = true;
+                }
+            }
+        }
+
+        private static IEnumerator RunsInARow()
+        {
+            Run("GuardLamb", GuardLamb());
+            var ContinueButton = AccessTools.Field(typeof(Lamb.UI.DeathScreen.UIDeathScreenOverlayController), "_continueButton");
+            for (int Run = 1; Run <= DeathRuns; Run++)
+            {
+                /* A pair (the session up and the partner in) unless -cotlmp-alone */
+                bool Session = !Alone;
+                if (Session)
+                    yield return Until(() => Plugin.GlobalsInternal.InGameSession && AnyRemotePlayer(), 240f);
+                bool Host = Plugin.GlobalsInternal.IsServerCreator;
+                /* Through the base door as players go: the friend standing in the cult, then after the host */
+                yield return Until(() => SceneManager.GetActiveScene().name == "Base Biome 1" && PlayerFarming.Instance != null && !MMTransition.IsPlaying &&
+                                         (!Session || AnyRemotePlayer()), 240f);
+                yield return new WaitForSecondsRealtime(!Session || Host ? 3f : 8f);
+                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} of {DeathRuns} into {DungeonScene}{(Session ? "" : ", alone")}");
+                GameManager.NewRun("", false, DungeonStart);
+                float Started = Time.time;
+                MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, DungeonScene, 1f, "", null);
+                yield return Until(() => SceneManager.GetActiveScene().name == DungeonScene && PlayerFarming.Instance != null, 90f);
+                yield return new WaitForSecondsRealtime(3f);
+                MMTransition.CanResume = true;
+                MMTransition.ResumePlay();
+
+                /* To the floor of the fall (the host straight to the way down, the friend after it), then into a fight;
+                   nothing fells us on the way (each frame: a new floor's arrival and its first hits come fast) */
+                Guarded = true;
+                float Since = Time.unscaledTime;
+                while (Time.unscaledTime - Since < 240f)
+                {
+                    yield return new WaitForSecondsRealtime(1f);
+                    PlayerFarming.Instance.health.invincible = true;
+                    var Generator = MMBiomeGeneration.BiomeGenerator.Instance;
+                    MMBiomeGeneration.BiomeRoom Room = Generator?.CurrentRoom;
+                    if (Room == null || MMTransition.IsPlaying || LetterBox.IsPlaying || COTLMP.Game.SceneEnds.Waiting)
+                        continue;
+                    bool InFight = !RoomLockController.DoorsOpen && CountVisibleEnemies() > 0;
+                    if (GameManager.CurrentDungeonFloor >= Math.Max(1, DeathAt) && (!Session || InFight))
+                        break;
+                    string Mine = COTLMP.Game.CoopSync.CurrentPlace(), Theirs = COTLMP.Game.RoomSync.PartnerLastPlace;
+                    if (!Host && Session)
+                    {
+                        if (Theirs == null || Mine == null || Theirs == Mine || !Theirs.Contains("@") || !Mine.Contains("@"))
+                            continue;
+                        if (Theirs.Substring(0, Theirs.IndexOf('@')) != Mine.Substring(0, Mine.IndexOf('@')))
+                            yield return GoToNextFloor(Room, false);
+                        else
+                        {
+                            string[] At = Theirs.Substring(Theirs.IndexOf('@') + 1).Split(',');
+                            MMBiomeGeneration.BiomeGenerator.ChangeRoom(int.Parse(At[0]), int.Parse(At[1]));
+                        }
+                        continue;
+                    }
+                    if (Session && !AnyRemotePlayer())
+                        continue;
+                    if (GameManager.CurrentDungeonFloor < DeathAt)
+                    {
+                        MMBiomeGeneration.BiomeRoom Exit = Generator.Rooms.Find(HasNextLayer);
+                        if (Exit != null && Exit != Room)
+                            MMBiomeGeneration.BiomeGenerator.ChangeRoom(Exit.x, Exit.y);
+                        else
+                            yield return GoToNextFloor(Room, true);
+                        continue;
+                    }
+                    /* The partner in with us first, then on to a room not seen yet: rooms of a floor are fights mostly */
+                    if (Session && Theirs != Mine)
+                        continue;
+                    MMBiomeGeneration.BiomeRoom Next = Generator.Rooms.Find(Each => Each != null && !Each.Visited && !Each.IsBoss && !HasNextLayer(Each));
+                    if (Next != null)
+                        MMBiomeGeneration.BiomeGenerator.ChangeRoom(Next.x, Next.y);
+                    yield return new WaitForSecondsRealtime(4f);
+                }
+
+                /* The fall: alone after a while; together the first in the fight, the second once the first lies there */
+                bool First = !Session || (HostFirst ? Host : !Host);
+                float Stay = 12f + Run * 8f;
+                while (Time.unscaledTime - Since < 400f)
+                {
+                    yield return new WaitForSecondsRealtime(0.5f);
+                    if (MMTransition.IsPlaying || LetterBox.IsPlaying)
+                        continue;
+                    if (!Session)
+                    {
+                        if (Time.time - Started > Stay)
+                            break;
+                        continue;
+                    }
+                    /* -cotlmp-escape: we leave the run as the hold-to-go-home does, the other falls once we are gone */
+                    if (Escape && Time.time - Started > Stay)
+                        break;
+                    string PartnerAt = COTLMP.Game.RoomSync.PartnerLastPlace;
+                    if (!Escape && EscapeOther && PartnerAt != null && !PartnerAt.Contains("#") && Time.time - Started > Stay + 10f)
+                        break;
+                    bool Together = COTLMP.Game.RoomSync.PartnerLastPlace == COTLMP.Game.CoopSync.CurrentPlace();
+                    /* Past the game's own wake for a room come alive (1 s, and 3 s more), so the fall stands */
+                    if (First && Together && !RoomLockController.DoorsOpen && CountVisibleEnemies() > 0 && Time.unscaledTime - RoomActiveAt > 6f)
+                        break;
+                    if (!First && Together && COTLMP.Game.CoopLife.PartnerDown)
+                    {
+                        yield return new WaitForSecondsRealtime(0.5f);
+                        if (COTLMP.Game.CoopLife.PartnerDown)
+                            break;
+                    }
+                }
+                Guarded = false;
+                PlayerFarming Player = PlayerFarming.Instance;
+                if (Escape)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} escapes after {Time.time - Started:F1} s of our own run time");
+                    MonoSingleton<Lamb.UI.UIManager>.Instance.ShowDeathScreenOverlay(Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Results.Escaped);
+                }
+                else
+                {
+                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} falls {(First ? "first" : "second")} on floor {GameManager.CurrentDungeonFloor} at {COTLMP.Game.CoopSync.CurrentPlace()} after {Time.time - Started:F1} s of our own run time");
+                Player.health.invincible = false;
+                Player.health.untouchable = false;
+                Player.health.HP = 0.5f;
+                Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+                }
+
+                yield return Until(() => Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance != null, 120f);
+                var Screen = Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance;
+                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} death screen {(Screen == null ? "never came" : "up")}, our own run time {Time.time - Started:F1} s");
+                if (Screen == null)
+                {
+                    ++Failed;
+                    Plugin.Logger?.LogError($"[QA] Runs in a row: no death screen in run {Run}");
+                    yield break;
+                }
+                yield return new WaitForSecondsRealtime(10f);
+                /* Behind its death screen the lamb stays dead: up again is a run that never ended */
+                if (Session && !Escape && !COTLMP.Game.CoopLife.WeAreDead)
+                {
+                    ++Failed;
+                    Plugin.Logger?.LogError($"[QA] Runs in a row: run {Run}'s lamb is not dead behind its death screen (down {COTLMP.Game.CoopLife.WeAreDown}, state {Player?.state?.CURRENT_STATE})");
+                }
+                string Shown = string.Join(" | ", Screen.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(Text => Text.text).Where(Text => Text != null && Text.Contains(":")).Take(2));
+                int Rooms = Screen.GetComponentsInChildren<UIDeathScreenLevelNode>(false).Length;
+                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} shows {Shown}, {Rooms} rooms (our own run time {Time.time - Started:F1} s, clock sent/applied {COTLMP.Game.RunClock.Sent}/{COTLMP.Game.RunClock.Applied})");
+                Shot($"run{Run}-death-screen");
+                (ContinueButton.GetValue(Screen) as UnityEngine.UI.Button)?.onClick.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// -cotlmp-deathat=N: nobody falls on the way; on the N-th floor, once both stand in one room, the friend
+        /// takes a killing hit (the game's own damage path), and the host a second after it sees them down,
+        /// sooner than the game would get them up by itself: the run ends for both, a real death screen each
+        /// </summary>
+        private static IEnumerator DieTogether()
+        {
+            bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(0.5f);
+                PlayerFarming Player = PlayerFarming.Instance;
+                if (Player == null || SceneManager.GetActiveScene().name != DungeonScene)
+                    continue;
+                if (GameManager.CurrentDungeonFloor < DeathAt)
+                {
+                    Player.health.invincible = true;
+                    continue;
+                }
+                bool Together = !MMTransition.IsPlaying && !LetterBox.IsPlaying && COTLMP.Game.RoomSync.PartnerLastPlace == COTLMP.Game.CoopSync.CurrentPlace();
+                if (!Together || (Host && !COTLMP.Game.CoopLife.PartnerDown))
+                    continue;
+                yield return new WaitForSecondsRealtime(1f);
+                Plugin.Logger?.LogWarning($"{Tag} Death test: falling on floor {GameManager.CurrentDungeonFloor} at {COTLMP.Game.CoopSync.CurrentPlace()}, hp {Player.health.HP}");
+                Player.health.invincible = false;
+                Player.health.untouchable = false;
+                Player.health.HP = 0.5f;
+                Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+                yield break;
+            }
+        }
+
         private static IEnumerator DieOnce()
         {
             /* Counted from the first moment both stand in one dungeon room */
-            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer())
+            while (SceneManager.GetActiveScene().name != DungeonScene || PlayerFarming.Instance == null || !AnyRemotePlayer() ||
+                   GameManager.CurrentDungeonFloor < DieFloor)
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoDie);
-            /* Fall standing in one room with the partner (their side has our body to kneel at), not mid-transition */
+            /* Fall standing in one room with the partner (their side has our body to kneel at), not mid-transition,
+               and in a fight as players fall: in a cleared room the game wakes the fallen by itself */
             yield return Until(() => PlayerFarming.Instance != null && !MMTransition.IsPlaying && !COTLMP.Game.SceneEnds.Waiting &&
-                                     COTLMP.Game.RoomSync.PartnerLastPlace == COTLMP.Game.CoopSync.CurrentPlace(), 90f);
+                                     COTLMP.Game.RoomSync.PartnerLastPlace == COTLMP.Game.CoopSync.CurrentPlace() &&
+                                     !RoomLockController.DoorsOpen && CountVisibleEnemies() > 0, 150f);
             yield return new WaitForSecondsRealtime(1f);
 
             PlayerFarming Player = PlayerFarming.Instance;

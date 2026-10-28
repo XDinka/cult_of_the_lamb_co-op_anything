@@ -130,7 +130,9 @@ namespace COTLMP.Game
             /* LeaderHeart: we took a defeated leader's heart */
             HeartTaken = 54,
             /* FinalBoss: our step in the final fight (refused / knelt / the boss fell) */
-            FinalChoice = 55
+            FinalChoice = 55,
+            /* RunClock: how long the host's run has gone, its death screen's time for both */
+            RunClock = 56
         }
 
         /// <summary>
@@ -410,6 +412,10 @@ namespace COTLMP.Game
 
                 case Kind.FinalChoice:
                     FinalBoss.OnRelay(Reader);
+                    break;
+
+                case Kind.RunClock:
+                    RunClock.OnRelay(Reader);
                     break;
 
                 case Kind.UpdateSuggest:

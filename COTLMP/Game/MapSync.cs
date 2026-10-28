@@ -174,6 +174,62 @@ namespace COTLMP.Game
             }
         }
 
+        private static readonly FieldInfo RandomNodesField = AccessTools.Field(typeof(MapGenerator), "RandomNodes");
+        private static readonly FieldInfo FirstFloorLayer = AccessTools.Field(typeof(MapConfig), "FirstFloor");
+        private static readonly FieldInfo TreasureLayer = AccessTools.Field(typeof(MapConfig), "Treasure");
+        private static readonly FieldInfo MiniBossLayer = AccessTools.Field(typeof(MapConfig), "MiniBoss");
+
+        /// <summary>
+        /// The run's floors as MapConfig.ResetLayer lays them out, for a count of the host's
+        /// </summary>
+        private static void Floors(MapConfig Config, int Count)
+        {
+            var First = (MapLayer)FirstFloorLayer.GetValue(null);
+            var Middle = (MapLayer)TreasureLayer.GetValue(null);
+            var Last = (MapLayer)MiniBossLayer.GetValue(null);
+            Config.layers = new List<MapLayer>();
+            for (int Floor = 0; Floor < Count; Floor++)
+            {
+                if (Floor == 0)
+                {
+                    First.BluePrint = Config.FirstFloorBluePrint;
+                    Config.layers.Add(First);
+                }
+                else if (Floor == Count - 1)
+                {
+                    Last.BluePrint = DataManager.Instance.DungeonBossFight && Config.LeaderFloorBluePrint ? Config.LeaderFloorBluePrint : Config.MiniBossFloorBluePrint;
+                    Config.layers.Add(Last);
+                }
+                else
+                {
+                    Middle.BluePrint = Config.MiniBossFloorBluePrint;
+                    Config.layers.Add(Middle);
+                }
+            }
+        }
+
+        /* The host's floor count of each of its maps, as it sent it (0: not sent), and the latest */
+        private static readonly Dictionary<int, int> HostFloors = new();
+        private static int LastHostFloors;
+
+        /// <summary>
+        /// Our run's floors as the host counts them, when we are on the host's run and ours differ
+        /// (a friend who joined on the way never made a map of its own for the run)
+        /// </summary>
+        internal static void AlignFloors(string Why)
+        {
+            if (IsHost || !CoopSync.InSession || LastHostFloors <= 0 || HostRun != CoopSync.CurrentRun)
+                return;
+            /* On a map of our own the floors are our map's */
+            if (MapManager.Instance == null || (MapManager.Instance.MapGenerated && !Following))
+                return;
+            MapConfig Config = MapManager.Instance.DungeonConfig;
+            if (Config == null || Config.layers == null || !Config.RegenerateOnGenerateMap || Config.layers.Count == LastHostFloors)
+                return;
+            Plugin.Logger?.LogWarning($"[COOP] Our run counted {Config.layers.Count} floors, the host's {LastHostFloors} ({Why}): taking the host's");
+            Floors(Config, LastHostFloors);
+        }
+
         private static void SendLayout(Map.Map Built)
         {
             using MemoryStream Stream = new();
@@ -185,6 +241,8 @@ namespace COTLMP.Game
             Writer.Write((short)Built.nodes.Count);
             foreach (Node Item in Built.nodes)
                 WriteNode(Writer, Item);
+            /* The run's floors as ours counts them: the death screen draws one room per floor */
+            Writer.Write((short)(MapManager.Instance?.DungeonConfig?.layers?.Count ?? 0));
             Writer.Flush();
             SentLayout = Stream.ToArray();
             COTLMP.Network.Network.SendRelay(SentLayout);
@@ -294,13 +352,20 @@ namespace COTLMP.Game
                     {
                         HostRun = Run;
                         HostLayouts.Clear();
+                        HostFloors.Clear();
+                        LastHostFloors = 0;
                     }
                     int Count = Reader.ReadInt16();
                     List<NodeData> Nodes = new(Count);
                     for (int Item = 0; Item < Count; Item++)
                         Nodes.Add(ReadNode(Reader));
                     HostLayouts[Index] = Nodes;
-                    Plugin.Logger?.LogInfo($"[COOP] Got the host's map {Index} of run {Run}: {Count} nodes");
+                    HostFloors[Index] = Reader.BaseStream.Position + 2 <= Reader.BaseStream.Length ? Reader.ReadInt16() : 0;
+                    if (HostFloors[Index] > 0)
+                        LastHostFloors = HostFloors[Index];
+                    Plugin.Logger?.LogInfo($"[COOP] Got the host's map {Index} of run {Run}: {Count} nodes, {HostFloors[Index]} floors");
+                    /* Joined into the run on the way (no map of ours made for it): its floors are still the host's */
+                    AlignFloors("the host's map came");
                     break;
                 }
 
@@ -530,6 +595,31 @@ namespace COTLMP.Game
                 Map.Map Built;
                 try
                 {
+                    /*
+                     * What the game's own map making does first, which taking the host's skips: the
+                     * floors of this run counted again (the death screen draws one room per floor,
+                     * the leader's floor is the last) and the config the map's lookups read. The count
+                     * comes from the layer, the place and the save, so it comes out as the host's
+                     */
+                    MapConfig Config = __instance.DungeonConfig;
+                    if (Config != null)
+                    {
+                        if (Config.RegenerateOnGenerateMap)
+                            Config.ResetLayer();
+                        MapGenerator.config = Config;
+                        /* The kinds a node can be rerolled to (a tarot's reshuffle, a map's randomiser): without them the reroll throws and the map never closes */
+                        RandomNodesField?.SetValue(null, Config.nodeBlueprints.Select(Blueprint => Blueprint.nodeType).ToList());
+                        int Ours = Config.layers.Count;
+                        if (!Config.RegenerateOnGenerateMap)
+                            Plugin.Logger?.LogInfo($"[COOP] The run's floors are laid out by hand ({Ours}): left as they are");
+                        else if (HostFloors.TryGetValue(MapCount, out int Theirs) && Theirs > 0 && Theirs != Ours)
+                        {
+                            Plugin.Logger?.LogWarning($"[COOP] The host's run has {Theirs} floors, ours counted {Ours}: taking the host's");
+                            Floors(Config, Theirs);
+                        }
+                        else
+                            Plugin.Logger?.LogInfo($"[COOP] The run has {Ours} floors (the host's {(HostFloors.TryGetValue(MapCount, out int Told) && Told > 0 ? Told.ToString() : "not told")})");
+                    }
                     Built = Build(Nodes, __instance.DungeonConfig);
                 }
                 catch (Exception e)

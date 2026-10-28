@@ -116,6 +116,19 @@ namespace COTLMP.Debug
         /* -cotlmp-scenetest=chain|scene|leave: at its second line the host's talk is replaced by the next one
            (never closed), or the host goes to another scene, or the host ends the session */
         private static string SceneBreak;
+        /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
+           -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
+        private static bool FloorRush;
+        private static int DieFloor;
+        /* -cotlmp-deathat=N: both fall for good on the N-th floor, the friend first (death screen test);
+           -cotlmp-deathruns=K: K runs in a row, each ended by falls for good (alone too) */
+        private static int DeathAt, DeathRuns;
+        /* -cotlmp-hostfirst: in -cotlmp-deathruns the host falls first, the friend at its side */
+        private static bool HostFirst;
+        /* -cotlmp-alone: -cotlmp-deathruns without a partner (one copy, no session) */
+        private static bool Alone;
+        /* -cotlmp-escape: in -cotlmp-deathruns we leave the run (going home) instead of falling; -cotlmp-escapeother: the partner does */
+        private static bool Escape, EscapeOther;
         /* -cotlmp-lobbyclose=N: the host closes its lobby N s after opening it (the friend must land back in the menu) */
         private static float LobbyClose = -1f;
 
@@ -198,6 +211,24 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-sessionlen=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SessionLength);
                 else if (Arg.StartsWith("-cotlmp-land=", StringComparison.OrdinalIgnoreCase))
                     int.TryParse(Arg.Substring("-cotlmp-land=".Length), out Land);
+                else if (Arg.Equals("-cotlmp-pickuptrace", StringComparison.OrdinalIgnoreCase))
+                    PickupTrace = true;
+                else if (Arg.Equals("-cotlmp-floorrush", StringComparison.OrdinalIgnoreCase))
+                    FloorRush = NextFloor = true;
+                else if (Arg.StartsWith("-cotlmp-diefloor=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-diefloor=".Length), out DieFloor);
+                else if (Arg.StartsWith("-cotlmp-deathat=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-deathat=".Length), out DeathAt);
+                else if (Arg.Equals("-cotlmp-escape", StringComparison.OrdinalIgnoreCase))
+                    Escape = true;
+                else if (Arg.Equals("-cotlmp-escapeother", StringComparison.OrdinalIgnoreCase))
+                    EscapeOther = true;
+                else if (Arg.Equals("-cotlmp-alone", StringComparison.OrdinalIgnoreCase))
+                    Alone = true;
+                else if (Arg.Equals("-cotlmp-hostfirst", StringComparison.OrdinalIgnoreCase))
+                    HostFirst = true;
+                else if (Arg.StartsWith("-cotlmp-deathruns=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-deathruns=".Length), out DeathRuns);
                 else if (Arg.StartsWith("-cotlmp-stuckafter=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-stuckafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out COTLMP.Game.SceneTrace.StuckAfter);
                 else if (Arg.Equals("-cotlmp-finaltest", StringComparison.OrdinalIgnoreCase))
@@ -390,8 +421,15 @@ namespace COTLMP.Debug
                 Run("Shots", Shots());
             if (!string.IsNullOrEmpty(ShotsDir))
                 Run("MapShots", MapShots());
+            if (!string.IsNullOrEmpty(ShotsDir))
+                Run("DeathScreenShots", DeathScreenShots());
             if (AutoDie > 0)
                 Run("DieOnce", DieOnce());
+            /* -cotlmp-deathruns has its own falls (-cotlmp-deathat is only its floor then) */
+            if (DeathAt > 0 && DeathRuns == 0)
+                Run("DieTogether", DieTogether());
+            if (DeathRuns > 0)
+                Run("RunsInARow", RunsInARow());
             if (AutoHurt > 0)
                 Run("HurtTest", HurtTest());
             if (AutoTalk > 0)
@@ -412,7 +450,7 @@ namespace COTLMP.Debug
                 Run("Flood", Flood());
             if (AutoChoice > 0)
                 Run("VoteOnChoices", VoteOnChoices());
-            if (AutoKill)
+            if (AutoKill || DieOnRevive)
                 Run("Rescue", Rescue());
         }
 
@@ -483,7 +521,14 @@ namespace COTLMP.Debug
             {
                 /* Leave the pause menu its pause, so it opens in the test copies too */
             /* (conversations are advanced by AdvanceConversations, nobody presses a button here) */
-                if (Time.timeScale == 0f && !Lamb.UI.UIMenuBase.ActiveMenus.Exists(Menu => Menu is Lamb.UI.PauseMenu.UIPauseMenuController))
+                /*
+                 * Only in the save-less cult, where nothing would unpause it. Elsewhere a stopped clock is the
+                 * game's or the mod's on purpose and the test must see it: a run's game over and its death
+                 * screen, a scene's wait for the partner (lifting those woke the fallen behind their death screen)
+                 */
+                if (Time.timeScale == 0f && SceneManager.GetActiveScene().name == "Base Biome 1" &&
+                    !Lamb.UI.UIMenuBase.ActiveMenus.Exists(Menu => Menu is Lamb.UI.PauseMenu.UIPauseMenuController) &&
+                    Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance == null && !COTLMP.Game.SceneEnds.Waiting)
                     Time.timeScale = 1f;
                 yield return null;
             }
