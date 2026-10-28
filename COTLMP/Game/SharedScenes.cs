@@ -57,6 +57,8 @@ namespace COTLMP.Game
         private const float Remember = 20f;
         /* The host's pulse comes every 2 s while its copy is on screen; silence past this is the last safety net */
         private const float HostQuiet = 6f;
+        /* Our copy, not read on yet, starts waiting for the host's if the host shows up in the room this soon after */
+        private const float HostLate = 6f;
         private static float LastPulse;
         internal static int LeadsLost;
 
@@ -87,7 +89,7 @@ namespace COTLMP.Game
         private static int CurrentKey;
         private static string CurrentPlace;
         private static bool Led;
-        private static float StartedAt;
+        private static float StartedAt, WaitSince;
         private static bool Applying;
 
         /* The host's conversations by place and lines */
@@ -337,9 +339,17 @@ namespace COTLMP.Game
                     Led = false;
                     return;
                 }
+                /* Ours started as we came in, before the host's puppet was here: once it is, ours waits for the host's after all */
+                if (!Led && !Waiting && MMConversation.Position <= 0 && Time.unscaledTime - StartedAt < HostLate && PartnerHere(CurrentPlace))
+                {
+                    Waiting = true;
+                    WaitSince = Time.unscaledTime;
+                    ++LateWaits;
+                    Plugin.Logger?.LogInfo($"[COOP] The host is in {CurrentPlace} now, {Time.unscaledTime - StartedAt:F1} s into our conversation: it waits for the host's");
+                }
                 Follow();
                 /* Nothing of it from the host: it is ours alone */
-                if (!Led && Waiting && Time.unscaledTime - StartedAt > WaitForHost)
+                if (!Led && Waiting && Time.unscaledTime - WaitSince > WaitForHost)
                 {
                     Waiting = false;
                     ++Released;
@@ -366,6 +376,12 @@ namespace COTLMP.Game
 
         private static bool PartnerHere(string Place) =>
             CoopSync.InSession && Place != null && (RoomSync.PartnerPlace == Place || RoomSync.PartnerLastPlace == Place) && GhostLoot.PartnerHere() != null;
+
+        /* The host says it is in this room and its puppet isn't shown yet: we are still coming in */
+        private static bool PartnerComing(string Place) =>
+            CoopSync.InSession && Place != null && RoomSync.PartnerPlace == Place && GhostLoot.PartnerHere() == null;
+
+        internal static int LateWaits;
 
         /* THE LEADER'S ROOM: COMING IN TOGETHER *****************************/
 
@@ -780,9 +796,11 @@ namespace COTLMP.Game
                 CurrentKey = KeyOf(ConversationObject);
                 SceneEnds.Talked(CurrentKey);
                 CurrentPlace = CoopSync.CurrentPlace();
-                StartedAt = Time.unscaledTime;
+                StartedAt = WaitSince = Time.unscaledTime;
                 Led = false;
-                Waiting = !IsHost && PartnerHere(CurrentPlace);
+                Waiting = !IsHost && (PartnerHere(CurrentPlace) || PartnerComing(CurrentPlace));
+                if (Waiting && GhostLoot.PartnerHere() == null)
+                    Plugin.Logger?.LogInfo($"[COOP] Our conversation in {CurrentPlace} starts as the room comes in: the host is here, its puppet not yet; it waits for the host's");
                 if (IsHost)
                     Send(Event.Line, CurrentKey, CurrentPlace, 0);
             }

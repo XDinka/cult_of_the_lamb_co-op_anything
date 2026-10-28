@@ -186,7 +186,9 @@ namespace COTLMP.Debug
 
             /* =hold: the host goes into the next room alone and its talk starts there (it waits for the friend),
                the friend comes in 14 s later and its copy starts once in */
-            bool Hold = SceneBreak == "hold";
+            bool Hold = SceneBreak == "hold" || SceneBreak == "holdearly";
+            /* =holdearly: the friend's copy starts at once, as the room still comes in (a room's own talk for both) */
+            bool Early = SceneBreak == "holdearly";
             if (Hold)
             {
                 SceneBreak = null;
@@ -202,13 +204,19 @@ namespace COTLMP.Debug
                     yield return new WaitForSecondsRealtime(14f);
                 Plugin.Logger?.LogWarning($"{Tag} Scene test hold: we go into the room at {Into.x},{Into.y}");
                 MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Into.x, Into.y));
-                yield return new WaitForSecondsRealtime(2f);
-                yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 20f);
+                if (Early && !Host)
+                    yield return Until(() => PlayerFarming.Instance != null && (COTLMP.Game.CoopSync.CurrentPlace() ?? "").EndsWith($"@{Into.x},{Into.y}"), 20f);
+                else
+                {
+                    yield return new WaitForSecondsRealtime(2f);
+                    yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 20f);
+                }
                 /* The friend talks once in, with the host seen there (the way a room's talk starts once the room is on) */
-                if (!Host)
+                if (!Host && !Early)
                     yield return Until(() => COTLMP.Game.RoomSync.PartnerPlace == COTLMP.Game.CoopSync.CurrentPlace() && COTLMP.Game.GhostLoot.PartnerHere() != null && Time.timeScale > 0f, 15f);
-                yield return new WaitForSecondsRealtime(Host ? 3f : 1f);
-                Plugin.Logger?.LogWarning($"{Tag} Scene test hold: in {COTLMP.Game.CoopSync.CurrentPlace()}, the partner in {COTLMP.Game.RoomSync.PartnerPlace}");
+                if (Host || !Early)
+                    yield return new WaitForSecondsRealtime(Host ? 3f : 1f);
+                Plugin.Logger?.LogWarning($"{Tag} Scene test hold: in {COTLMP.Game.CoopSync.CurrentPlace()}, the partner in {COTLMP.Game.RoomSync.PartnerPlace}, its puppet {(COTLMP.Game.GhostLoot.PartnerHere() != null ? "shown" : "not yet")}, time scale {Time.timeScale}");
             }
 
             GameObject Me = PlayerFarming.Instance.gameObject;
@@ -286,7 +294,7 @@ namespace COTLMP.Debug
                     Next.Invoke(Box, null);
                 }
             }
-            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}, leads lost {COTLMP.Game.SharedScenes.LeadsLost}, stuck {COTLMP.Game.SceneTrace.Stuck}, scripted released {COTLMP.Game.SharedScenes.ScriptedReleased}");
+            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}, leads lost {COTLMP.Game.SharedScenes.LeadsLost}, stuck {COTLMP.Game.SceneTrace.Stuck}, scripted released {COTLMP.Game.SharedScenes.ScriptedReleased}, late waits {COTLMP.Game.SharedScenes.LateWaits}");
             yield return new WaitForSecondsRealtime(3f);
             yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 30f);
             yield return new WaitForSecondsRealtime(2f);
