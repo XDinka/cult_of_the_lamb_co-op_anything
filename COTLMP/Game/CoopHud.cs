@@ -225,15 +225,24 @@ namespace COTLMP.Game
                     Health.Init(Player);
                 foreach (PlayerFarming Player in PlayerFarming.players)
                     Faces(Player);
-                /* The panels in use now come in, if the HUD is up; under a hidden one they wait out of the screen
-                   for its Show, as the game's own panels do (a fresh Init leaves its panel in place) */
+                /* The panels in use now come in, if the HUD is up; under a hidden one, in a dungeon, they wait out of
+                   the screen for its Show, as the game's own panels do (a fresh Init leaves its panel in place). While
+                   the game's own hide still moves the bars out, ours goes out with them rather than at once. In the
+                   cult the game's hide and show keep its one panel right */
                 if (!HUD_Manager.Instance.Hidden)
                     Health.Show();
-                else
+                else if (InDungeon)
                 {
                     foreach (var Field in new[] { HeartsSingle, HeartsTwo })
+                    {
                         if (Field?.GetValue(Health) is UI_Transitions Bar && Bar != null && Bar.gameObject.activeInHierarchy)
-                            Bar.hideBar();
+                        {
+                            if (HUD_Manager.IsTransitioning)
+                                Bar.MoveBackOutFunction();
+                            else
+                                Bar.hideBar();
+                        }
+                    }
                 }
                 ++Rebuilt;
             }
