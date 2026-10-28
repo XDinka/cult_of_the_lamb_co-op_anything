@@ -553,7 +553,7 @@ namespace COTLMP.Game
         private static ConversationObject HeldTalk;
         private static string HeldPlace;
         private static float HeldSince, HeldNoted;
-        private static bool HeldInactive, HeldSnap, HeldLetterBox, Releasing;
+        private static bool HeldInactive, HeldSnap, HeldLetterBox, Releasing, FirstLineHeld;
 
         /* The partner waits for us in this place (to tell us now and then) */
         private static string WaitedIn;
@@ -667,6 +667,7 @@ namespace COTLMP.Game
                 HeldPlace = Place;
                 HeldSince = Time.unscaledTime;
                 HeldNoted = -100f;
+                FirstLineHeld = false;
                 HeldInactive = SetPlayerInactiveOnStart;
                 HeldSnap = SnapLetterBox;
                 HeldLetterBox = ShowLetterBox;
@@ -732,8 +733,7 @@ namespace COTLMP.Game
             try
             {
                 /* What Play does as it starts, now: the lamb stands still, the letterbox comes in */
-                (ConversationNewEvent?.GetValue(null) as Delegate)?.DynamicInvoke(HeldInactive, HeldSnap, HeldLetterBox);
-                Played(Talk);
+                (ConversationNewEvent?.GetValue(null) as MMConversation.ConversationNew)?.Invoke(HeldInactive, HeldSnap, HeldLetterBox, null);
             }
             catch (Exception e)
             {
@@ -743,6 +743,21 @@ namespace COTLMP.Game
             {
                 Releasing = false;
             }
+            Played(Talk);
+            /* The first line the game asked for while it waited comes now, once */
+            if (FirstLineHeld && MMConversation.Position == -1 && MMConversation.CURRENT_CONVERSATION == Talk && MMConversation.mmConversation != null)
+            {
+                try
+                {
+                    ShowNextLine.Invoke(MMConversation.mmConversation, new object[] { true });
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] Showing the held conversation's first line failed: {e.Message}");
+                }
+            }
+            FirstLineHeld = false;
+            Plugin.Logger?.LogInfo($"[COOP] The held conversation is on: letterbox {LetterBox.IsPlaying}, line {MMConversation.Position}");
         }
 
         /* PATCHES ************************************************************/
@@ -790,7 +805,14 @@ namespace COTLMP.Game
         /* Not a line on while it waits for the partner, whoever asks */
         [HarmonyPatch(typeof(MMConversation), "ShowNextLine")]
         [HarmonyPrefix]
-        private static bool NextLine() => !Held();
+        private static bool NextLine(bool playVOandAnim)
+        {
+            if (!Held())
+                return true;
+            if (playVOandAnim)
+                FirstLineHeld = true;
+            return false;
+        }
 
         [HarmonyPatch(typeof(MMConversation), "ShowNextLine")]
         [HarmonyPostfix]

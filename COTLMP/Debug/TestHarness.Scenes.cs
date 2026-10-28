@@ -184,6 +184,33 @@ namespace COTLMP.Debug
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 6f : 7f);
 
+            /* =hold: the host goes into the next room alone and its talk starts there (it waits for the friend),
+               the friend comes in 14 s later and its copy starts once in */
+            bool Hold = SceneBreak == "hold";
+            if (Hold)
+            {
+                SceneBreak = null;
+                MMBiomeGeneration.BiomeRoom Here = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
+                MMBiomeGeneration.BiomeRoom Into = Here == null ? null : MMBiomeGeneration.BiomeGenerator.Instance.Rooms?.Find(Room => Room != Here && Math.Abs(Room.x - Here.x) + Math.Abs(Room.y - Here.y) == 1);
+                if (Into == null)
+                {
+                    Plugin.Logger?.LogError($"[QA] Scene test hold: no room next to ours");
+                    ++Failed;
+                    yield break;
+                }
+                if (!Host)
+                    yield return new WaitForSecondsRealtime(14f);
+                Plugin.Logger?.LogWarning($"{Tag} Scene test hold: we go into the room at {Into.x},{Into.y}");
+                MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Into.x, Into.y));
+                yield return new WaitForSecondsRealtime(2f);
+                yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 20f);
+                /* The friend talks once in, with the host seen there (the way a room's talk starts once the room is on) */
+                if (!Host)
+                    yield return Until(() => COTLMP.Game.RoomSync.PartnerPlace == COTLMP.Game.CoopSync.CurrentPlace() && COTLMP.Game.GhostLoot.PartnerHere() != null && Time.timeScale > 0f, 15f);
+                yield return new WaitForSecondsRealtime(Host ? 3f : 1f);
+                Plugin.Logger?.LogWarning($"{Tag} Scene test hold: in {COTLMP.Game.CoopSync.CurrentPlace()}, the partner in {COTLMP.Game.RoomSync.PartnerPlace}");
+            }
+
             GameObject Me = PlayerFarming.Instance.gameObject;
             var Entries = new List<MMTools.ConversationEntry>
             {
@@ -209,7 +236,8 @@ namespace COTLMP.Debug
             var Next = AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked");
             var Answer = AccessTools.Method(typeof(MMTools.MMConversation), "OnGiveAnswer");
             int Last = -2;
-            while (MMTools.MMConversation.isPlaying && Time.unscaledTime - Started < 40f)
+            bool Released = false;
+            while (MMTools.MMConversation.isPlaying && Time.unscaledTime - Started < (Hold ? 60f : 40f))
             {
                 yield return new WaitForSecondsRealtime(Host ? 2f : 0.3f);
                 var Box = MMTools.MMConversation.mmConversation;
@@ -218,7 +246,20 @@ namespace COTLMP.Debug
                 if (MMTools.MMConversation.Position != Last)
                 {
                     Last = MMTools.MMConversation.Position;
-                    Plugin.Logger?.LogWarning($"{Tag} Scene test: at line {Last} after {Time.unscaledTime - Started:F1} s");
+                    Plugin.Logger?.LogWarning($"{Tag} Scene test: at line {Last} after {Time.unscaledTime - Started:F1} s, letterbox {LetterBox.IsPlaying}, state {PlayerFarming.Instance?.state?.CURRENT_STATE}");
+                }
+                if (Hold && Host && !Released && COTLMP.Game.SharedScenes.TalksReleased > 0)
+                {
+                    Released = true;
+                    yield return new WaitForSecondsRealtime(1f);
+                    Plugin.Logger?.LogWarning($"{Tag} Scene test hold: released, letterbox {LetterBox.IsPlaying}, state {PlayerFarming.Instance?.state?.CURRENT_STATE}, line {MMTools.MMConversation.Position}");
+                    Shot("hold-released");
+                }
+                if (Hold && !Host && !Released && MMTools.MMConversation.Position >= 0)
+                {
+                    Released = true;
+                    yield return new WaitForSecondsRealtime(1.5f);
+                    Shot("hold-released");
                 }
                 /* The host's copy breaks off at its second line, each the way the game or a player does it */
                 if (Host && SceneBreak != null && Last >= 1)

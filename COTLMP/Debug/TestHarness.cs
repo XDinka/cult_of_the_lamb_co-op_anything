@@ -114,7 +114,8 @@ namespace COTLMP.Debug
         private static bool AutoShoot;
         private static bool ChatTest, FinalTest;
         /* -cotlmp-scenetest=chain|scene|leave: at its second line the host's talk is replaced by the next one
-           (never closed), or the host goes to another scene, or the host ends the session */
+           (never closed), or the host goes to another scene, or the host ends the session; =hold: the host's
+           talk starts in the next room before the friend is in */
         private static string SceneBreak;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
