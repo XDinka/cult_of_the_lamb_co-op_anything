@@ -353,6 +353,21 @@ namespace COTLMP.Debug
             yield return new WaitForSecondsRealtime(2f);
             Shot("scene-after");
             Plugin.Logger?.LogWarning($"{Tag} Scene test: after it in {SceneManager.GetActiveScene().name} talk={MMTools.MMConversation.isPlaying} letterbox={LetterBox.IsPlaying} state={PlayerFarming.Instance?.state?.CURRENT_STATE} hudhidden={HUD_Manager.Instance?.Hidden}");
+            /* -cotlmp-hudbreak: the probe's own check: the hearts' bar is put out while the HUD's flag says shown (a move in cut short) */
+            if (HudBreak && HUD_Manager.Instance?.healthManager != null)
+            {
+                foreach (string Name in new[] { "transition_TwoPlayer", "transition_Single" })
+                {
+                    if (AccessTools.Field(typeof(Health_Manager), Name)?.GetValue(HUD_Manager.Instance.healthManager) is UI_Transitions Bar && Bar != null && Bar.gameObject.activeInHierarchy)
+                    {
+                        Bar.hideBar();
+                        Plugin.Logger?.LogWarning($"{Tag} Scene test: the hearts' bar {Name} put out, the HUD flag left shown");
+                        break;
+                    }
+                }
+                yield return new WaitForSecondsRealtime(7f);
+                Shot("hud-broken");
+            }
         }
 
         /// <summary>

@@ -54,7 +54,87 @@ namespace COTLMP.Game
         internal static int GoTos, GoTosEnded, GoTosAborted, GoTosBroken, GoTosStuck, GoTosReplaced;
 
         /* What a test counts as failed: a scene held for good, a walk's callback lost or never heard */
-        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet;
+        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet + HudsOff + CoopHud.HudHeals;
+
+        /*
+         * The HUD as the player sees it, not its flag: Show sets Hidden=false at once and brings the hearts
+         * and the map back in only from a coroutine a second later, so whatever cuts that short leaves the
+         * flag up and the screen empty. In a dungeon, out of any scene, past this the parts must be in
+         */
+        private const float HudOffFor = 4f;
+        private static float HudOffSince = -1f;
+        private static bool HudTold;
+        internal static int HudsOff;
+        private static readonly System.Reflection.FieldInfo HeartsSingle = AccessTools.Field(typeof(Health_Manager), "transition_Single");
+        private static readonly System.Reflection.FieldInfo HeartsTwo = AccessTools.Field(typeof(Health_Manager), "transition_TwoPlayer");
+        private static readonly System.Reflection.FieldInfo TopRightGroup = AccessTools.Field(typeof(HUD_Manager), "_topRightCanvasGroup");
+
+        private static string HudPartsOff(HUD_Manager Hud)
+        {
+            List<string> Off = new();
+            UI_Transitions Hearts = null;
+            foreach (var Field in new[] { HeartsTwo, HeartsSingle })
+            {
+                if (Field?.GetValue(Hud.healthManager) is UI_Transitions Each && Each != null && Each.gameObject.activeInHierarchy)
+                {
+                    Hearts = Each;
+                    break;
+                }
+            }
+            /* Revealed comes only at the end of the move in: a move cut short leaves it unset, the bar half out */
+            if (Hearts == null || !Hearts.Revealed)
+                Off.Add(Hearts == null ? "hearts (none shown)" : "hearts");
+            /* The blind faith fleece (13) keeps the map off by itself (ActivateMiniMap.OnEnable) */
+            if (Hud.MiniMapTransition != null && !Hud.MiniMapTransition.Revealed && DataManager.Instance?.PlayerFleece != 13)
+                Off.Add("map");
+            return Off.Count == 0 ? null : string.Join(", ", Off);
+        }
+
+        /* For the test frames: the HUD's parts as the player sees them now */
+        internal static string HudNow()
+        {
+            HUD_Manager Hud = HUD_Manager.Instance;
+            if (Hud == null || Hud.healthManager == null)
+                return "none";
+            /* The top right (map, time) the game fades out itself while a room's doors are shut (RoomLockController) */
+            float TopRight = TopRightGroup?.GetValue(Hud) is CanvasGroup Group && Group != null ? Group.alpha : -1f;
+            string Corner = $"; top right {TopRight:0.0}, doors {(RoomLockController.DoorsOpen ? "open" : "shut")}";
+            return (Hud.Hidden ? "hidden" : $"shown, {HudPartsOff(Hud) ?? "all"} {(HudPartsOff(Hud) == null ? "in" : "out")}") + Corner;
+        }
+
+        /* The HUD watchdog's heals seen so far: each is a scene's way in with no way out, to be found */
+        private static int HealsSeen;
+
+        private static void WatchHud()
+        {
+            if (CoopHud.HudHeals != HealsSeen)
+            {
+                HealsSeen = CoopHud.HudHeals;
+                Plugin.Logger?.LogWarning($"[SCENE] INV-HUD the HUD watchdog had to bring the HUD back ({HealsSeen} so far) in {CoopSync.CurrentPlace()}; the last {Ring.Count} changes:\n{string.Join("\n", Ring)}");
+            }
+            HUD_Manager Hud = HUD_Manager.Instance;
+            bool Should = Hud != null && !Hud.Hidden && Hud.healthManager != null && PlayerFarming.Instance != null &&
+                          GameManager.IsDungeon(PlayerFarming.Location) && PlayerFarming.Location != FollowerLocation.IntroDungeon &&
+                          !LetterBox.IsPlaying && !MMTransition.IsPlaying && !MMConversation.isPlaying && Time.timeScale > 0f;
+            string Off = Should ? HudPartsOff(Hud) : null;
+            float Now = Time.unscaledTime;
+            if (Off == null)
+            {
+                if (HudTold)
+                    Plugin.Logger?.LogWarning($"[SCENE] INV-HUD over: the HUD is in again after {Now - HudOffSince:F0} s in {CoopSync.CurrentPlace()}");
+                HudOffSince = -1f;
+                HudTold = false;
+                return;
+            }
+            if (HudOffSince < 0f)
+                HudOffSince = Now;
+            if (HudTold || Now - HudOffSince < HudOffFor)
+                return;
+            HudTold = true;
+            ++HudsOff;
+            Plugin.Logger?.LogWarning($"[SCENE] INV-HUD the HUD is shown by its flag, but {Off} stay out for {Now - HudOffSince:F0} s in {CoopSync.CurrentPlace()}: " +
+                                      $"state={PlayerFarming.Instance.state?.CURRENT_STATE} ts={Time.timeScale:0.00}; the last {Ring.Count} changes:\n{string.Join("\n", Ring)}");
+        }
 
         /* The menus' and talks' input was given to the partner's puppet (it has no controller: nothing reads on) */
         internal static int InputsToPuppet;
@@ -235,7 +315,10 @@ namespace COTLMP.Game
                 {
                     PlayerFarming Player = PlayerFarming.Instance;
                     if (CoopSync.InSession && !CoopManager.CoopActive)
+                    {
                         WatchWalks();
+                        WatchHud();
+                    }
                     if (!CoopSync.InSession || CoopManager.CoopActive || Player == null || Excuse() != null)
                     {
                         SceneSince = TalkSince = -1f;

@@ -119,6 +119,8 @@ namespace COTLMP.Debug
         private static string SceneBreak;
         /* -cotlmp-scenequiet=N: in -cotlmp-scenetest the host's conversation steps reach the friend N s late from its second line (a lagging host) */
         private static float SceneQuiet;
+        /* -cotlmp-hudbreak: after the scene test the hearts' bar goes out under a shown HUD (the INV-HUD probe must catch it) */
+        private static bool HudBreak;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -318,6 +320,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-hudbreak", StringComparison.OrdinalIgnoreCase))
+                    HudBreak = true;
                 else if (Arg.StartsWith("-cotlmp-scenequiet=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-scenequiet=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SceneQuiet);
                 else if (Arg.StartsWith("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
@@ -638,7 +642,7 @@ namespace COTLMP.Debug
             string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{Name}.png");
             System.IO.Directory.CreateDirectory(ShotsDir);
             ScreenCapture.CaptureScreenshot(File);
-            Plugin.Logger?.LogWarning($"{Tag} Saved {File}");
+            Plugin.Logger?.LogWarning($"{Tag} Saved {File}, HUD {COTLMP.Game.SceneTrace.HudNow()}");
         }
 
         private static IEnumerator Until(Func<bool> Condition, float Seconds)

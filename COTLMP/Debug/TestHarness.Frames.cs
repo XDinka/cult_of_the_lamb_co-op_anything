@@ -48,7 +48,7 @@ namespace COTLMP.Debug
                 string File = System.IO.Path.Combine(ShotsDir, $"{(Plugin.GlobalsInternal.IsServerCreator ? "host" : "client")}-{++Count}.png");
                 System.IO.Directory.CreateDirectory(ShotsDir);
                 ScreenCapture.CaptureScreenshot(File);
-                Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}");
+                Plugin.Logger?.LogWarning($"{Tag} Saved {File} in {Place}, HUD {COTLMP.Game.SceneTrace.HudNow()}");
             }
         }
 
