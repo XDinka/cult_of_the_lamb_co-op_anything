@@ -368,6 +368,7 @@ namespace COTLMP.Ui
             COTLMP.Game.SceneEnds.ResetSession();
             COTLMP.Game.SharedScenes.ResetSession();
             COTLMP.Game.SceneTrace.ResetSession();
+            COTLMP.Game.LocalMiniGames.ResetSession();
             COTLMP.Game.CoopHud.ResetSession();
             COTLMP.Game.CoopLife.ResetSession();
             COTLMP.Game.PuppetSync.ResetSession();

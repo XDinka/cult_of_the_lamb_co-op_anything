@@ -129,6 +129,11 @@ namespace COTLMP.Debug
         private static bool Alone;
         /* -cotlmp-escape: in -cotlmp-deathruns we leave the run (going home) instead of falling; -cotlmp-escapeother: the partner does */
         private static bool Escape, EscapeOther;
+        /* -cotlmp-quietstate=N: for N s after each room comes alive our state isn't told to the partner (a player standing still) */
+        private static float QuietState;
+        /* -cotlmp-invincible: nothing fells our lamb all along (tests about other things than falling);
+           -cotlmp-forcepull: in a leader's room, a pull to a scene's start comes while the room's own walk is on */
+        private static bool Invincible, ForcePull;
         /* -cotlmp-lobbyclose=N: the host closes its lobby N s after opening it (the friend must land back in the menu) */
         private static float LobbyClose = -1f;
 
@@ -219,6 +224,14 @@ namespace COTLMP.Debug
                     int.TryParse(Arg.Substring("-cotlmp-diefloor=".Length), out DieFloor);
                 else if (Arg.StartsWith("-cotlmp-deathat=", StringComparison.OrdinalIgnoreCase))
                     int.TryParse(Arg.Substring("-cotlmp-deathat=".Length), out DeathAt);
+                else if (Arg.Equals("-cotlmp-nogotofix", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Game.SceneTrace.WalksUnguarded = true;
+                else if (Arg.Equals("-cotlmp-invincible", StringComparison.OrdinalIgnoreCase))
+                    Invincible = true;
+                else if (Arg.Equals("-cotlmp-forcepull", StringComparison.OrdinalIgnoreCase))
+                    ForcePull = true;
+                else if (Arg.StartsWith("-cotlmp-quietstate=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-quietstate=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out QuietState);
                 else if (Arg.Equals("-cotlmp-escape", StringComparison.OrdinalIgnoreCase))
                     Escape = true;
                 else if (Arg.Equals("-cotlmp-escapeother", StringComparison.OrdinalIgnoreCase))
@@ -430,6 +443,19 @@ namespace COTLMP.Debug
                 Run("DieTogether", DieTogether());
             if (DeathRuns > 0)
                 Run("RunsInARow", RunsInARow());
+            if (Invincible)
+            {
+                Guarded = true;
+                Run("GuardLamb", GuardLamb());
+            }
+            if (ForcePull)
+                Run("PullDuringWalk", PullDuringWalk());
+            if (QuietState > 0f)
+                MMBiomeGeneration.BiomeGenerator.OnRoomActive += () =>
+                {
+                    COTLMP.Network.Network.MuteStateUntil = Time.realtimeSinceStartup + QuietState;
+                    Plugin.Logger?.LogWarning($"{Tag} Quiet for {QuietState:F0} s: our state isn't told");
+                };
             if (AutoHurt > 0)
                 Run("HurtTest", HurtTest());
             if (AutoTalk > 0)

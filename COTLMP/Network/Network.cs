@@ -540,6 +540,10 @@ namespace COTLMP.Network
             PauseMenuPatches.StopServer();
         }
 
+        /* Tests only (-cotlmp-quietstate): our state changes and custom animations aren't told until then, as a player standing still */
+        internal static float MuteStateUntil = -1f;
+        private static bool StateMuted => UnityEngine.Time.realtimeSinceStartup < MuteStateUntil;
+
         /// <summary>
         /// When the local player state changes, update the server
         /// </summary>
@@ -548,7 +552,7 @@ namespace COTLMP.Network
         /// </param>
         private async static void OnStateChanged(StateMachine.State newState, StateMachine.State _)
         {
-            if (newState == StateMachine.State.CustomAnimation || newState == StateMachine.State.Moving || newState == StateMachine.State.Idle || localPlayer == null)
+            if (newState == StateMachine.State.CustomAnimation || newState == StateMachine.State.Moving || newState == StateMachine.State.Idle || localPlayer == null || StateMuted)
                 return;
             await Send(new Message(MessageType.StateUpdate, 0, localPlayer.state.ToNetwork(localPlayer.transform.position.ToNetwork()).Serialize()));
         }
@@ -622,7 +626,7 @@ namespace COTLMP.Network
             [HarmonyPrefix]
             private static void CustomAnimation(string Animation, bool Loop, PlayerFarming __instance)
             {
-                if (__instance != PlayerFarming.Instance)
+                if (__instance != PlayerFarming.Instance || StateMuted)
                     return;
 
                 var msg = new Message(MessageType.CustomAnimation,
@@ -638,7 +642,7 @@ namespace COTLMP.Network
             [HarmonyPrefix]
             private static void CustomAnimationRoutine(string Animation, bool Loop, PlayerFarming __instance)
             {
-                if (__instance != PlayerFarming.Instance)
+                if (__instance != PlayerFarming.Instance || StateMuted)
                     return;
 
                 var msg = new Message(MessageType.CustomAnimation,
@@ -654,7 +658,7 @@ namespace COTLMP.Network
             [HarmonyPrefix]
             private static void CustomAnimationWithCallback(string Animation, bool Loop, PlayerFarming __instance)
             {
-                if (__instance != PlayerFarming.Instance)
+                if (__instance != PlayerFarming.Instance || StateMuted)
                     return;
 
                 var msg = new Message(MessageType.CustomAnimation,
@@ -670,7 +674,7 @@ namespace COTLMP.Network
             [HarmonyPrefix]
             private static void CustomAnimationWithCallbackRoutine(string Animation, bool Loop, PlayerFarming __instance)
             {
-                if (__instance != PlayerFarming.Instance)
+                if (__instance != PlayerFarming.Instance || StateMuted)
                     return;
 
                 var msg = new Message(MessageType.CustomAnimation,

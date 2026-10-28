@@ -602,6 +602,25 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// A puppet's walk ends as its arrival. The game's arrivals do the lamb's part of a scene (opening a room,
+        /// shutting its doors, a run's first-room set-up) only for the lamb; the puppet arrives as the game's
+        /// second player does, whatever skin it wears, so that part stays our own lamb's
+        /// </summary>
+        private static void Arrive(PlayerFarming farming)
+        {
+            bool Lamb = farming.isLamb;
+            farming.isLamb = false;
+            try
+            {
+                farming.EndGoToAndStop();
+            }
+            finally
+            {
+                farming.isLamb = Lamb;
+            }
+        }
+
+        /// <summary>
         /// Set the state of a given managed player
         /// </summary>
         /// <param name="plr">The ID of the player you want to set the state of</param>
@@ -618,7 +637,11 @@ namespace COTLMP.Game
                 return;
 
             PlayerFarming farming = players[plr];
-            farming.AbortGoTo();
+            /* A walk the game gave the puppet ends as an arrival (whatever waits for it hears it), never cut short */
+            if (SceneTrace.WalksUnguarded)
+                farming.AbortGoTo();
+            else if (farming.GoToAndStopping)
+                Arrive(farming);
 
             /* Its player's animations come through PuppetSync; only which way it looks is taken here */
             if (PuppetSync.Driving(plr))
@@ -670,6 +693,42 @@ namespace COTLMP.Game
         [HarmonyPatch]
         private static class PlayerManagerPatches
         {
+            /// <summary>
+            /// The game walks the partner's puppet as it walks its second player (a leader's intro seen so far)
+            /// and may wait for it to arrive. The partner's
+            /// own lamb walks there in their game; the puppet goes where they stand, so its walk here is over a
+            /// frame later, as an arrival
+            /// </summary>
+            [HarmonyPatch(typeof(PlayerFarming), nameof(PlayerFarming.GoToAndStop), new Type[] { typeof(Vector3), typeof(GameObject), typeof(bool), typeof(bool), typeof(Action), typeof(float),
+                typeof(bool), typeof(Action), typeof(bool), typeof(bool), typeof(bool), typeof(bool), typeof(Vector3?) })]
+            [HarmonyPostfix]
+            private static void PuppetWalks(PlayerFarming __instance)
+            {
+                if (!SceneTrace.WalksUnguarded && __instance != null && Array.IndexOf(players, __instance) >= 0)
+                    Plugin.MonoInstance.StartCoroutine(ArriveNextFrame(__instance));
+            }
+
+            private static IEnumerator ArriveNextFrame(PlayerFarming farming)
+            {
+                yield return null;
+                /* The game's second player comes in after the first: ours first, then the puppet (a few seconds at most) */
+                float Until = Time.unscaledTime + 5f;
+                while (PlayerFarming.Instance != null && PlayerFarming.Instance.GoToAndStopping && Time.unscaledTime < Until)
+                    yield return null;
+                if (farming == null || !farming.GoToAndStopping)
+                    yield break;
+                Arrive(farming);
+                /* What the arrival set moving for the second player (onto the ice, to a spot) isn't the puppet's: it stands where its player does */
+                for (int Frame = 0; Frame < 2 && farming != null; Frame++)
+                {
+                    DG.Tweening.DOTween.Kill(farming.transform);
+                    int plr = Array.IndexOf(players, farming);
+                    if (plr >= 0 && targets[plr].HasValue)
+                        farming.transform.position = targets[plr].Value;
+                    yield return null;
+                }
+            }
+
             /// <summary>
             /// Prevent the managed player from being controlled by the actual player
             /// </summary>

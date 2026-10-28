@@ -61,6 +61,10 @@ namespace COTLMP.Debug
                 MMBiomeGeneration.BiomeRoom Room = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
                 if (Room == null || MMTransition.IsPlaying || COTLMP.Game.SceneEnds.Waiting)
                     continue;
+                /* A fallen lamb goes nowhere: its run is over, the rooms stay as they are */
+                if (PlayerFarming.Instance.state != null && (PlayerFarming.Instance.state.CURRENT_STATE == StateMachine.State.GameOver ||
+                                                             PlayerFarming.Instance.state.CURRENT_STATE == StateMachine.State.Dead))
+                    continue;
 
                 /* The joining copy just follows the host into the next room */
                 if (!Plugin.GlobalsInternal.IsServerCreator)
@@ -332,7 +336,11 @@ namespace COTLMP.Debug
             MMBiomeGeneration.BiomeRoom Lair = Generator.Rooms.FirstOrDefault(Room => Room != null && (Room.IsBoss || Room.y == MMBiomeGeneration.BiomeGenerator.BossCoords.y));
             Plugin.Logger?.LogWarning($"{Tag} Boss test: rooms {string.Join(", ", Generator.Rooms.Select(Room => $"{Room.x},{Room.y}{(Room.IsBoss ? "!" : "")}"))}; the leader's {Lair?.x},{Lair?.y}");
             if (Lair != null && Lair != Generator.CurrentRoom)
-                MMBiomeGeneration.BiomeGenerator.ChangeRoom(Lair.x, Lair.y);
+            {
+                /* As a door does (the puppet goes with the transition, the room's walk is ours alone) */
+                MMBiomeGeneration.BiomeRoom To = Lair;
+                MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(To.x, To.y));
+            }
             yield return new WaitForSecondsRealtime(1f);
             while (MMTransition.IsPlaying)
                 yield return null;
@@ -348,6 +356,8 @@ namespace COTLMP.Debug
         {
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             /* Into the room, where its fight starts */
+            /* The room's own walk in first: a walk of ours over it would drop what the room waits for */
+            yield return Until(() => !COTLMP.Game.SceneTrace.WalkedAndAwaitedAny(PlayerFarming.Instance), 10f);
             Plugin.Logger?.LogWarning($"{Tag} {Name}: walking into the room from {PlayerFarming.Instance.transform.position}");
             for (int Step = 0; Step < 14 && !LetterBox.IsPlaying && !MMTools.MMConversation.isPlaying; Step++)
             {
@@ -374,7 +384,8 @@ namespace COTLMP.Debug
                 var BossSpine = Boss == null ? null : Boss.GetComponentInChildren<Spine.Unity.SkeletonAnimation>();
                 string BossNow = Boss == null ? "-" : $"{Boss.name}:{Boss.HP:F0}:{(Boss.gameObject.activeInHierarchy ? "on" : "off")}:{BossState?.CURRENT_STATE}:{BossSpine?.AnimationState?.GetCurrent(0)?.Animation?.Name}:{(Boss.GetComponent<UnitObject>()?.enabled == true ? "mind" : "nomind")}";
                 string State = $"place={COTLMP.Game.CoopSync.CurrentPlace()} letterbox={LetterBox.IsPlaying} talk={MMTools.MMConversation.isPlaying}:{MMTools.MMConversation.Position} " +
-                               $"leader={Leader?.name}:{Leader?.HP:F0}/{Leader?.totalHP:F0} enemies={Health.team2.Count} boss={BossNow} own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} state={PlayerFarming.Instance?.state?.CURRENT_STATE}";
+                               $"leader={Leader?.name}:{Leader?.HP:F0}/{Leader?.totalHP:F0} enemies={Health.team2.Count} boss={BossNow} own={COTLMP.Game.RoomSync.Owning} follow={COTLMP.Game.RoomSync.Following} state={PlayerFarming.Instance?.state?.CURRENT_STATE} " +
+                               $"roomactive={GameManager.RoomActive} doors={(RoomLockController.DoorsOpen ? "open" : "shut")} gated={COTLMP.Game.SharedScenes.Gated} pulled={COTLMP.Game.SharedScenes.Pulled}";
                 if (State != Last)
                     Plugin.Logger?.LogWarning($"{Tag} {Name} {Time.unscaledTime - Since:F0}s: {State}");
                 Last = State;
@@ -513,7 +524,34 @@ namespace COTLMP.Debug
                 }
             }
             Run("FinalGuardian", GuardianWatch());
+            Run("FinalChoices", PickChoices());
             yield return WalkInAndWatch("Final test");
+        }
+
+        /// <summary>
+        /// A choice wheel the game puts up later in the fight (the fallen one's fate, after the crown's at the
+        /// altar): picked as a player would, its first answer, a few seconds after it shows
+        /// </summary>
+        private static IEnumerator PickChoices()
+        {
+            var Click = AccessTools.Method(typeof(ChoiceIndicator), "OnOptionClicked");
+            var First = AccessTools.Field(typeof(ChoiceIndicator), "_choice1");
+            ChoiceIndicator Done = null;
+            float Since = Time.unscaledTime;
+            while (Time.unscaledTime - Since < 600f)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                ChoiceIndicator Wheel = UnityEngine.Object.FindObjectOfType<ChoiceIndicator>();
+                if (Wheel == null || Wheel == Done || !Wheel.isActiveAndEnabled || UnityEngine.Object.FindObjectOfType<Interaction_FinalBossAltar>() is Interaction_FinalBossAltar Altar &&
+                    AccessTools.Field(typeof(Interaction_FinalBossAltar), "c").GetValue(Altar) as ChoiceIndicator == Wheel)
+                    continue;
+                yield return new WaitForSecondsRealtime(3f);
+                if (Wheel == null || !Wheel.isActiveAndEnabled)
+                    continue;
+                Done = Wheel;
+                Plugin.Logger?.LogWarning($"{Tag} Final test: a choice is up, picking its first answer");
+                Click.Invoke(Wheel, new object[] { First.GetValue(Wheel) });
+            }
         }
 
         /* The first guardian's side of the fight every 5 s: whether its object woke and joined the enemies */
@@ -534,6 +572,9 @@ namespace COTLMP.Debug
                                           $"active={(Unit != null && Unit.gameObject.activeInHierarchy)} " +
                                           $"parts={(List == null ? -1 : List.Count(Part => Part != null && Part.enabled))}/{List?.Count ?? -1} " +
                                           $"hp={(Life == null ? "-" : $"{Life.HP}/{Life.totalHP}")} team2={Health.team2.Count}");
+                /* The fight's scene is gone (its ending, the quote screen): nothing more to watch */
+                if (HUD_Manager.Instance == null || Fight == null)
+                    yield break;
                 var WidgetOne = (UnityEngine.UI.Image)AccessTools.Field(typeof(HUD_Manager), "_playerOneWidget").GetValue(HUD_Manager.Instance);
                 var WidgetTwo = (UnityEngine.UI.Image)AccessTools.Field(typeof(HUD_Manager), "_playerTwoWidget").GetValue(HUD_Manager.Instance);
                 Plugin.Logger?.LogWarning($"{Tag} Final test markers {Look * 5}s: count={PlayerFarming.playersCount} " +
@@ -576,6 +617,27 @@ namespace COTLMP.Debug
         /// would (continue, and through the base door again)
         /// </summary>
         private static bool Guarded;
+
+        /// <summary>
+        /// -cotlmp-forcepull: in a leader's room, while the room's own walk brings our lamb in, the pull to a
+        /// scene's start comes (as the partner's scene would bring it): the pull must wait for the walk
+        /// </summary>
+        private static IEnumerator PullDuringWalk()
+        {
+            var At = AccessTools.Field(typeof(COTLMP.Game.SharedScenes), "PullAt");
+            var To = AccessTools.Field(typeof(COTLMP.Game.SharedScenes), "PullTo");
+            while (true)
+            {
+                yield return null;
+                PlayerFarming Player = PlayerFarming.Instance;
+                if (Player == null || MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom?.IsBoss != true || !COTLMP.Game.SceneTrace.WalkedAndAwaitedAny(Player))
+                    continue;
+                Plugin.Logger?.LogWarning($"{Tag} Pull test: a pull comes during the room's walk, at {Format(Player.transform.position)}");
+                To.SetValue(null, Player.transform.position + new Vector3(3f, 0f, 0f));
+                At.SetValue(null, Time.unscaledTime);
+                yield break;
+            }
+        }
 
         /* When the room we stand in came alive: the game gets the fallen up 1 s after that, and again 3 s later */
         private static float RoomActiveAt;

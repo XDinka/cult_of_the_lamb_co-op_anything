@@ -467,9 +467,11 @@ namespace COTLMP.Game
             }
             Vector3 Gap = Player.transform.position - GateAt;
             Gap.z = 0f;
-            if (Gap.magnitude > 1.5f)
+            /* Back to the door, but never in the middle of a walk the game waits for (into the room from its door) */
+            if (Gap.magnitude > 1.5f && !SceneTrace.WalkedAndAwaited(Player))
             {
-                Player.AbortGoTo();
+                if (Player.GoToAndStopping)
+                    Player.AbortGoTo();
                 Player.transform.position = GateAt;
             }
             if (Time.unscaledTime - GateNoted > 6f)
@@ -498,6 +500,9 @@ namespace COTLMP.Game
         {
             if (PullAt < 0f || Time.unscaledTime < PullAt)
                 return;
+            /* A walk the game waits for goes first (at most a few seconds): the pull comes after it */
+            if (SceneTrace.WalkedAndAwaited(PlayerFarming.Instance) && Time.unscaledTime < PullAt + 5f)
+                return;
             PullAt = -1f;
             PlayerFarming Player = PlayerFarming.Instance;
             if (Player == null || LetterBox.IsPlaying || MMTools.MMTransition.IsPlaying || !InLeaderRoom(CoopSync.CurrentPlace()))
@@ -505,7 +510,11 @@ namespace COTLMP.Game
             ++Pulled;
             Plugin.Logger?.LogInfo("[COOP] The partner's scene started: going to where it starts");
             Gating = false;
-            Player.AbortGoTo();
+            /* A walk still awaited after the wait arrives here (its waiter hears it), any other just stops */
+            if (SceneTrace.WalkedAndAwaited(Player))
+                Player.EndGoToAndStop();
+            else if (Player.GoToAndStopping)
+                Player.AbortGoTo();
             Player.transform.position = PullTo + new Vector3(0.8f, 0f);
         }
 

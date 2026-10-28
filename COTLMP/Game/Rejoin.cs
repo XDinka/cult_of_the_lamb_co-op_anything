@@ -619,6 +619,12 @@ namespace COTLMP.Game
                 yield return new WaitForSecondsRealtime(1f);
             }
 
+            /* The room's own walk in first (the run's first room waits for it with no time limit), then our spot */
+            float Walked = Time.unscaledTime;
+            while (SceneTrace.WalkedAndAwaited(PlayerFarming.Instance) && Time.unscaledTime - Walked < 5f)
+                yield return null;
+            if (SceneTrace.WalkedAndAwaited(PlayerFarming.Instance))
+                PlayerFarming.Instance.EndGoToAndStop();
             Player = PlayerFarming.Instance;
             string Now = CoopSync.CurrentPlace();
             bool There = Now != null && Now == HostNow(HostPlace);
