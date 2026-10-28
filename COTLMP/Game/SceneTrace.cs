@@ -510,7 +510,9 @@ namespace COTLMP.Game
             {
                 var Method = Frame.GetMethod();
                 string Type = Method?.DeclaringType?.FullName ?? "";
-                if (!Type.StartsWith("COTLMP") || Method.DeclaringType == typeof(SceneTrace))
+                /* The test harness is no part of the mod: a walk of the game's it set going (the final test starts the
+                   fight's intro itself) is the game's; the mod's code called from it is still the mod's */
+                if (!Type.StartsWith("COTLMP") || Method.DeclaringType == typeof(SceneTrace) || Type.StartsWith("COTLMP.Debug"))
                     continue;
                 return Method.Name != nameof(PlayerManager.DeletePlayer);
             }

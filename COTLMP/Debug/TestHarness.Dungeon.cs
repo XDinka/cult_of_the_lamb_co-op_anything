@@ -584,15 +584,17 @@ namespace COTLMP.Debug
         }
 
         /// <summary>
-        /// A player in a conversation doesn't walk out of the room (the game holds the lamb still): the walker waits for its end, 60 s at most
+        /// A player in a conversation or before a menu of the game's (a new thing's card) doesn't walk out of the room: the
+        /// walker waits for its end, 60 s at most
         /// </summary>
         private static IEnumerator NotInATalk()
         {
             float Since = Time.unscaledTime;
-            while ((MMTools.MMConversation.isPlaying || LetterBox.IsPlaying) && Time.unscaledTime - Since < 60f)
+            while ((MMTools.MMConversation.isPlaying || LetterBox.IsPlaying || Lamb.UI.UIMenuBase.ActiveMenus.Exists(Menu => Menu != null && Menu.gameObject.activeInHierarchy)) &&
+                   Time.unscaledTime - Since < 60f)
                 yield return null;
             if (Time.unscaledTime - Since > 0.5f)
-                Plugin.Logger?.LogWarning($"{Tag} The walker waited {Time.unscaledTime - Since:F1} s for a conversation to end");
+                Plugin.Logger?.LogWarning($"{Tag} The walker waited {Time.unscaledTime - Since:F1} s for a conversation or a menu to end");
         }
 
         /// <summary>
@@ -1021,7 +1023,57 @@ namespace COTLMP.Debug
                     yield break;
                 }
 
-                yield return Until(() => Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance != null, 120f);
+                /* What the game does once we fall: a way back (the save's resurrection) or the death screen, every 15 s */
+                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: after the fall, resurrection {ResurrectOnHud.ResurrectionType}, the deal {TrinketManager.HasTrinket(TarotCards.Card.TheDeal, PlayerFarming.Instance)}, fleece {DataManager.Instance.PlayerFleece}, followers {DataManager.Instance.Followers.Count}");
+                for (int Look = 0; Look < 8 && Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance == null; Look++)
+                {
+                    yield return new WaitForSecondsRealtime(15f);
+                    PlayerFarming Now = PlayerFarming.Instance;
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: {15 * (Look + 1)} s after the fall in {SceneManager.GetActiveScene().name} at {COTLMP.Game.CoopSync.CurrentPlace()}: " +
+                                              $"lamb {(Now == null ? "none" : $"{Now.name}#{Now.GetInstanceID()} state {Now.state?.CURRENT_STATE} hp {Now.health?.HP}/{Now.health?.totalHP} anim {Now.Spine?.AnimationState?.GetCurrent(0)?.Animation?.Name} active {Now.gameObject.activeInHierarchy}")}, " +
+                                              $"players {PlayerFarming.players.Count}, respawning {RespawnRoomManager.RespawnPlayInProgress}, respawn room {(RespawnRoomManager.Instance != null && RespawnRoomManager.Instance.gameObject.activeInHierarchy)}, transition {MMTransition.IsPlaying}, ts {Time.timeScale:0.00}");
+                    Shot($"after-fall-{15 * (Look + 1)}");
+                    /* The corrupted monolith's room (the save's way back): a player goes to the monolith and calls on it until it gives */
+                    Interaction_CorruptedMonolith Monolith = RespawnRoomManager.Instance != null && RespawnRoomManager.Instance.gameObject.activeInHierarchy ? UnityEngine.Object.FindObjectOfType<Interaction_CorruptedMonolith>() : null;
+                    GameObject Temp = RespawnRoomManager.Instance != null ? AccessTools.Field(typeof(RespawnRoomManager), "Player")?.GetValue(RespawnRoomManager.Instance) as GameObject : null;
+                    if (Look == 0 && Monolith != null && Temp != null)
+                    {
+                        Plugin.Logger?.LogWarning($"{Tag} Runs in a row: the monolith's room, its player {Temp.name} active {Temp.activeInHierarchy} state {Temp.GetComponent<StateMachine>()?.CURRENT_STATE}, the game's lamb is it: {PlayerFarming.Instance != null && PlayerFarming.Instance.gameObject == Temp}");
+                        Temp.transform.position = Monolith.transform.position + new Vector3(0f, -1f, 0f);
+                        for (int Call = 0; Call < 9; Call++)
+                        {
+                            try
+                            {
+                                Monolith.OnInteract(Temp.GetComponent<StateMachine>());
+                            }
+                            catch (Exception e)
+                            {
+                                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: calling on the monolith stumbled: {e.GetType().Name}: {e.Message}");
+                            }
+                            yield return new WaitForSecondsRealtime(1.5f);
+                        }
+                        Plugin.Logger?.LogWarning($"{Tag} Runs in a row: called on the monolith 9 times");
+                        /* Its gift: the corrupted cards and relics, each a menu the player closes after a look */
+                        float Gifts = Time.unscaledTime;
+                        int Closed = 0;
+                        while (Closed < 2 && Time.unscaledTime - Gifts < 60f)
+                        {
+                            yield return new WaitForSecondsRealtime(1f);
+                            Lamb.UI.UIMenuBase Gift = (Lamb.UI.UIMenuBase)UnityEngine.Object.FindObjectOfType<Lamb.UI.UITarotCardsMenuController>() ?? UnityEngine.Object.FindObjectOfType<Lamb.UI.UIRelicMenuController>();
+                            if (Gift == null || !Gift.isActiveAndEnabled || Gift.IsHiding)
+                                continue;
+                            yield return new WaitForSecondsRealtime(2f);
+                            Shot($"monolith-gift-{Closed + 1}");
+                            Plugin.Logger?.LogWarning($"{Tag} Runs in a row: the monolith's gift {Gift.GetType().Name} up, closed after a look");
+                            /* As the player's cancel does: the menu closes itself once it is up (interactable) */
+                            Gift.OnCancelButtonInput();
+                            ++Closed;
+                            yield return new WaitForSecondsRealtime(1.5f);
+                        }
+                        Plugin.Logger?.LogWarning($"{Tag} Runs in a row: {Closed} gift menus closed, corrupted cards and relics unlocked {DataManager.Instance.UnlockedCorruptedRelicsAndTarots}");
+                    }
+                }
+                yield return Until(() => Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance != null, 10f);
                 var Screen = Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance;
                 Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} death screen {(Screen == null ? "never came" : "up")}, our own run time {Time.time - Started:F1} s");
                 if (Screen == null)
