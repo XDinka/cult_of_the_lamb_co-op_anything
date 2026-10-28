@@ -129,6 +129,8 @@ namespace COTLMP.Debug
         private static bool KnucklebonesTesting;
         /* -cotlmp-nopress: no press on the title (the lobby test's host stays there: run-pair's retry is tried so) */
         private static bool NoPress;
+        /* -cotlmp-rescue: we walk to a fallen partner and get them up for a heart, with no killing of the room (it would wake them first) */
+        private static bool Rescuing;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -328,6 +330,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-rescue", StringComparison.OrdinalIgnoreCase))
+                    Rescuing = true;
                 else if (Arg.Equals("-cotlmp-nopress", StringComparison.OrdinalIgnoreCase))
                     NoPress = true;
                 else if (Arg.Equals("-cotlmp-kbtest", StringComparison.OrdinalIgnoreCase))
@@ -529,7 +533,7 @@ namespace COTLMP.Debug
                 Run("Flood", Flood());
             if (AutoChoice > 0)
                 Run("VoteOnChoices", VoteOnChoices());
-            if (AutoKill || DieOnRevive)
+            if (AutoKill || DieOnRevive || Rescuing)
                 Run("Rescue", Rescue());
         }
 
