@@ -84,14 +84,75 @@ namespace COTLMP.Game
             }
         }
 
+        /* Going home from the run ends it for both, as the game's one screen does: what we tell, and what we are showing for the partner */
+        private const byte NoEnd = 255;
+        private static bool Applying;
+        internal static int EscapesSent, EscapesTaken;
+
+        private static void TellEscape()
+        {
+            if (!CoopSync.InSession || CoopSync.CurrentRun == 0 || DataManager.Instance == null)
+                return;
+            int Run = CoopSync.CurrentRun;
+            float Value = Elapsed;
+            CoopSync.Send(CoopSync.Kind.RunClock, Writer =>
+            {
+                Writer.Write(Run);
+                Writer.Write(Value);
+                Writer.Write(true);
+                Writer.Write((byte)UIDeathScreenOverlayController.Results.Escaped);
+            });
+            ++EscapesSent;
+            Plugin.Logger?.LogInfo($"[COOP] We go home from the run after {Value:F1} s: it ends for the partner too");
+        }
+
         /// <summary>
-        /// The host's run time: ours is set to it
+        /// The partner went home from the run: it ends here too, on the game's screen for it, at their time
+        /// </summary>
+        private static void PartnerEscaped(int Run, float Value)
+        {
+            if (Run != CoopSync.CurrentRun || DataManager.Instance == null || !LocationManager.IsDungeonActive() || UIDeathScreenOverlayController.Instance != null)
+                return;
+            FinalRun = Run;
+            FinalTime = Value;
+            DataManager.Instance.dungeonRunDuration = Time.time - Value;
+            ++EscapesTaken;
+            Plugin.Logger?.LogInfo($"[COOP] The partner went home from the run at {Value:F1} s: so do we");
+            Applying = true;
+            try
+            {
+                /* As the game's hold-to-go-home ends a run (PlayerReturnToBase) */
+                if (PlayerFarming.Instance != null)
+                    MonoSingleton<src.UINavigator.UINavigatorNew>.Instance.AllowInputOnlyFromPlayer = PlayerFarming.Instance;
+                MonoSingleton<Lamb.UI.UIManager>.Instance.ShowDeathScreenOverlay(UIDeathScreenOverlayController.Results.Escaped);
+                AudioManager.Instance?.PlayOneShot("event:/pentagram_platform/pentagram_platform_curse");
+                AudioManager.Instance?.PlayOneShot("event:/ui/heretics_defeated");
+                AudioManager.Instance?.PlayMusic("event:/music/game_over/game_over");
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Going home with the partner failed: {e.Message}");
+            }
+            finally
+            {
+                Applying = false;
+            }
+        }
+
+        /// <summary>
+        /// The partner's run time, or its end: ours is set to it
         /// </summary>
         public static void OnRelay(BinaryReader Reader)
         {
             int Run = Reader.ReadInt32();
             float Value = Reader.ReadSingle();
             bool Final = Reader.BaseStream.Position < Reader.BaseStream.Length && Reader.ReadBoolean();
+            byte End = Reader.BaseStream.Position < Reader.BaseStream.Length ? Reader.ReadByte() : NoEnd;
+            if (End == (byte)UIDeathScreenOverlayController.Results.Escaped)
+            {
+                PartnerEscaped(Run, Value);
+                return;
+            }
             if (IsHost || Run != CoopSync.CurrentRun || DataManager.Instance == null)
                 return;
             if (Final)
@@ -145,7 +206,10 @@ namespace COTLMP.Game
                 return;
             try
             {
-                if (IsHost)
+                /* Going home ends the run for both, whoever holds the button */
+                if (result == UIDeathScreenOverlayController.Results.Escaped && !Applying)
+                    TellEscape();
+                else if (IsHost)
                     Tell(EndsForBoth(result));
                 /* The host's run ended with ours: the host's time at its end */
                 else if (FinalRun == CoopSync.CurrentRun && FinalTime >= 0f)

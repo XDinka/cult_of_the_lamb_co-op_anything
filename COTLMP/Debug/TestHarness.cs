@@ -129,6 +129,9 @@ namespace COTLMP.Debug
         private static bool Alone;
         /* -cotlmp-escape: in -cotlmp-deathruns we leave the run (going home) instead of falling; -cotlmp-escapeother: the partner does */
         private static bool Escape, EscapeOther;
+        /* -cotlmp-afterdown, -cotlmp-waitend, -cotlmp-walkout, -cotlmp-nextfloordown, -cotlmp-nodeathfor=N: other ends of a run in -cotlmp-deathruns */
+        private static bool AfterDown, WaitEnd, WalkOut, NextFloorDown;
+        private static float NoDeathFor;
         /* -cotlmp-quietstate=N: for N s after each room comes alive our state isn't told to the partner (a player standing still) */
         private static float QuietState;
         /* -cotlmp-invincible: nothing fells our lamb all along (tests about other things than falling);
@@ -232,6 +235,16 @@ namespace COTLMP.Debug
                     ForcePull = true;
                 else if (Arg.StartsWith("-cotlmp-quietstate=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-quietstate=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out QuietState);
+                else if (Arg.Equals("-cotlmp-afterdown", StringComparison.OrdinalIgnoreCase))
+                    AfterDown = true;
+                else if (Arg.Equals("-cotlmp-waitend", StringComparison.OrdinalIgnoreCase))
+                    WaitEnd = true;
+                else if (Arg.Equals("-cotlmp-walkout", StringComparison.OrdinalIgnoreCase))
+                    WalkOut = true;
+                else if (Arg.Equals("-cotlmp-nextfloordown", StringComparison.OrdinalIgnoreCase))
+                    NextFloorDown = true;
+                else if (Arg.StartsWith("-cotlmp-nodeathfor=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-nodeathfor=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out NoDeathFor);
                 else if (Arg.Equals("-cotlmp-escape", StringComparison.OrdinalIgnoreCase))
                     Escape = true;
                 else if (Arg.Equals("-cotlmp-escapeother", StringComparison.OrdinalIgnoreCase))

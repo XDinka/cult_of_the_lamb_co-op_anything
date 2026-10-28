@@ -223,6 +223,18 @@ namespace COTLMP.Game
         private static float AloneSince = -1f;
         private const float AloneDownFor = 90f;
 
+        /* Down while the partner stands outside the dungeon (back in the cult, the run over for them): since when */
+        private static float AwaySince = -1f;
+        private const float AwayDownFor = 15f;
+
+        /// <summary>
+        /// The partner is in the session, settled somewhere that isn't a dungeon: not on the way (a floor or a
+        /// scene loading, coming back to the host), not connecting again
+        /// </summary>
+        private static bool PartnerOutOfTheRun =>
+            CoopSync.InSession && RoomSync.PartnerPlace != null && !RoomSync.PartnerPlace.Contains("#") &&
+            !COTLMP.Network.Reconnect.Active && !Rejoin.Going;
+
         private static IEnumerator Loop()
         {
             float NextAnnounce = 0f;
@@ -260,6 +272,23 @@ namespace COTLMP.Game
                     else
                     {
                         AloneSince = -1f;
+                    }
+
+                    /* Down, and nobody in the dungeon to get us up: the run ends for us too */
+                    if (Mine == Life.Down && !Dying && PartnerOutOfTheRun)
+                    {
+                        if (AwaySince < 0f)
+                            AwaySince = Time.realtimeSinceStartup;
+                        else if (Time.realtimeSinceStartup - AwaySince > AwayDownFor)
+                        {
+                            Plugin.Logger?.LogInfo($"[COOP] The partner left the dungeon {Time.realtimeSinceStartup - AwaySince:F0} s ago ({RoomSync.PartnerPlace}): the run ends for us");
+                            AwaySince = -1f;
+                            StartDying();
+                        }
+                    }
+                    else
+                    {
+                        AwaySince = -1f;
                     }
 
                     PlayerFarming Player = PlayerFarming.Instance;

@@ -729,10 +729,17 @@ namespace COTLMP.Debug
                     yield return new WaitForSecondsRealtime(4f);
                 }
 
-                /* The fall: alone after a while; together the first in the fight, the second once the first lies there */
+                /*
+                 * The end of the run. Alone: a fall after a while. Together: the first falls in the fight, the second
+                 * once the first lies there; or, by switch, instead of falling: -cotlmp-escape goes home (with
+                 * -cotlmp-afterdown once the partner lies there), -cotlmp-walkout goes back to the cult and
+                 * -cotlmp-nextfloordown down a floor once the partner lies there, -cotlmp-waitend only waits for the
+                 * partner's end to come here
+                 */
                 bool First = !Session || (HostFirst ? Host : !Host);
+                bool Leaves = WalkOut || NextFloorDown || (Escape && AfterDown);
                 float Stay = 12f + Run * 8f;
-                while (Time.unscaledTime - Since < 400f)
+                while (Time.unscaledTime - Since < 400f && !WaitEnd)
                 {
                     yield return new WaitForSecondsRealtime(0.5f);
                     if (MMTransition.IsPlaying || LetterBox.IsPlaying)
@@ -743,17 +750,13 @@ namespace COTLMP.Debug
                             break;
                         continue;
                     }
-                    /* -cotlmp-escape: we leave the run as the hold-to-go-home does, the other falls once we are gone */
-                    if (Escape && Time.time - Started > Stay)
-                        break;
-                    string PartnerAt = COTLMP.Game.RoomSync.PartnerLastPlace;
-                    if (!Escape && EscapeOther && PartnerAt != null && !PartnerAt.Contains("#") && Time.time - Started > Stay + 10f)
+                    if (Escape && !AfterDown && Time.time - Started > Stay)
                         break;
                     bool Together = COTLMP.Game.RoomSync.PartnerLastPlace == COTLMP.Game.CoopSync.CurrentPlace();
                     /* Past the game's own wake for a room come alive (1 s, and 3 s more), so the fall stands */
-                    if (First && Together && !RoomLockController.DoorsOpen && CountVisibleEnemies() > 0 && Time.unscaledTime - RoomActiveAt > 6f)
+                    if (First && !Leaves && !Escape && Together && !RoomLockController.DoorsOpen && CountVisibleEnemies() > 0 && Time.unscaledTime - RoomActiveAt > 6f)
                         break;
-                    if (!First && Together && COTLMP.Game.CoopLife.PartnerDown)
+                    if ((!First || Leaves) && Together && COTLMP.Game.CoopLife.PartnerDown)
                     {
                         yield return new WaitForSecondsRealtime(0.5f);
                         if (COTLMP.Game.CoopLife.PartnerDown)
@@ -762,18 +765,56 @@ namespace COTLMP.Debug
                 }
                 Guarded = false;
                 PlayerFarming Player = PlayerFarming.Instance;
-                if (Escape)
+                if (WaitEnd)
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} waits for the partner's end of it");
+                else if (Escape)
                 {
                     Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} escapes after {Time.time - Started:F1} s of our own run time");
                     MonoSingleton<Lamb.UI.UIManager>.Instance.ShowDeathScreenOverlay(Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Results.Escaped);
                 }
+                else if (WalkOut)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run}: the partner lies there, we go back to the cult (no going home)");
+                    MMTransition.Play(MMTransition.TransitionType.ChangeSceneAutoResume, MMTransition.Effect.BlackFade, "Base Biome 1", 1f, "", null);
+                    yield break;
+                }
+                else if (NextFloorDown)
+                {
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run}: the partner lies there, we go down a floor");
+                    MMBiomeGeneration.BiomeRoom Here = MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom;
+                    MMBiomeGeneration.BiomeRoom Exit = MMBiomeGeneration.BiomeGenerator.Instance?.Rooms?.Find(HasNextLayer);
+                    if (Exit != null && Exit != Here)
+                    {
+                        MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Exit.x, Exit.y));
+                        yield return new WaitForSecondsRealtime(3f);
+                        while (MMTransition.IsPlaying)
+                            yield return null;
+                    }
+                    yield return GoToNextFloor(MMBiomeGeneration.BiomeGenerator.Instance?.CurrentRoom, true);
+                    yield break;
+                }
                 else
                 {
-                Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} falls {(First ? "first" : "second")} on floor {GameManager.CurrentDungeonFloor} at {COTLMP.Game.CoopSync.CurrentPlace()} after {Time.time - Started:F1} s of our own run time");
-                Player.health.invincible = false;
-                Player.health.untouchable = false;
-                Player.health.HP = 0.5f;
-                Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} falls {(First ? "first" : "second")} on floor {GameManager.CurrentDungeonFloor} at {COTLMP.Game.CoopSync.CurrentPlace()} after {Time.time - Started:F1} s of our own run time");
+                    Player.health.invincible = false;
+                    Player.health.untouchable = false;
+                    Player.health.HP = 0.5f;
+                    Player.health.DealDamage(5f, Player.gameObject, Player.transform.position, false, Health.AttackTypes.Melee, true, Health.AttackFlags.ForceKill);
+                }
+
+                /* -cotlmp-nodeathfor=N: no end may come here for N s (the partner's long way down must not end ours) */
+                if (NoDeathFor > 0f)
+                {
+                    float Watched = Time.unscaledTime;
+                    yield return Until(() => Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance != null, NoDeathFor);
+                    bool Came = Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance != null;
+                    Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} {(Came ? "ENDED" : "still on")} {Time.unscaledTime - Watched:F0} s after, down {COTLMP.Game.CoopLife.WeAreDown}, partner at {COTLMP.Game.RoomSync.PartnerPlace ?? "a load"}");
+                    if (Came)
+                    {
+                        ++Failed;
+                        Plugin.Logger?.LogError($"[QA] Runs in a row: run {Run} ended while the partner was on their way");
+                    }
+                    yield break;
                 }
 
                 yield return Until(() => Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Instance != null, 120f);
@@ -787,7 +828,8 @@ namespace COTLMP.Debug
                 }
                 yield return new WaitForSecondsRealtime(10f);
                 /* Behind its death screen the lamb stays dead: up again is a run that never ended */
-                if (Session && !Escape && !COTLMP.Game.CoopLife.WeAreDead)
+                /* (gone home is the run's end too, not a death: the lamb stands or lies as it was) */
+                if (Session && Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Result != Lamb.UI.DeathScreen.UIDeathScreenOverlayController.Results.Escaped && !COTLMP.Game.CoopLife.WeAreDead)
                 {
                     ++Failed;
                     Plugin.Logger?.LogError($"[QA] Runs in a row: run {Run}'s lamb is not dead behind its death screen (down {COTLMP.Game.CoopLife.WeAreDown}, state {Player?.state?.CURRENT_STATE})");
