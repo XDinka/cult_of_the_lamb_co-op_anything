@@ -98,6 +98,7 @@ namespace COTLMP.Debug
                     if (!Step.HasValue)
                         continue;
                     Vector2Int Gap = Step.Value;
+                    yield return NotInATalk();
                     Plugin.Logger?.LogWarning($"{Tag} Following the host {Gap} from {Room.x},{Room.y}");
                     MMTransition.Play(MMTransition.TransitionType.ChangeRoom, MMTransition.Effect.BlackFade, MMTransition.NO_SCENE, 0.5f, "", () => MMBiomeGeneration.BiomeGenerator.ChangeRoom(Gap));
                     continue;
@@ -135,6 +136,7 @@ namespace COTLMP.Debug
                 yield return new WaitForSecondsRealtime(4f);
                 while (COTLMP.Game.SceneEnds.Waiting)
                     yield return null;
+                yield return NotInATalk();
 
                 Vector2Int? Way = null;
                 if (Room.N_Room != null && Room.N_Room.Connected && Room.N_Room.Room != null && !Room.N_Room.Room.Visited) Way = new Vector2Int(0, 1);
@@ -574,6 +576,18 @@ namespace COTLMP.Debug
                 Plugin.Logger?.LogWarning($"{Tag} Final test: we take answer {Ours}");
                 Click.Invoke(Wheel, new object[] { Option });
             }
+        }
+
+        /// <summary>
+        /// A player in a conversation doesn't walk out of the room (the game holds the lamb still): the walker waits for its end, 60 s at most
+        /// </summary>
+        private static IEnumerator NotInATalk()
+        {
+            float Since = Time.unscaledTime;
+            while ((MMTools.MMConversation.isPlaying || LetterBox.IsPlaying) && Time.unscaledTime - Since < 60f)
+                yield return null;
+            if (Time.unscaledTime - Since > 0.5f)
+                Plugin.Logger?.LogWarning($"{Tag} The walker waited {Time.unscaledTime - Since:F1} s for a conversation to end");
         }
 
         /// <summary>
