@@ -42,6 +42,9 @@ namespace COTLMP.Game
         private const float StopDistance = 0.05f;
 
         private readonly static PlayerFarming[] players;
+
+        /* The game's talks that went to the nearest player, the partner's puppet, given to our lamb */
+        internal static int TalksTakenBack;
         private static bool puppetsTargetable;
 
         /// <summary>
@@ -824,6 +827,40 @@ namespace COTLMP.Game
             [HarmonyPrefix]
             private static bool MainPlayer(PlayerFarming playerFarming) =>
                 playerFarming == null || !players.Contains(playerFarming);
+
+            /// <summary>
+            /// The game's own talks (Ratau's, a mini-boss's intro) go to the player nearest to them when
+            /// they name none: the partner's puppet too, which then holds the talk's input and has no
+            /// controller to read on with. In a session our side's talk is our lamb's
+            /// </summary>
+            [HarmonyPatch(typeof(Interaction_SimpleConversation), nameof(Interaction_SimpleConversation.Play), typeof(GameObject))]
+            [HarmonyPrefix]
+            private static void TalkToUs(Interaction_SimpleConversation __instance, ref GameObject player)
+            {
+                if (!COTLMP.Game.CoopSync.InSession || PlayerFarming.Instance == null || __instance == null)
+                    return;
+                GameObject Who = player != null ? player : PlayerFarming.FindClosestPlayerGameObject(__instance.transform.position);
+                PlayerFarming Farming = Who != null ? Who.GetComponent<PlayerFarming>() : null;
+                if (Farming == null || !players.Contains(Farming))
+                    return;
+                ++TalksTakenBack;
+                Plugin.Logger?.LogInfo($"[COOP] The talk of {__instance.name} would be the partner's puppet's (the nearest player): it is our lamb's");
+                player = PlayerFarming.Instance.gameObject;
+            }
+
+            /// <summary>
+            /// The last guard of the same: whoever gives the menus' input to the puppet, it is our lamb's
+            /// (a fault the tests count, so the way it came is found and closed)
+            /// </summary>
+            [HarmonyPatch(typeof(src.UINavigator.UINavigatorNew), nameof(src.UINavigator.UINavigatorNew.AllowInputOnlyFromPlayer), MethodType.Setter)]
+            [HarmonyPrefix]
+            private static void InputToUs(ref PlayerFarming value)
+            {
+                if (value == null || PlayerFarming.Instance == null || !players.Contains(value))
+                    return;
+                COTLMP.Game.SceneTrace.InputToPuppet(value.name);
+                value = PlayerFarming.Instance;
+            }
 
             /// <summary>
             /// The doors out of a room, to the next floor, the base and the bosses are for the

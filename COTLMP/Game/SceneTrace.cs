@@ -54,7 +54,16 @@ namespace COTLMP.Game
         internal static int GoTos, GoTosEnded, GoTosAborted, GoTosBroken, GoTosStuck, GoTosReplaced;
 
         /* What a test counts as failed: a scene held for good, a walk's callback lost or never heard */
-        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced;
+        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet;
+
+        /* The menus' and talks' input was given to the partner's puppet (it has no controller: nothing reads on) */
+        internal static int InputsToPuppet;
+
+        internal static void InputToPuppet(string Who)
+        {
+            ++InputsToPuppet;
+            Plugin.Logger?.LogWarning($"[SCENE] INV-INPUT the UI input was going to the partner's puppet {Who}, given to our lamb instead, in {CoopSync.CurrentPlace()} from {Callers()}");
+        }
         private static readonly System.Reflection.FieldInfo GoToCallback = AccessTools.Field(typeof(PlayerFarming), "GoToCallback");
 
         public static void Initialize()

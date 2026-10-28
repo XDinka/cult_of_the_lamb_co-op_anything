@@ -228,6 +228,7 @@ namespace COTLMP.Debug
                 new(Me, "Scene test line four", "talk", "", null, "Lamb")
             };
             int Picked = -1;
+            GameObject Talker = null;
             var Responses = new List<MMTools.Response>
             {
                 new("Scene test answer one", () => Picked = 0, "Scene test answer one"),
@@ -239,6 +240,23 @@ namespace COTLMP.Debug
                handling is off, the scene lets the player go from its callback */
             if (SceneBreak == "scripted")
                 MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, null, () => GameManager.GetInstance().OnConversationEnd()), false);
+            /* =nearest: the game's own talk object, played with no player named, as Ratau's or a mini-boss's
+               intro is: it goes to the player nearest to it, here the partner's puppet */
+            else if (SceneBreak == "nearest")
+            {
+                SceneBreak = null;
+                GameObject Puppet = COTLMP.Game.GhostLoot.PartnerHere();
+                Talker = new GameObject("COTLMP test talker");
+                Talker.transform.position = (Puppet != null ? Puppet.transform.position : Me.transform.position) + new Vector3(0.3f, 0f, 0f);
+                var Talk = Talker.AddComponent<Interaction_SimpleConversation>();
+                Talk.Entries = Entries;
+                Talk.Responses = Responses;
+                Talk.MovePlayerToListenPosition = false;
+                Plugin.Logger?.LogWarning($"{Tag} Scene test nearest: the talk stands at the partner's puppet ({(Puppet != null ? "here" : "NOT here")}), nearest player {PlayerFarming.FindClosestPlayerGameObject(Talker.transform.position)?.name}");
+                Talk.Play(null);
+                var Owner = MonoSingleton<src.UINavigator.UINavigatorNew>.Instance.AllowInputOnlyFromPlayer;
+                Plugin.Logger?.LogWarning($"{Tag} Scene test nearest: the talk's input is {(Owner == null ? "nobody's" : Owner == PlayerFarming.Instance ? "our lamb's" : COTLMP.Game.PlayerManager.IsPuppet(Owner.health) ? "the PUPPET's" : Owner.name)}, talk {MMTools.MMConversation.isPlaying}");
+            }
             /* =plain: no answers, the talk's own callback (what a room, a fight or the next talk hangs on) */
             else if (SceneBreak == "plain")
             {
@@ -255,6 +273,7 @@ namespace COTLMP.Debug
             var Answer = AccessTools.Method(typeof(MMTools.MMConversation), "OnGiveAnswer");
             int Last = -2;
             bool Released = false;
+            bool OwnerTold = false;
             float Moved = Time.unscaledTime;
             bool QuietDone = false;
             while (MMTools.MMConversation.isPlaying && Time.unscaledTime - Started < (Hold ? 60f : 40f))
@@ -268,6 +287,13 @@ namespace COTLMP.Debug
                     Last = MMTools.MMConversation.Position;
                     Moved = Time.unscaledTime;
                     Plugin.Logger?.LogWarning($"{Tag} Scene test: at line {Last} after {Time.unscaledTime - Started:F1} s, letterbox {LetterBox.IsPlaying}, state {PlayerFarming.Instance?.state?.CURRENT_STATE}");
+                }
+                if (Talker != null && !OwnerTold && MMTools.MMConversation.Position >= 0)
+                {
+                    OwnerTold = true;
+                    var Owner = MonoSingleton<src.UINavigator.UINavigatorNew>.Instance.AllowInputOnlyFromPlayer;
+                    Plugin.Logger?.LogWarning($"{Tag} Scene test nearest: at line 0 the input is {(Owner == null ? "nobody's" : Owner == PlayerFarming.Instance ? "our lamb's" : COTLMP.Game.PlayerManager.IsPuppet(Owner.health) ? "the PUPPET's" : Owner.name)}");
+                    Shot("nearest-talk");
                 }
                 if (Hold && Host && !Released && COTLMP.Game.SharedScenes.TalksReleased > 0)
                 {
@@ -320,6 +346,8 @@ namespace COTLMP.Debug
                 }
             }
             Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}, leads lost {COTLMP.Game.SharedScenes.LeadsLost}, stuck {COTLMP.Game.SceneTrace.Stuck}, scripted released {COTLMP.Game.SharedScenes.ScriptedReleased}, late waits {COTLMP.Game.SharedScenes.LateWaits}, host lags {COTLMP.Game.SharedScenes.HostLags}");
+            if (Talker != null)
+                UnityEngine.Object.Destroy(Talker);
             yield return new WaitForSecondsRealtime(3f);
             yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 30f);
             yield return new WaitForSecondsRealtime(2f);
