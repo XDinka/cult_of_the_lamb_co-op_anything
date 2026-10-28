@@ -13,9 +13,10 @@
 #                     with its own BepInEx folder.
 #   QA_OUT            where logs go (default: ./out/qa)
 #   DOTNET            the dotnet executable (default: dotnet)
-#   MIN_AVAIL_MB      the pair starts only with this much memory available (free and standby,
-#   MEM_WAIT          4096 MB), waiting for it up to MEM_WAIT seconds (600) and checking every
-#                     minute; else no game starts (exit 3)
+#   MIN_AVAIL_MB      the pair starts only with this much memory available (free and standby;
+#   MEM_WAIT          1500 MB at least, 4096 is comfortable), waiting for it up to MEM_WAIT seconds
+#                     (600) and checking every minute; else no game starts (exit 3). A crash in a
+#                     run started below 4096 MB says little about the mod: run it once more
 #   CRASH_CHECK=DIR   only look for crashes in the logs a run left in DIR (no build, no games)
 #
 # A game that crashed (the crash handler's "Crash!!!" in its log, a new crash report, or its process
@@ -34,7 +35,7 @@ winpath() { cygpath -w "$1" 2>/dev/null || echo "$1"; }
 crash_logs() { # dir: the crash handler's mark in either side's Unity log
     local Found=0
     for f in host client; do
-        grep -q "Crash!!!" "$1/$f-player.log" 2>/dev/null && { echo "CRASH $f $1/$f-player.log"; Found=1; }
+        grep -q "Crash!!!" "$1/$f-player.log" 2>/dev/null && { echo "CRASH $f $1/$f-player.log${Avail:+ (available $Avail MB at the start)}"; Found=1; }
     done
     return $Found
 }
@@ -77,7 +78,7 @@ rm -f "$OUT"/*-bepinex.log "$OUT"/*-player.log
 avail_mb() {
     powershell.exe -NoProfile -Command "(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableMBytes" 2>/dev/null | tr -d '\r'
 }
-MIN_AVAIL_MB=${MIN_AVAIL_MB:-4096}; MEM_WAIT=${MEM_WAIT:-600}
+MIN_AVAIL_MB=${MIN_AVAIL_MB:-1500}; MEM_WAIT=${MEM_WAIT:-600}
 Waited=0
 while :; do
     Avail=$(avail_mb)
@@ -132,8 +133,8 @@ running() { # folder
     powershell.exe -NoProfile -Command "@(Get-Process 'Cult Of The Lamb' -ErrorAction SilentlyContinue | Where-Object { \$_.Path -like '$(winpath "$1")\\*' }).Count" 2>/dev/null | tr -d '\r'
 }
 Crashed=0
-[ "$(running "$G1")" = 0 ] && { echo "CRASH host (its game was gone before the end)"; Crashed=1; }
-[ "$(running "$G2")" = 0 ] && { echo "CRASH client (its game was gone before the end)"; Crashed=1; }
+[ "$(running "$G1")" = 0 ] && { echo "CRASH host (its game was gone before the end; available $Avail MB at the start)"; Crashed=1; }
+[ "$(running "$G2")" = 0 ] && { echo "CRASH client (its game was gone before the end; available $Avail MB at the start)"; Crashed=1; }
 
 cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex.log"
 cp "$G2/BepInEx/LogOutput.log" "$OUT/client-bepinex.log"
@@ -146,7 +147,7 @@ grep -E "STEAM|Error|Exception" "$OUT/client-bepinex.log" | tail -5
 crash_logs "$OUT" || Crashed=1
 for Dir in $(comm -13 <(echo "$CrashesBefore") <(ls "$CRASHES" 2>/dev/null | sort)); do
     Who=$(ls "$CRASHES/$Dir" 2>/dev/null | grep -oE "^(host|client)-player" | head -1)
-    echo "CRASH ${Who%-player} report $CRASHES/$Dir"; Crashed=1
+    echo "CRASH ${Who%-player} report $CRASHES/$Dir (available $Avail MB at the start)"; Crashed=1
 done
 for f in host client; do
     echo "== $f exceptions (Unity log, minus the vanilla LOD one)"
