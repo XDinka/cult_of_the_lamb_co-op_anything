@@ -525,6 +525,7 @@ namespace COTLMP.Debug
             }
             Run("FinalGuardian", GuardianWatch());
             Run("FinalChoices", PickChoices());
+            Run("FinalFate", FateAfter());
             yield return WalkInAndWatch("Final test");
         }
 
@@ -541,6 +542,15 @@ namespace COTLMP.Debug
             while (Time.unscaledTime - Since < 600f)
             {
                 yield return new WaitForSecondsRealtime(1f);
+                /* A new thing's card (the fallen one's trophy): closed after a look, as a player does */
+                var Card = UnityEngine.Object.FindObjectOfType<Lamb.UI.UINewItemOverlayController>();
+                if (Card != null && Card.isActiveAndEnabled)
+                {
+                    yield return new WaitForSecondsRealtime(2f);
+                    Plugin.Logger?.LogWarning($"{Tag} Final test: closing a new thing's card");
+                    Card?.Hide();
+                    continue;
+                }
                 ChoiceIndicator Wheel = UnityEngine.Object.FindObjectOfType<ChoiceIndicator>();
                 if (Wheel == null || Wheel == Done || !Wheel.isActiveAndEnabled || UnityEngine.Object.FindObjectOfType<Interaction_FinalBossAltar>() is Interaction_FinalBossAltar Altar &&
                     AccessTools.Field(typeof(Interaction_FinalBossAltar), "c").GetValue(Altar) as ChoiceIndicator == Wheel)
@@ -549,9 +559,35 @@ namespace COTLMP.Debug
                 if (Wheel == null || !Wheel.isActiveAndEnabled)
                     continue;
                 Done = Wheel;
-                Plugin.Logger?.LogWarning($"{Tag} Final test: a choice is up, picking its first answer");
-                Click.Invoke(Wheel, new object[] { First.GetValue(Wheel) });
+                /* The host points at its answer and takes it; the friend only points at the other (a vote) */
+                bool Host = Plugin.GlobalsInternal.IsServerCreator;
+                int Ours = Host ? FatePick : 1 - FatePick;
+                var Option = AccessTools.Field(typeof(ChoiceIndicator), Ours == 0 ? "_choice1" : "_choice2").GetValue(Wheel);
+                MMButton Button = (MMButton)AccessTools.Field(Option.GetType(), "Button").GetValue(Option);
+                AccessTools.Method(typeof(ChoiceIndicator), "OnOptionSelected").Invoke(Wheel, new object[] { Button });
+                Plugin.Logger?.LogWarning($"{Tag} Final test: a choice is up, we point at answer {Ours}");
+                yield return new WaitForSecondsRealtime(2f);
+                Shot("fate-wheel");
+                if (!Host)
+                    continue;
+                yield return new WaitForSecondsRealtime(1f);
+                Plugin.Logger?.LogWarning($"{Tag} Final test: we take answer {Ours}");
+                Click.Invoke(Wheel, new object[] { Option });
             }
+        }
+
+        /// <summary>
+        /// After the ending, back in the cult: who the fallen one is now, on this side (the host's save, the friend's copy of it)
+        /// </summary>
+        private static IEnumerator FateAfter()
+        {
+            yield return Until(() => SceneManager.GetActiveScene().name == "Base Biome 1" && PlayerFarming.Instance != null && !MMTransition.IsPlaying, 600f);
+            yield return new WaitForSecondsRealtime(15f);
+            string Names(System.Collections.Generic.IEnumerable<FollowerInfo> List) => string.Join(",", List.Where(Info => Info != null).Select(Info => $"{Info.Name}#{Info.ID}"));
+            Plugin.Logger?.LogWarning($"{Tag} Final test fate: recruits [{Names(DataManager.Instance.Followers_Recruit)}] followers {DataManager.Instance.Followers.Count} " +
+                                      $"[{Names(DataManager.Instance.Followers.Where(Info => Info != null && Info.ID >= 0).OrderByDescending(Info => Info.ID).Take(4))}] " +
+                                      $"deathcat beaten {DataManager.Instance.DeathCatBeaten}");
+            Shot("fate-cult");
         }
 
         /* The first guardian's side of the fight every 5 s: whether its object woke and joined the enemies */

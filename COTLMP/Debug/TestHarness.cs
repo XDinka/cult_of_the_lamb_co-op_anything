@@ -137,6 +137,8 @@ namespace COTLMP.Debug
         /* -cotlmp-invincible: nothing fells our lamb all along (tests about other things than falling);
            -cotlmp-forcepull: in a leader's room, a pull to a scene's start comes while the room's own walk is on */
         private static bool Invincible, ForcePull;
+        /* -cotlmp-fatepick=N: in the final test's ending the host takes answer N of the fallen one's fate (0 spare, 1 kill) */
+        private static int FatePick;
         /* -cotlmp-lobbyclose=N: the host closes its lobby N s after opening it (the friend must land back in the menu) */
         private static float LobbyClose = -1f;
 
@@ -227,6 +229,8 @@ namespace COTLMP.Debug
                     int.TryParse(Arg.Substring("-cotlmp-diefloor=".Length), out DieFloor);
                 else if (Arg.StartsWith("-cotlmp-deathat=", StringComparison.OrdinalIgnoreCase))
                     int.TryParse(Arg.Substring("-cotlmp-deathat=".Length), out DeathAt);
+                else if (Arg.StartsWith("-cotlmp-fatepick=", StringComparison.OrdinalIgnoreCase))
+                    int.TryParse(Arg.Substring("-cotlmp-fatepick=".Length), out FatePick);
                 else if (Arg.Equals("-cotlmp-nogotofix", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Game.SceneTrace.WalksUnguarded = true;
                 else if (Arg.Equals("-cotlmp-invincible", StringComparison.OrdinalIgnoreCase))

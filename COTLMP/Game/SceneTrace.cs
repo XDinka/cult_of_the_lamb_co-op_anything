@@ -48,6 +48,8 @@ namespace COTLMP.Game
         /* GoTos of our lamb and the puppets: since when each walks, and the counts the QA report reads */
         private const float GoToStuck = 10f;
         private static readonly Dictionary<PlayerFarming, float> Walking = new();
+        /* How long each walk may take before it is stuck: its own time limit and a little, or ours without one */
+        private static readonly Dictionary<PlayerFarming, float> WalkLimit = new();
         private static readonly HashSet<PlayerFarming> WalkTold = new();
         internal static int GoTos, GoTosEnded, GoTosAborted, GoTosBroken, GoTosStuck, GoTosReplaced;
 
@@ -68,6 +70,7 @@ namespace COTLMP.Game
             Stacks = 0;
             Ring.Clear();
             Walking.Clear();
+            WalkLimit.Clear();
             WalkTold.Clear();
         }
 
@@ -101,12 +104,25 @@ namespace COTLMP.Game
         /* Tests only (-cotlmp-nogotofix): the walks go unguarded as before, for the same build's "before" */
         internal static bool WalksUnguarded;
 
+        /* The same change over and over (the game asks the HUD back every frame while a letterbox stands): told once, then counted */
+        private static string LastWhat;
+        private static int Repeats;
+
         private static void Note(string What, bool In)
         {
             if (!CoopSync.InSession || CoopManager.CoopActive)
                 return;
             try
             {
+                if (What == LastWhat)
+                {
+                    ++Repeats;
+                    return;
+                }
+                if (Repeats > 0)
+                    Plugin.Logger?.LogInfo($"[SCENE] ({LastWhat}: {Repeats} times more)");
+                LastWhat = What;
+                Repeats = 0;
                 if (In)
                     ++Entries;
                 else
@@ -185,7 +201,8 @@ namespace COTLMP.Game
                     Walking.Remove(Walker);
                     continue;
                 }
-                if (Fallen(Walker) || !(Waits(Walker) || PlayerManager.IsPuppet(Walker.health)) || Now - Pair.Value <= GoToStuck || !WalkTold.Add(Walker))
+                float Limit = WalkLimit.TryGetValue(Walker, out float Given) ? Given : GoToStuck;
+                if (Fallen(Walker) || !(Waits(Walker) || PlayerManager.IsPuppet(Walker.health)) || Now - Pair.Value <= Limit || !WalkTold.Add(Walker))
                     continue;
                 ++GoTosStuck;
                 Plugin.Logger?.LogWarning($"[SCENE] stuck: {Whose(Walker)} has walked for {Now - Pair.Value:F0} s (callback {(Waits(Walker) ? "waiting" : "none")}) in {CoopSync.CurrentPlace()}; " +
@@ -332,6 +349,7 @@ namespace COTLMP.Game
                 return;
             ++GoTos;
             Walking[__instance] = Time.unscaledTime;
+            WalkLimit[__instance] = maxDuration > 0f ? Mathf.Max(GoToStuck, maxDuration + 2f) : GoToStuck;
             WalkTold.Remove(__instance);
             if (GoToCallback != null || PlayerManager.IsPuppet(__instance.health))
                 NoteWalk($"{Whose(__instance)} walks to ({TargetPosition.x:F1},{TargetPosition.y:F1}) for {maxDuration:F0} s, callback {(GoToCallback != null ? "yes" : "no")}");

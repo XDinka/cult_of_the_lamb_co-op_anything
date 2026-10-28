@@ -37,13 +37,19 @@ namespace COTLMP.Game
            (RoomSync keeps a leader's own death wired), and each death carries the scene on.
            The altar's question shows on both screens: each player's icon stands on the answer they
            point at (as in conversations), the friend's pick is a vote, the host's hand decides. */
-        private const byte OpRefuse = 0, OpKneel = 1, OpKilled = 2, OpWheel = 10, OpPoint = 11;
+        private const byte OpRefuse = 0, OpKneel = 1, OpKilled = 2, OpWheel = 10, OpPoint = 11, OpFate = 12;
+
+        /* The fallen one's fate, the ending's own question: both see it, the host's hand decides */
+        private const string FateTerm = "Conversation_NPC/DeathCatBossFight/Dead/Spare";
+        private static ChoiceIndicator FateWheel;
+        private static sbyte FatePending = -1;
 
         private static string Name(byte Op) => Op switch
         {
             OpKneel => "knelt",
             OpKilled => "saw the one who waits fall",
             OpWheel => "stand at the crown's question",
+            OpFate => "decided the fallen one's fate",
             _ => "refused the crown",
         };
 
@@ -61,6 +67,8 @@ namespace COTLMP.Game
             Done.Clear();
             EndingRan = false;
             BigCame = false;
+            FateWheel = null;
+            FatePending = -1;
         }
 
         /// <summary>
@@ -74,6 +82,16 @@ namespace COTLMP.Game
             {
                 PartnerPick = Reader.ReadSByte();
                 PlaceBadges();
+                return;
+            }
+            if (Op == OpFate)
+            {
+                sbyte Option = Reader.ReadSByte();
+                Plugin.Logger?.LogInfo($"[COOP] In the final fight the partner {Name(Op)}: answer {Option}");
+                if (!Done.Add(Op))
+                    return;
+                FatePending = Option;
+                ApplyFate();
                 return;
             }
             Plugin.Logger?.LogInfo($"[COOP] In the final fight the partner {Name(Op)}");
@@ -325,6 +343,34 @@ namespace COTLMP.Game
             }
         }
 
+        /// <summary>
+        /// The host decided the fallen one's fate: the same answer is taken on our wheel, the way a click
+        /// takes it (the game's own answer runs here: the follower spared or killed), once it is up
+        /// </summary>
+        private static void ApplyFate()
+        {
+            if (FatePending < 0 || FateWheel == null)
+                return;
+            sbyte Option = FatePending;
+            FatePending = -1;
+            try
+            {
+                var Choice = (Option == 0 ? WheelChoice1 : WheelChoice2).GetValue(FateWheel);
+                Applying = true;
+                AccessTools.Method(typeof(ChoiceIndicator), "OnOptionClicked").Invoke(FateWheel, new object[] { Choice });
+                ++Applied;
+                Plugin.Logger?.LogInfo($"[COOP] The fallen one's fate as the host decided it: answer {Option}, taken on our wheel");
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Taking the host's answer on the fate failed: {e.Message}");
+            }
+            finally
+            {
+                Applying = false;
+            }
+        }
+
         /* The players' icons above the answers, ours and the partner's side by side on a shared one */
         private static void PlaceBadges()
         {
@@ -430,6 +476,44 @@ namespace COTLMP.Game
                 Tell(OpWheel);
             }
 
+            /* The ending's question of the fallen one's fate: the same wheel manners as the crown's */
+            [HarmonyPatch(typeof(ChoiceIndicator), nameof(ChoiceIndicator.Show), new Type[] { typeof(string), typeof(string), typeof(string), typeof(string),
+                typeof(Action), typeof(Action), typeof(Vector3), typeof(bool), typeof(bool), typeof(bool) })]
+            [HarmonyPostfix]
+            private static void FateUp(ChoiceIndicator __instance, string choice1Term)
+            {
+                if (!CoopSync.InSession || choice1Term != FateTerm || PlayerFarming.Location != FollowerLocation.Boss_5)
+                    return;
+                FateWheel = __instance;
+                TrackWheel(__instance);
+                Plugin.Logger?.LogInfo($"[COOP] The fallen one's fate is asked here{(IsHost ? "" : ": the host decides")}");
+                ApplyFate();
+            }
+
+            /* The host's hand on the fate: the partner takes the same answer */
+            [HarmonyPatch(typeof(ChoiceIndicator), "OnOptionClicked")]
+            [HarmonyPostfix]
+            private static void FateDecided(ChoiceIndicator __instance, ChoiceIndicator.ChoiceOption choiceOption)
+            {
+                if (__instance == null || __instance != FateWheel || !CoopSync.InSession || !IsHost || Applying || !Done.Add(OpFate))
+                    return;
+                sbyte Option = (sbyte)(choiceOption.Button == WheelButton(0) ? 0 : 1);
+                try
+                {
+                    CoopSync.Send(CoopSync.Kind.FinalChoice, Writer =>
+                    {
+                        Writer.Write(OpFate);
+                        Writer.Write(Option);
+                    });
+                    ++Sent;
+                    Plugin.Logger?.LogInfo($"[COOP] In the final fight we decided the fallen one's fate: answer {Option}, sent to the partner");
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[COOP] Sending the fate failed: {e.Message}");
+                }
+            }
+
             /* The answer each player stands on carries over, with the players' icons above the answers */
             [HarmonyPatch(typeof(ChoiceIndicator), "OnOptionSelected")]
             [HarmonyPostfix]
@@ -448,7 +532,7 @@ namespace COTLMP.Game
             [HarmonyPrefix]
             private static bool Picked(ChoiceIndicator __instance, ChoiceIndicator.ChoiceOption choiceOption)
             {
-                if (__instance == null || __instance != Wheel || !CoopSync.InSession || IsHost)
+                if (__instance == null || __instance != Wheel || !CoopSync.InSession || IsHost || Applying)
                     return true;
                 SendPoint(choiceOption.Button == WheelButton(0) ? 0 : 1);
                 return false;
@@ -461,6 +545,8 @@ namespace COTLMP.Game
             {
                 if (__instance == Wheel)
                     Wheel = null;
+                if (__instance == FateWheel)
+                    FateWheel = null;
             }
 
             [HarmonyPatch(typeof(DeathCatController), nameof(DeathCatController.RefuseToKneel))]
