@@ -13,6 +13,13 @@
 #                     with its own BepInEx folder.
 #   QA_OUT            where logs go (default: ./out/qa)
 #   DOTNET            the dotnet executable (default: dotnet)
+#   MIN_AVAIL_MB      the pair starts only with this much memory available (free and standby,
+#   MEM_WAIT          4096 MB), waiting for it up to MEM_WAIT seconds (600) and checking every
+#                     minute; else no game starts (exit 3)
+#   CRASH_CHECK=DIR   only look for crashes in the logs a run left in DIR (no build, no games)
+#
+# A game that crashed (the crash handler's "Crash!!!" in its log, a new crash report, or its process
+# gone before the end) is told as "CRASH host|client ..." and the script exits with 4.
 set -u
 SRC=$(cd "$(dirname "$0")/.." && pwd)
 G1=${COTL_G1:?set COTL_G1}
@@ -23,6 +30,18 @@ HOLD=${1:-30}; shift || true
 EXTRA="$*"
 
 winpath() { cygpath -w "$1" 2>/dev/null || echo "$1"; }
+
+crash_logs() { # dir: the crash handler's mark in either side's Unity log
+    local Found=0
+    for f in host client; do
+        grep -q "Crash!!!" "$1/$f-player.log" 2>/dev/null && { echo "CRASH $f $1/$f-player.log"; Found=1; }
+    done
+    return $Found
+}
+if [ -n "${CRASH_CHECK:-}" ]; then
+    crash_logs "$CRASH_CHECK" && echo "no crash in $CRASH_CHECK" && exit 0
+    exit 4
+fi
 
 # Only the test copies, never a game started from Steam
 kill_test_copies() {
@@ -53,6 +72,24 @@ done
 
 kill_test_copies
 rm -f "$OUT"/*-bepinex.log "$OUT"/*-player.log
+
+# Two games take ~2.5 GB: with less available, the crashes say nothing about the mod
+avail_mb() {
+    powershell.exe -NoProfile -Command "(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableMBytes" 2>/dev/null | tr -d '\r'
+}
+MIN_AVAIL_MB=${MIN_AVAIL_MB:-4096}; MEM_WAIT=${MEM_WAIT:-600}
+Waited=0
+while :; do
+    Avail=$(avail_mb)
+    [ "${Avail:-0}" -ge "$MIN_AVAIL_MB" ] && break
+    if [ "$Waited" -ge "$MEM_WAIT" ]; then echo "NOT ENOUGH MEMORY: available ${Avail:-?} MB, need $MIN_AVAIL_MB; no game started"; exit 3; fi
+    echo "WAIT available ${Avail:-?} MB, need $MIN_AVAIL_MB"
+    for _ in $(seq 1 60); do timeout 1 cat /dev/zero > /dev/null 2>&1; done
+    Waited=$((Waited + 60))
+done
+echo "available $Avail MB"
+CRASHES="$(cygpath -u "$LOCALAPPDATA")/Temp/Massive Monster/Cult Of The Lamb/Crashes"
+CrashesBefore=$(ls "$CRASHES" 2>/dev/null | sort)
 for G in "$G1" "$G2"; do
     bash "$SRC/tools/deploy-mod.sh" "$G/BepInEx/plugins/COTLMP"
     rm -f "$G/BepInEx/LogOutput.log" "$G/BepInEx/config/cotlmp-rejoin.json"
@@ -91,6 +128,13 @@ for _ in $(seq 1 $HOLD); do
     timeout 1 cat /dev/zero > /dev/null 2>&1
 done
 
+running() { # folder
+    powershell.exe -NoProfile -Command "@(Get-Process 'Cult Of The Lamb' -ErrorAction SilentlyContinue | Where-Object { \$_.Path -like '$(winpath "$1")\\*' }).Count" 2>/dev/null | tr -d '\r'
+}
+Crashed=0
+[ "$(running "$G1")" = 0 ] && { echo "CRASH host (its game was gone before the end)"; Crashed=1; }
+[ "$(running "$G2")" = 0 ] && { echo "CRASH client (its game was gone before the end)"; Crashed=1; }
+
 cp "$G1/BepInEx/LogOutput.log" "$OUT/host-bepinex.log"
 cp "$G2/BepInEx/LogOutput.log" "$OUT/client-bepinex.log"
 kill_test_copies
@@ -99,7 +143,13 @@ echo "== HOST"; grep -E "QA host\]" "$OUT/host-bepinex.log" | tail -3
 grep -E "STEAM|Error|Exception" "$OUT/host-bepinex.log" | tail -5
 echo "== CLIENT"; grep -E "QA client\]" "$OUT/client-bepinex.log" | tail -3
 grep -E "STEAM|Error|Exception" "$OUT/client-bepinex.log" | tail -5
+crash_logs "$OUT" || Crashed=1
+for Dir in $(comm -13 <(echo "$CrashesBefore") <(ls "$CRASHES" 2>/dev/null | sort)); do
+    Who=$(ls "$CRASHES/$Dir" 2>/dev/null | grep -oE "^(host|client)-player" | head -1)
+    echo "CRASH ${Who%-player} report $CRASHES/$Dir"; Crashed=1
+done
 for f in host client; do
     echo "== $f exceptions (Unity log, minus the vanilla LOD one)"
     grep -E "Exception" -A2 "$OUT/$f-player.log" | grep -vE "SkeletonAnimationLOD|^--" | grep -A2 Exception | head -12
 done
+[ "$Crashed" = 0 ] || exit 4
