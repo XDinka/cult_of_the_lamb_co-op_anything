@@ -391,6 +391,10 @@ namespace COTLMP.Game
             }
             players[plr] = null;
             targets[plr] = null;
+            /* Alone now, the game builds the single player's panel under the bars the last Show put out: built
+               again as after a puppet comes, it comes in (the prologue's dungeon shows no hearts) */
+            if (PlayerFarming.Location != FollowerLocation.IntroDungeon)
+                CoopHud.Rebuild();
         }
 
         /// <summary>

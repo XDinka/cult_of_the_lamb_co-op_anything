@@ -414,6 +414,8 @@ namespace COTLMP.Debug
                 Run("MenuTest", MenuTest());
             if (AutoDungeon > 0f)
                 Run("StrayCards", CloseStrayCards());
+            if (AutoDungeon > 0f)
+                Run("LostHud", ShootLostHud());
             if (AnimTest)
                 Run("PlayAttacks", PlayAttacks());
             if (CultTest)

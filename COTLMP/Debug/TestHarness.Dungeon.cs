@@ -74,7 +74,12 @@ namespace COTLMP.Debug
 
                     /* In the test apart, linger so the host is rooms ahead */
                     if (Solo && Partner != Mine)
-                        yield return new WaitForSecondsRealtime(6f);
+                    {
+                        yield return new WaitForSecondsRealtime(5f);
+                        /* Left alone for a while: what our HUD shows then */
+                        Shot("alone");
+                        yield return new WaitForSecondsRealtime(1f);
+                    }
 
                     /* Both at the floor's exit: through it on our own, the partner's puppet takes nobody along */
                     if (NextFloor && Partner == Mine && Mine != null && HasNextLayer(Room))
@@ -595,6 +600,20 @@ namespace COTLMP.Debug
         /// such cards after 3 s, the menu test on its own after its 5 s, as a player does)
         /// </summary>
         private static Lamb.UI.UINewItemOverlayController OwnCard;
+
+        /* A frame of every INV-HUD as it is told: what the player had on screen then */
+        private static IEnumerator ShootLostHud()
+        {
+            int Seen = 0;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(0.5f);
+                if (COTLMP.Game.SceneTrace.HudsOff == Seen)
+                    continue;
+                Seen = COTLMP.Game.SceneTrace.HudsOff;
+                Shot($"hud-lost-{Seen}");
+            }
+        }
 
         private static IEnumerator CloseStrayCards()
         {

@@ -225,9 +225,16 @@ namespace COTLMP.Game
                     Health.Init(Player);
                 foreach (PlayerFarming Player in PlayerFarming.players)
                     Faces(Player);
-                /* The panels in use now come in, if the HUD is up */
+                /* The panels in use now come in, if the HUD is up; under a hidden one they wait out of the screen
+                   for its Show, as the game's own panels do (a fresh Init leaves its panel in place) */
                 if (!HUD_Manager.Instance.Hidden)
                     Health.Show();
+                else
+                {
+                    foreach (var Field in new[] { HeartsSingle, HeartsTwo })
+                        if (Field?.GetValue(Health) is UI_Transitions Bar && Bar != null && Bar.gameObject.activeInHierarchy)
+                            Bar.hideBar();
+                }
                 ++Rebuilt;
             }
             catch (Exception e)
@@ -237,6 +244,8 @@ namespace COTLMP.Game
         }
 
         private static bool InDungeon => GameManager.IsDungeon(PlayerFarming.Location);
+        private static readonly System.Reflection.FieldInfo HeartsSingle = AccessTools.Field(typeof(Health_Manager), "transition_Single");
+        private static readonly System.Reflection.FieldInfo HeartsTwo = AccessTools.Field(typeof(Health_Manager), "transition_TwoPlayer");
 
         /// <summary>
         /// The partner plays with us now (the game's co-op is two players in its list)
