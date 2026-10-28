@@ -54,7 +54,7 @@ namespace COTLMP.Game
         internal static int GoTos, GoTosEnded, GoTosAborted, GoTosBroken, GoTosStuck, GoTosReplaced;
 
         /* What a test counts as failed: a scene held for good, a walk's callback lost or never heard */
-        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet + HudsOff + CoopHud.HudHeals;
+        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet + HudsOff + CoopHud.HudHeals + MenusStuck;
 
         /*
          * The HUD as the player sees it, not its flag: Show sets Hidden=false at once and brings the hearts
@@ -62,7 +62,8 @@ namespace COTLMP.Game
          * flag up and the screen empty. In a dungeon, out of any scene, past this the parts must be in
          */
         private const float HudOffFor = 4f;
-        private static float HudOffSince = -1f;
+        private static float HudOffSince = -1f, HudArmedAt = -1f;
+        private const float HudDisarmedFor = 10f;
         private static bool HudTold;
         internal static int HudsOff;
         private static readonly System.Reflection.FieldInfo HeartsSingle = AccessTools.Field(typeof(Health_Manager), "transition_Single");
@@ -84,8 +85,9 @@ namespace COTLMP.Game
             /* Revealed comes only at the end of the move in: a move cut short leaves it unset, the bar half out */
             if (Hearts == null || !Hearts.Revealed)
                 Off.Add(Hearts == null ? "hearts (none shown)" : "hearts");
-            /* The blind faith fleece (13) keeps the map off by itself (ActivateMiniMap.OnEnable) */
-            if (Hud.MiniMapTransition != null && !Hud.MiniMapTransition.Revealed && DataManager.Instance?.PlayerFleece != 13)
+            /* The blind faith fleece (13) keeps the map off by itself (ActivateMiniMap.OnEnable turns its object off) */
+            if (Hud.MiniMapTransition != null && !Hud.MiniMapTransition.Revealed &&
+                !(DataManager.Instance?.PlayerFleece == 13 && !Hud.MiniMapTransition.gameObject.activeSelf))
                 Off.Add("map");
             return Off.Count == 0 ? null : string.Join(", ", Off);
         }
@@ -116,8 +118,19 @@ namespace COTLMP.Game
             bool Should = Hud != null && !Hud.Hidden && Hud.healthManager != null && PlayerFarming.Instance != null &&
                           GameManager.IsDungeon(PlayerFarming.Location) && PlayerFarming.Location != FollowerLocation.IntroDungeon &&
                           !LetterBox.IsPlaying && !MMTransition.IsPlaying && !MMConversation.isPlaying && Time.timeScale > 0f;
-            string Off = Should ? HudPartsOff(Hud) : null;
             float Now = Time.unscaledTime;
+            /* Disarmed for a moment (a room's change): the count goes on, the bars may be out through it */
+            if (!Should)
+            {
+                if (HudOffSince >= 0f && Now - HudArmedAt > HudDisarmedFor)
+                {
+                    HudOffSince = -1f;
+                    HudTold = false;
+                }
+                return;
+            }
+            HudArmedAt = Now;
+            string Off = HudPartsOff(Hud);
             if (Off == null)
             {
                 if (HudTold)
@@ -138,6 +151,15 @@ namespace COTLMP.Game
 
         /* The menus' and talks' input was given to the partner's puppet (it has no controller: nothing reads on) */
         internal static int InputsToPuppet;
+
+        /* A menu of the game's stood on screen past the HUD watchdog's patience, our lamb in play under it */
+        internal static int MenusStuck;
+
+        internal static void MenuStuck(string Menus, float For)
+        {
+            ++MenusStuck;
+            Plugin.Logger?.LogWarning($"[SCENE] INV-MENU {Menus} on screen for {For:F0} s with our lamb in play (time running), in {CoopSync.CurrentPlace()}; the last {Ring.Count} changes:\n{string.Join("\n", Ring)}");
+        }
 
         internal static void InputToPuppet(string Who)
         {

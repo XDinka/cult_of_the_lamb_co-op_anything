@@ -550,7 +550,7 @@ namespace COTLMP.Debug
                 {
                     yield return new WaitForSecondsRealtime(2f);
                     Plugin.Logger?.LogWarning($"{Tag} Final test: closing a new thing's card");
-                    Card?.Hide();
+                    PressAccept.Now();
                     continue;
                 }
                 ChoiceIndicator Wheel = UnityEngine.Object.FindObjectOfType<ChoiceIndicator>();
@@ -588,6 +588,56 @@ namespace COTLMP.Debug
                 yield return null;
             if (Time.unscaledTime - Since > 0.5f)
                 Plugin.Logger?.LogWarning($"{Tag} The walker waited {Time.unscaledTime - Since:F1} s for a conversation to end");
+        }
+
+        /// <summary>
+        /// A player closes a new thing's card after a look: one left open stands the run still (the walker presses accept on
+        /// such cards after 3 s, the menu test on its own after its 5 s, as a player does)
+        /// </summary>
+        private static Lamb.UI.UINewItemOverlayController OwnCard;
+
+        private static IEnumerator CloseStrayCards()
+        {
+            var Seen = new System.Collections.Generic.Dictionary<Lamb.UI.UINewItemOverlayController, float>();
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                foreach (var Card in UnityEngine.Object.FindObjectsOfType<Lamb.UI.UINewItemOverlayController>())
+                {
+                    if (Card == null || !Card.isActiveAndEnabled || Card == OwnCard)
+                        continue;
+                    if (!Seen.TryGetValue(Card, out float Since))
+                        Seen[Card] = Since = Time.unscaledTime;
+                    if (Time.unscaledTime - Since < 3f)
+                        continue;
+                    Plugin.Logger?.LogWarning($"{Tag} Closing a new thing's card after a look ({Card.MyTypeOfCard})");
+                    Seen.Remove(Card);
+                    PressAccept.Now();
+                }
+            }
+        }
+
+        /// <summary>
+        /// -cotlmp-menutest: in the dungeon a new thing's card (a gift, as from a chest) stands 5 s and is closed:
+        /// the game's own hide under it is no lost HUD
+        /// </summary>
+        private static IEnumerator MenuTest()
+        {
+            yield return Until(() => SceneManager.GetActiveScene().name == DungeonScene && PlayerFarming.Instance != null && !MMTransition.IsPlaying, 300f);
+            yield return new WaitForSecondsRealtime(25f);
+            yield return NotInATalk();
+            OwnCard = MonoSingleton<Lamb.UI.UIManager>.Instance.ShowNewItemOverlay();
+            OwnCard.Show(Lamb.UI.UINewItemOverlayController.TypeOfCard.Gift, PlayerFarming.Instance.transform.position, InventoryItem.ITEM_TYPE.GIFT_MEDIUM);
+            Plugin.Logger?.LogWarning($"{Tag} Menu test: a gift's card is up");
+            yield return new WaitForSecondsRealtime(2.5f);
+            Plugin.Logger?.LogWarning($"{Tag} Menu test: under the card our lamb is {PlayerFarming.Instance?.state?.CURRENT_STATE}, HUD {COTLMP.Game.SceneTrace.HudNow()}");
+            Shot("menu-card");
+            yield return new WaitForSecondsRealtime(2.5f);
+            PressAccept.Now();
+            yield return new WaitForSecondsRealtime(6f);
+            Plugin.Logger?.LogWarning($"{Tag} Menu test: the card closed, our lamb {PlayerFarming.Instance?.state?.CURRENT_STATE}, watchdog heals {COTLMP.Game.CoopHud.HudHeals}, HUD {COTLMP.Game.SceneTrace.HudNow()}");
+            Shot("menu-after");
+            OwnCard = null;
         }
 
         /// <summary>

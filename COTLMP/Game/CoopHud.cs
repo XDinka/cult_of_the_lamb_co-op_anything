@@ -82,6 +82,48 @@ namespace COTLMP.Game
         /// keeps dark, a rebuild cut short), they come back: standing in the world with no panel on
         /// screen for two looks in a row, the HUD is built again the way a room entry builds it
         /// </summary>
+        /*
+         * The game took our lamb out of play itself (a new item's card, a scene): its own hide, not a lost HUD.
+         * One that never ends is SceneTrace's stuck watch's (out of play counts as a scene there)
+         */
+        private static bool InGameScene()
+        {
+            StateMachine State = PlayerFarming.Instance?.state;
+            return State != null && (State.CURRENT_STATE == StateMachine.State.InActive || State.CURRENT_STATE == StateMachine.State.CustomAnimation);
+        }
+
+        /*
+         * A menu of the game's on screen with our lamb still in play (the upgrade tree hides the HUD so): the
+         * player looks at it, its hide stands however long. Past this, counted only while the game runs (a
+         * pause or the map stops time and may stay up for good), it is told once; one left on its list but
+         * no longer shown isn't one, and the HUD comes back
+         */
+        private const float MenuAtMost = 30f;
+        private static float MenuFor, MenuCheckedAt = -1f;
+        private static bool MenuTold;
+
+        private static bool InGameMenu()
+        {
+            List<string> Shown = Lamb.UI.UIMenuBase.ActiveMenus.Where(Menu => Menu != null && Menu.gameObject.activeInHierarchy).Select(Menu => Menu.GetType().Name).ToList();
+            if (Shown.Count == 0)
+            {
+                MenuFor = 0f;
+                MenuCheckedAt = -1f;
+                MenuTold = false;
+                return false;
+            }
+            float Now = Time.unscaledTime;
+            if (MenuCheckedAt >= 0f && Time.timeScale > 0f)
+                MenuFor += Now - MenuCheckedAt;
+            MenuCheckedAt = Now;
+            if (MenuFor > MenuAtMost && !MenuTold)
+            {
+                MenuTold = true;
+                SceneTrace.MenuStuck(string.Join(", ", Shown), MenuFor);
+            }
+            return true;
+        }
+
         private static IEnumerator WatchHud()
         {
             WaitForSecondsRealtime Wait = new(1f);
@@ -96,7 +138,8 @@ namespace COTLMP.Game
                         PlayerManager.CreatingPuppet || LetterBox.IsPlaying || MMTools.MMTransition.IsPlaying ||
                         MMTools.MMConversation.isPlaying || SceneEnds.Waiting ||
                         (MMTools.MMVideoPlayer.Instance != null && MMTools.MMVideoPlayer.Instance.activeSelf) ||
-                        PlayerFarming.Instance.health == null || PlayerFarming.Instance.health.HP <= 0f)
+                        PlayerFarming.Instance.health == null || PlayerFarming.Instance.health.HP <= 0f ||
+                        InGameScene() || InGameMenu())
                     {
                         GoneOnce = false;
                         continue;

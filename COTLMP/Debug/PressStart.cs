@@ -37,6 +37,26 @@ namespace COTLMP.Debug
             __result = new RewiredGamePad(0);
         }
     }
+
+    /// <summary>
+    /// A press of the menus' accept for the tests, on the next frame or two: a card the game shows waits for
+    /// it to run its own way out (closing the card from outside cuts that short, the lamb left in its pose)
+    /// </summary>
+    [HarmonyPatch]
+    internal static class PressAccept
+    {
+        private static int Until = -1;
+
+        internal static void Now() => Until = Time.frameCount + 2;
+
+        [HarmonyPatch(typeof(RewiredUIInputSource), nameof(RewiredUIInputSource.GetAcceptButtonDown))]
+        [HarmonyPostfix]
+        private static void Pressed(ref bool __result)
+        {
+            if (Time.frameCount <= Until)
+                __result = true;
+        }
+    }
 }
 
 /* EOF */

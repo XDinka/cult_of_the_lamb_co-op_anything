@@ -123,6 +123,8 @@ namespace COTLMP.Debug
         private static bool HudBreak;
         /* -cotlmp-fleece=N: the run starts with that fleece (4 or 6: four tarot cards in the first room) */
         private static int Fleece;
+        /* -cotlmp-menutest: a new thing's card stands 5 s in the dungeon (the HUD watchdog must leave the game's hide be) */
+        private static bool MenuTesting;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -322,6 +324,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.Equals("-cotlmp-menutest", StringComparison.OrdinalIgnoreCase))
+                    MenuTesting = true;
                 else if (Arg.StartsWith("-cotlmp-fleece=", StringComparison.OrdinalIgnoreCase))
                     int.TryParse(Arg.Substring("-cotlmp-fleece=".Length), out Fleece);
                 else if (Arg.Equals("-cotlmp-hudbreak", StringComparison.OrdinalIgnoreCase))
@@ -406,6 +410,10 @@ namespace COTLMP.Debug
                 Run("KeepWindow", KeepWindow());
             if (Fleece > 0)
                 Run("Fleece", FleeceTest());
+            if (MenuTesting)
+                Run("MenuTest", MenuTest());
+            if (AutoDungeon > 0f)
+                Run("StrayCards", CloseStrayCards());
             if (AnimTest)
                 Run("PlayAttacks", PlayAttacks());
             if (CultTest)
