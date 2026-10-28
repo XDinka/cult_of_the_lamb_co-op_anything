@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Je vriend is gestopt met hosten", false),
             new("Multiplayer/Reconnect/Connecting", "Verbinden {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "Verbinding met je vriend verbroken: in 3 pogingen niet opnieuw verbonden", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: stoppen met proberen", false),
+            new("Multiplayer/Reconnect/Cancel", "Stoppen met opnieuw verbinden", false),
+            new("Multiplayer/Reconnect/Cancelled", "Opnieuw verbinden is afgebroken", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} haken van de mod passen niet bij deze spelversie: het spel is na de mod bijgewerkt. Co-op werkt misschien niet goed tot er een verbeterde versie is; de mod biedt die hier aan zodra die er is", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} haken van de mod passen niet bij deze spelversie: het spel is na de mod bijgewerkt. Versie {1} is uit (jij hebt {2}). Nu bijwerken?", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "Wachten op een vriend...", false),
             new("Multiplayer/Lobby/WaitingHost", "Wachten tot de host begint", false),
             new("Multiplayer/Lobby/Failed", "De lobby kon niet worden geopend", false),
+            new("Multiplayer/Online/JoinFailed", "Kan de lobby van je vriend niet bereiken", false),
             new("Multiplayer/Intro/WaitCrown", "Wachten tot je vriend de kroon krijgt...", false),
             new("Multiplayer/UI/OnlineOpen", "Online spelen is open", false),
             new("Multiplayer/UI/OnlineFailed", "Online spelen kon niet worden geopend", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Spel", false),
             new("Multiplayer/Scene/HoldTalk", "Wachten op je partner: het gesprek begint zodra hij deze kamer binnenkomt. Intussen kun je door de kamer lopen; de deuren gaan daarna open.", false),
             new("Multiplayer/Scene/PartnerWaits", "Je partner wacht op je: er begint een gesprek zodra je bij hem bent", false),
+            new("Multiplayer/Scene/WaitHostLead", "Het spel van de host loopt achter: het gesprek gaat verder zodra het bijloopt", false),
             new("Multiplayer/Update/Failed", "Kon niet vanzelf bijwerken", false),
             new("Multiplayer/Update/OpenPage", "De pagina van versie {0} openen om die te downloaden?", false)
         ];

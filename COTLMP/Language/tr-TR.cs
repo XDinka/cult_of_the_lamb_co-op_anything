@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Arkadaşın ev sahipliğini bitirdi", false),
             new("Multiplayer/Reconnect/Connecting", "Bağlanıyor {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "Arkadaşınla bağlantı koptu: 3 denemede yeniden bağlanılamadı", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: denemeyi bırak", false),
+            new("Multiplayer/Reconnect/Cancel", "Yeniden bağlanmayı durdur", false),
+            new("Multiplayer/Reconnect/Cancelled", "Yeniden bağlanma iptal edildi", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "Modun {0} bağlantı noktası bu oyun sürümüne uymuyor: oyun moddan sonra güncellendi. Düzeltilmiş sürüm çıkana kadar ortak oyun düzgün çalışmayabilir; mod, çıkar çıkmaz burada önerecek", false),
             new("Multiplayer/UI/PatchesUpdate", "Modun {0} bağlantı noktası bu oyun sürümüne uymuyor: oyun moddan sonra güncellendi. {1} sürümü çıktı (sende {2} var). Şimdi güncellensin mi?", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "Bir arkadaş bekleniyor...", false),
             new("Multiplayer/Lobby/WaitingHost", "Ev sahibinin başlatması bekleniyor", false),
             new("Multiplayer/Lobby/Failed", "Lobi açılamadı", false),
+            new("Multiplayer/Online/JoinFailed", "Arkadaşının lobisine ulaşılamadı", false),
             new("Multiplayer/Intro/WaitCrown", "Arkadaşının tacı alması bekleniyor...", false),
             new("Multiplayer/UI/OnlineOpen", "Çevrim içi oyun açık", false),
             new("Multiplayer/UI/OnlineFailed", "Çevrim içi oyun açılamadı", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Oyun", false),
             new("Multiplayer/Scene/HoldTalk", "Ortağın bekleniyor: konuşma, o bu odaya girer girmez başlar. Bu sırada odada dolaşabilirsin; kapılar konuşmadan sonra açılır.", false),
             new("Multiplayer/Scene/PartnerWaits", "Ortağın seni bekliyor: yanına vardığında bir konuşma başlayacak", false),
+            new("Multiplayer/Scene/WaitHostLead", "Ev sahibinin oyunu geride kaldı: yetişir yetişmez konuşma devam edecek", false),
             new("Multiplayer/Update/Failed", "Kendiliğinden güncellenemedi", false),
             new("Multiplayer/Update/OpenPage", "İndirmek için {0} sürümünün sayfası açılsın mı?", false)
         ];

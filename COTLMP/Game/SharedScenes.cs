@@ -55,7 +55,7 @@ namespace COTLMP.Game
         private const float WaitForHost = 4f;
         /* What the host's game did with a conversation is kept this long, for a friend who comes late */
         private const float Remember = 20f;
-        /* The host's pulse comes every 2 s while its copy is on screen; silence past this is the last safety net */
+        /* The host's pulse comes every 2 s while its copy is on screen; silence past this, the friend is told the host lags */
         private const float HostQuiet = 6f;
         /* Our copy, not read on yet, starts waiting for the host's if the host shows up in the room this soon after */
         private const float HostLate = 6f;
@@ -126,6 +126,11 @@ namespace COTLMP.Game
         {
             if (!CoopSync.InSession || Place == null)
                 return;
+            if (Time.unscaledTime < DelayedUntil)
+            {
+                Delayed.Add((Type, Key, Place, Value));
+                return;
+            }
             CoopSync.Send(CoopSync.Kind.SceneStep, Writer =>
             {
                 Writer.Write((byte)Type);
@@ -261,6 +266,7 @@ namespace COTLMP.Game
                 Applying = Was;
                 Current = null;
                 Led = Waiting = false;
+                HostLagging(false);
             }
             if (!WithCallback && Scripted)
                 LeaveScriptedScene();
@@ -311,6 +317,7 @@ namespace COTLMP.Game
                     Plugin.Logger?.LogWarning($"[COOP] Waiting for the partner failed: {e.Message}");
                     Gating = false;
                 }
+                SendDelayed();
                 if (IsHost && Current != null)
                 {
                     /*
@@ -337,6 +344,7 @@ namespace COTLMP.Game
                 {
                     Current = null;
                     Led = false;
+                    HostLagging(false);
                     return;
                 }
                 /* Ours started as we came in, before the host's puppet was here: once it is, ours waits for the host's after all */
@@ -355,20 +363,76 @@ namespace COTLMP.Game
                     ++Released;
                     Plugin.Logger?.LogInfo($"[COOP] The host doesn't play the conversation in {CurrentPlace}: it is ours");
                 }
+                if (!Led)
+                    return;
                 /*
-                 * The host led it and is gone (the session ended), or went silent past its pulse with
-                 * no End (the last safety net: every way out of the host's copy sends one). Ours would
-                 * never end, the friend left standing in a cutscene. Reading on alone would run the
-                 * game's answers and rewards the host never had, so ours ends without its callback
+                 * The host led it and is gone (the session ended): ours would never end, the friend left
+                 * standing in a cutscene. Reading on alone would run the game's answers and rewards the
+                 * host never had, so ours ends without its callback
                  */
-                if (Led && (!CoopSync.InSession || !Hosts.TryGetValue((CurrentPlace, CurrentKey), out HostScene Last) || Time.unscaledTime - Last.At > HostQuiet))
+                if (!CoopSync.InSession)
                 {
                     ++LeadsLost;
-                    Plugin.Logger?.LogWarning($"[COOP] Lost the host's lead of the conversation in {CurrentPlace} at line {MMConversation.Position} " +
-                                              $"({(CoopSync.InSession ? "silent" : "the session ended")}): closing ours");
+                    HostLagging(false);
+                    Plugin.Logger?.LogWarning($"[COOP] Lost the host's lead of the conversation in {CurrentPlace} at line {MMConversation.Position} (the session ended): closing ours");
                     CloseOurs(MMConversation.mmConversation, false);
+                    return;
                 }
+                /*
+                 * Silent past its pulse, in session: the host's game or the link lags. Its steps come late
+                 * and in order (the answer, the end with its callback: the room, the fight, the next talk
+                 * come from them), so ours waits for them, with a line saying why. A host gone for good
+                 * is Reconnect's: after its 30 s of silence the session comes back or ends, and ours closes above
+                 */
+                bool Quiet = !Hosts.TryGetValue((CurrentPlace, CurrentKey), out HostScene Last) || Time.unscaledTime - Last.At > HostQuiet;
+                HostLagging(Quiet);
             }
+        }
+
+        /* The friend's copy waits for a lagging host: the line is up while it does */
+        private static bool LagShown;
+        private static float LagSince;
+        internal static int HostLags;
+
+        private static void HostLagging(bool Lagging)
+        {
+            if (Lagging == LagShown)
+                return;
+            LagShown = Lagging;
+            if (Lagging)
+            {
+                LagSince = Time.unscaledTime;
+                ++HostLags;
+                Dialogs.GameLine = T("Multiplayer/Scene/WaitHostLead");
+                Plugin.Logger?.LogWarning($"[COOP] The host's lead of the conversation in {CurrentPlace} is silent at line {MMConversation.Position}: ours waits for it");
+            }
+            else
+            {
+                if (HeldTalk == null)
+                    Dialogs.GameLine = null;
+                Plugin.Logger?.LogInfo($"[COOP] The host's lead of the conversation in {CurrentPlace} is back after {Time.unscaledTime - LagSince:F1} s");
+            }
+        }
+
+        /* Test switch (-cotlmp-scenequiet): the host's steps go out this late, all at once and in order, the way a lagging link brings them */
+        private static float DelayedUntil;
+        private static readonly List<(Event Type, int Key, string Place, int Value)> Delayed = new();
+
+        internal static void DelayStepsFor(float Seconds)
+        {
+            DelayedUntil = Time.unscaledTime + Seconds;
+            Plugin.Logger?.LogWarning($"[COOP] Test: our conversation steps go out {Seconds:F0} s late");
+        }
+
+        private static void SendDelayed()
+        {
+            if (Delayed.Count == 0 || Time.unscaledTime < DelayedUntil)
+                return;
+            var Due = Delayed.ToArray();
+            Delayed.Clear();
+            foreach (var Step in Due)
+                Send(Step.Type, Step.Key, Step.Place, Step.Value);
+            Plugin.Logger?.LogWarning($"[COOP] Test: {Due.Length} late conversation steps sent");
         }
 
         /* Our copy holds still until the host's shows up or the wait is over */
@@ -420,6 +484,9 @@ namespace COTLMP.Game
             Current = null;
             Led = Waiting = false;
             Hosts.Clear();
+            HostLagging(false);
+            Delayed.Clear();
+            DelayedUntil = 0f;
         }
 
         private static float PullAt = -1f;

@@ -117,6 +117,8 @@ namespace COTLMP.Debug
            (never closed), or the host goes to another scene, or the host ends the session; =hold: the host's
            talk starts in the next room before the friend is in */
         private static string SceneBreak;
+        /* -cotlmp-scenequiet=N: in -cotlmp-scenetest the host's conversation steps reach the friend N s late from its second line (a lagging host) */
+        private static float SceneQuiet;
         /* -cotlmp-floorrush: the host goes straight to the floor's way down (once), the friend after it on the map;
            -cotlmp-diefloor=N: -cotlmp-autodie only from the N-th floor on */
         private static bool FloorRush;
@@ -316,6 +318,8 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
+                else if (Arg.StartsWith("-cotlmp-scenequiet=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-scenequiet=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SceneQuiet);
                 else if (Arg.StartsWith("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
                 {
                     SceneTest = true;

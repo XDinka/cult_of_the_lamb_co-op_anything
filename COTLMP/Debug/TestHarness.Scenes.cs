@@ -239,12 +239,24 @@ namespace COTLMP.Debug
                handling is off, the scene lets the player go from its callback */
             if (SceneBreak == "scripted")
                 MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, null, () => GameManager.GetInstance().OnConversationEnd()), false);
+            /* =plain: no answers, the talk's own callback (what a room, a fight or the next talk hangs on) */
+            else if (SceneBreak == "plain")
+            {
+                SceneBreak = null;
+                MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, null, () =>
+                {
+                    Picked = 9;
+                    Plugin.Logger?.LogWarning($"{Tag} Scene test: the talk's callback ran");
+                }));
+            }
             else
                 MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, Responses, null));
             var Next = AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked");
             var Answer = AccessTools.Method(typeof(MMTools.MMConversation), "OnGiveAnswer");
             int Last = -2;
             bool Released = false;
+            float Moved = Time.unscaledTime;
+            bool QuietDone = false;
             while (MMTools.MMConversation.isPlaying && Time.unscaledTime - Started < (Hold ? 60f : 40f))
             {
                 yield return new WaitForSecondsRealtime(Host ? 2f : 0.3f);
@@ -254,6 +266,7 @@ namespace COTLMP.Debug
                 if (MMTools.MMConversation.Position != Last)
                 {
                     Last = MMTools.MMConversation.Position;
+                    Moved = Time.unscaledTime;
                     Plugin.Logger?.LogWarning($"{Tag} Scene test: at line {Last} after {Time.unscaledTime - Started:F1} s, letterbox {LetterBox.IsPlaying}, state {PlayerFarming.Instance?.state?.CURRENT_STATE}");
                 }
                 if (Hold && Host && !Released && COTLMP.Game.SharedScenes.TalksReleased > 0)
@@ -268,6 +281,18 @@ namespace COTLMP.Debug
                     Released = true;
                     yield return new WaitForSecondsRealtime(1.5f);
                     Shot("hold-released");
+                }
+                /* -cotlmp-scenequiet=N: from its second line the host's steps reach the friend N s late; the friend's frame once it stands */
+                if (SceneQuiet > 0f && !QuietDone && (Host ? Last >= 1 : Time.unscaledTime - Moved > 7f))
+                {
+                    QuietDone = true;
+                    if (Host)
+                        COTLMP.Game.SharedScenes.DelayStepsFor(SceneQuiet);
+                    else
+                    {
+                        Plugin.Logger?.LogWarning($"{Tag} Scene test: our copy stands at line {Last} for {Time.unscaledTime - Moved:F1} s, letterbox {LetterBox.IsPlaying}");
+                        Shot("lead-quiet");
+                    }
                 }
                 /* The host's copy breaks off at its second line, each the way the game or a player does it */
                 if (Host && SceneBreak != null && Last >= 1)
@@ -294,7 +319,7 @@ namespace COTLMP.Debug
                     Next.Invoke(Box, null);
                 }
             }
-            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}, leads lost {COTLMP.Game.SharedScenes.LeadsLost}, stuck {COTLMP.Game.SceneTrace.Stuck}, scripted released {COTLMP.Game.SharedScenes.ScriptedReleased}, late waits {COTLMP.Game.SharedScenes.LateWaits}");
+            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}, leads lost {COTLMP.Game.SharedScenes.LeadsLost}, stuck {COTLMP.Game.SceneTrace.Stuck}, scripted released {COTLMP.Game.SharedScenes.ScriptedReleased}, late waits {COTLMP.Game.SharedScenes.LateWaits}, host lags {COTLMP.Game.SharedScenes.HostLags}");
             yield return new WaitForSecondsRealtime(3f);
             yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 30f);
             yield return new WaitForSecondsRealtime(2f);

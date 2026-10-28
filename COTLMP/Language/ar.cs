@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "أوقف صديقك الاستضافة", false),
             new("Multiplayer/Reconnect/Connecting", "جارٍ الاتصال {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "انقطع الاتصال بصديقك: تعذّرت إعادة الاتصال بعد 3 محاولات", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: إيقاف المحاولة", false),
+            new("Multiplayer/Reconnect/Cancel", "إيقاف إعادة الاتصال", false),
+            new("Multiplayer/Reconnect/Cancelled", "أُلغيت إعادة الاتصال", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} من نقاط ربط التعديل لا تناسب إصدار اللعبة هذا: حُدّثت اللعبة بعد التعديل. قد لا يعمل اللعب التعاوني جيدًا حتى يصدر إصدار مُصلَح، وسيعرضه التعديل هنا فور صدوره", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} من نقاط ربط التعديل لا تناسب إصدار اللعبة هذا: حُدّثت اللعبة بعد التعديل. صدر الإصدار {1} (لديك {2}). هل تريد التحديث الآن؟", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "بانتظار صديق...", false),
             new("Multiplayer/Lobby/WaitingHost", "بانتظار أن يبدأ المضيف", false),
             new("Multiplayer/Lobby/Failed", "تعذّر فتح الردهة", false),
+            new("Multiplayer/Online/JoinFailed", "تعذّر الوصول إلى ردهة صديقك", false),
             new("Multiplayer/Intro/WaitCrown", "بانتظار أن يتسلّم صديقك التاج...", false),
             new("Multiplayer/UI/OnlineOpen", "اللعب عبر الإنترنت مفتوح", false),
             new("Multiplayer/UI/OnlineFailed", "تعذّر فتح اللعب عبر الإنترنت", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "اللعبة", false),
             new("Multiplayer/Scene/HoldTalk", "بانتظار شريكك: تبدأ المحادثة فور دخوله هذه الغرفة. يمكنك التنقل داخل الغرفة في هذه الأثناء، وستُفتح أبوابها بعد المحادثة.", false),
             new("Multiplayer/Scene/PartnerWaits", "شريكك ينتظرك: تبدأ محادثة فور وصولك إليه", false),
+            new("Multiplayer/Scene/WaitHostLead", "لعبة المضيف متأخرة: تستمر المحادثة فور أن تلحق", false),
             new("Multiplayer/Update/Failed", "تعذّر التحديث تلقائيًا", false),
             new("Multiplayer/Update/OpenPage", "فتح صفحة الإصدار {0} لتنزيله؟", false)
         ];

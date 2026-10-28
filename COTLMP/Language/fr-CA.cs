@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Votre ami a arrêté l'hébergement", false),
             new("Multiplayer/Reconnect/Connecting", "Connexion {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "Connexion avec votre ami perdue : impossible de se reconnecter en 3 tentatives", false),
+            new("Multiplayer/Reconnect/CancelHint", "Échap : arrêter d'essayer", false),
+            new("Multiplayer/Reconnect/Cancel", "Arrêter la reconnexion", false),
+            new("Multiplayer/Reconnect/Cancelled", "La reconnexion a été annulée", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} points d'accroche du mod ne correspondent pas à cette version du jeu : le jeu a été mis à jour après le mod. La coop peut mal fonctionner jusqu'à la sortie d'une version corrigée ; le mod la proposera ici dès qu'elle sera disponible", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} points d'accroche du mod ne correspondent pas à cette version du jeu : le jeu a été mis à jour après le mod. La version {1} est sortie (vous avez la {2}). Mettre à jour maintenant ?", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "En attente d'un ami...", false),
             new("Multiplayer/Lobby/WaitingHost", "En attente du lancement par l'hôte", false),
             new("Multiplayer/Lobby/Failed", "Impossible d'ouvrir le salon", false),
+            new("Multiplayer/Online/JoinFailed", "Impossible de rejoindre le salon de votre ami", false),
             new("Multiplayer/Intro/WaitCrown", "En attente que votre ami reçoive la couronne...", false),
             new("Multiplayer/UI/OnlineOpen", "Le jeu en ligne est ouvert", false),
             new("Multiplayer/UI/OnlineFailed", "Impossible d'ouvrir le jeu en ligne", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Jeu", false),
             new("Multiplayer/Scene/HoldTalk", "En attente de votre partenaire : la conversation commence dès qu'il entre dans cette salle. En attendant, vous pouvez vous déplacer dans la salle ; ses portes s'ouvriront après.", false),
             new("Multiplayer/Scene/PartnerWaits", "Votre partenaire vous attend : une conversation commence dès que vous le rejoignez", false),
+            new("Multiplayer/Scene/WaitHostLead", "La partie de l'hôte a du retard : la conversation reprend dès qu'elle rattrape", false),
             new("Multiplayer/Update/Failed", "Impossible de mettre à jour automatiquement", false),
             new("Multiplayer/Update/OpenPage", "Ouvrir la page de la version {0} pour la télécharger ?", false)
         ];

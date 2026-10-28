@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "好友已停止主持", false),
             new("Multiplayer/Reconnect/Connecting", "正在连接 {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "与好友的连接已断开：3 次尝试均未能重新连接", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc：停止尝试", false),
+            new("Multiplayer/Reconnect/Cancel", "停止重新连接", false),
+            new("Multiplayer/Reconnect/Cancelled", "已取消重新连接", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "模组有 {0} 个挂钩与此游戏版本不符：游戏在模组之后更新了。在修复版本发布前，合作模式可能无法正常运行；修复版一发布，模组就会在这里提示更新", false),
             new("Multiplayer/UI/PatchesUpdate", "模组有 {0} 个挂钩与此游戏版本不符：游戏在模组之后更新了。已发布版本 {1}（当前 {2}）。现在更新吗？", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "正在等待好友...", false),
             new("Multiplayer/Lobby/WaitingHost", "正在等待主机开始", false),
             new("Multiplayer/Lobby/Failed", "无法开启大厅", false),
+            new("Multiplayer/Online/JoinFailed", "无法连接到好友的大厅", false),
             new("Multiplayer/Intro/WaitCrown", "正在等待好友获得王冠...", false),
             new("Multiplayer/UI/OnlineOpen", "在线游戏已开放", false),
             new("Multiplayer/UI/OnlineFailed", "无法开放在线游戏", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "游戏", false),
             new("Multiplayer/Scene/HoldTalk", "正在等待同伴：同伴进入这个房间后对话就会开始。在此期间你可以在房间内走动，房门会在对话结束后打开。", false),
             new("Multiplayer/Scene/PartnerWaits", "同伴正在等你：你到达后对话就会开始", false),
+            new("Multiplayer/Scene/WaitHostLead", "主机的游戏有延迟：赶上后对话就会继续", false),
             new("Multiplayer/Update/Failed", "无法自动更新", false),
             new("Multiplayer/Update/OpenPage", "打开版本 {0} 的页面进行下载？", false)
         ];

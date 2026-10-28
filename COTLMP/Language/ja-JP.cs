@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "フレンドがホストを終了しました", false),
             new("Multiplayer/Reconnect/Connecting", "接続中 {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "フレンドとの接続が切れました。3回試しましたが再接続できませんでした", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc：再接続をやめる", false),
+            new("Multiplayer/Reconnect/Cancel", "再接続をやめる", false),
+            new("Multiplayer/Reconnect/Cancelled", "再接続を取りやめました", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "MODのフック {0} 個がこのゲームバージョンに合いません。ゲームがMODより後に更新されました。修正版が出るまで協力プレイが正しく動かない可能性があります。修正版が出たらここで更新を案内します", false),
             new("Multiplayer/UI/PatchesUpdate", "MODのフック {0} 個がこのゲームバージョンに合いません。ゲームがMODより後に更新されました。バージョン {1} が出ています（現在 {2}）。今すぐ更新しますか？", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "フレンドを待っています...", false),
             new("Multiplayer/Lobby/WaitingHost", "ホストの開始を待っています", false),
             new("Multiplayer/Lobby/Failed", "ロビーを開けませんでした", false),
+            new("Multiplayer/Online/JoinFailed", "フレンドのロビーに接続できませんでした", false),
             new("Multiplayer/Intro/WaitCrown", "フレンドが王冠を受け取るのを待っています...", false),
             new("Multiplayer/UI/OnlineOpen", "オンラインプレイを開きました", false),
             new("Multiplayer/UI/OnlineFailed", "オンラインプレイを開けませんでした", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "ゲーム", false),
             new("Multiplayer/Scene/HoldTalk", "パートナーを待っています：パートナーがこの部屋に入ると会話が始まります。それまでは部屋の中を自由に動けます。扉は会話のあとに開きます。", false),
             new("Multiplayer/Scene/PartnerWaits", "パートナーがあなたを待っています：合流すると会話が始まります", false),
+            new("Multiplayer/Scene/WaitHostLead", "ホストのゲームが遅れています：追いつき次第、会話が続きます", false),
             new("Multiplayer/Update/Failed", "自動で更新できませんでした", false),
             new("Multiplayer/Update/OpenPage", "バージョン {0} のページを開いてダウンロードしますか？", false)
         ];

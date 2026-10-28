@@ -154,6 +154,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Игра", false),
             new("Multiplayer/Scene/HoldTalk", "Ждём напарника: разговор начнётся, когда он войдёт в эту комнату. Пока можно ходить по комнате, двери откроются после разговора.", false),
             new("Multiplayer/Scene/PartnerWaits", "Напарник ждёт вас: разговор начнётся, когда вы придёте к нему", false),
+            new("Multiplayer/Scene/WaitHostLead", "Игра хоста отстаёт: разговор продолжится, как только она догонит", false),
             new("Multiplayer/Update/Failed", "Не получилось обновить автоматически", false),
             new("Multiplayer/Update/OpenPage", "Открыть страницу версии {0}, чтобы скачать её вручную?", false)
 

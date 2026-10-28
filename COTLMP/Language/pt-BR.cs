@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Seu amigo parou de hospedar", false),
             new("Multiplayer/Reconnect/Connecting", "Conectando {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "A conexão com seu amigo caiu: não foi possível reconectar em 3 tentativas", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: parar de tentar", false),
+            new("Multiplayer/Reconnect/Cancel", "Parar de reconectar", false),
+            new("Multiplayer/Reconnect/Cancelled", "A reconexão foi cancelada", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} ganchos do mod não combinam com esta versão do jogo: o jogo foi atualizado depois do mod. O cooperativo pode não funcionar direito até sair uma versão corrigida; o mod vai oferecê-la aqui assim que existir", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} ganchos do mod não combinam com esta versão do jogo: o jogo foi atualizado depois do mod. Saiu a versão {1} (você tem a {2}). Atualizar agora?", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "Esperando um amigo...", false),
             new("Multiplayer/Lobby/WaitingHost", "Esperando o anfitrião começar", false),
             new("Multiplayer/Lobby/Failed", "Não foi possível abrir o lobby", false),
+            new("Multiplayer/Online/JoinFailed", "Não foi possível chegar ao lobby do amigo", false),
             new("Multiplayer/Intro/WaitCrown", "Esperando seu amigo receber a coroa...", false),
             new("Multiplayer/UI/OnlineOpen", "O jogo online está aberto", false),
             new("Multiplayer/UI/OnlineFailed", "Não foi possível abrir o jogo online", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Jogo", false),
             new("Multiplayer/Scene/HoldTalk", "Esperando seu parceiro: a conversa começa assim que ele entrar nesta sala. Enquanto isso, você pode andar pela sala; as portas abrem depois.", false),
             new("Multiplayer/Scene/PartnerWaits", "Seu parceiro está esperando você: uma conversa começa assim que você chegar até ele", false),
+            new("Multiplayer/Scene/WaitHostLead", "O jogo do anfitrião está atrasado: a conversa continua assim que ele alcançar", false),
             new("Multiplayer/Update/Failed", "Não foi possível atualizar sozinho", false),
             new("Multiplayer/Update/OpenPage", "Abrir a página da versão {0} para baixá-la?", false)
         ];

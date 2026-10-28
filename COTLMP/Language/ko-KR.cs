@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "친구가 호스팅을 중지했습니다", false),
             new("Multiplayer/Reconnect/Connecting", "연결 중 {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "친구와의 연결이 끊어졌습니다. 3번 시도했지만 다시 연결하지 못했습니다", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: 시도 중단", false),
+            new("Multiplayer/Reconnect/Cancel", "재연결 중단", false),
+            new("Multiplayer/Reconnect/Cancelled", "재연결이 취소되었습니다", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "모드 후크 {0}개가 이 게임 버전과 맞지 않습니다. 모드 이후에 게임이 업데이트되었습니다. 수정 버전이 나올 때까지 협동 플레이가 제대로 작동하지 않을 수 있으며, 수정 버전이 나오면 모드가 여기서 업데이트를 제안합니다", false),
             new("Multiplayer/UI/PatchesUpdate", "모드 후크 {0}개가 이 게임 버전과 맞지 않습니다. 모드 이후에 게임이 업데이트되었습니다. 버전 {1}이(가) 나왔습니다(현재 {2}). 지금 업데이트할까요?", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "친구를 기다리는 중...", false),
             new("Multiplayer/Lobby/WaitingHost", "호스트가 시작하기를 기다리는 중", false),
             new("Multiplayer/Lobby/Failed", "로비를 열 수 없습니다", false),
+            new("Multiplayer/Online/JoinFailed", "친구의 로비에 연결할 수 없습니다", false),
             new("Multiplayer/Intro/WaitCrown", "친구가 왕관을 받기를 기다리는 중...", false),
             new("Multiplayer/UI/OnlineOpen", "온라인 플레이가 열렸습니다", false),
             new("Multiplayer/UI/OnlineFailed", "온라인 플레이를 열 수 없습니다", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "게임", false),
             new("Multiplayer/Scene/HoldTalk", "동료를 기다리는 중: 동료가 이 방에 들어오면 대화가 시작됩니다. 그동안 방 안을 돌아다닐 수 있으며, 문은 대화가 끝난 뒤 열립니다.", false),
             new("Multiplayer/Scene/PartnerWaits", "동료가 기다리고 있습니다: 합류하면 대화가 시작됩니다", false),
+            new("Multiplayer/Scene/WaitHostLead", "호스트의 게임이 지연되고 있습니다: 따라잡는 대로 대화가 이어집니다", false),
             new("Multiplayer/Update/Failed", "자동으로 업데이트하지 못했습니다", false),
             new("Multiplayer/Update/OpenPage", "버전 {0}의 페이지를 열어 다운로드할까요?", false)
         ];

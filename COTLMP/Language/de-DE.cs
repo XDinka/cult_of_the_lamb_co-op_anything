@@ -45,6 +45,9 @@ namespace COTLMP.Language
             new("Multiplayer/Steam/HostLeft", "Dein Freund hostet nicht mehr", false),
             new("Multiplayer/Reconnect/Connecting", "Verbinde {0}/{1}", false),
             new("Multiplayer/Reconnect/Failed", "Verbindung zu deinem Freund verloren: in 3 Versuchen keine neue Verbindung möglich", false),
+            new("Multiplayer/Reconnect/CancelHint", "Esc: Versuche beenden", false),
+            new("Multiplayer/Reconnect/Cancel", "Wiederverbinden beenden", false),
+            new("Multiplayer/Reconnect/Cancelled", "Das erneute Verbinden wurde abgebrochen", false),
             new("Multiplayer/UI/PatchesFailedTitle", "Co-op Anything", false),
             new("Multiplayer/UI/PatchesFailed", "{0} Einhängepunkte der Mod passen nicht zu dieser Spielversion: Das Spiel wurde nach der Mod aktualisiert. Koop funktioniert eventuell nicht richtig, bis eine korrigierte Version erscheint; die Mod bietet sie hier an, sobald es sie gibt", false),
             new("Multiplayer/UI/PatchesUpdate", "{0} Einhängepunkte der Mod passen nicht zu dieser Spielversion: Das Spiel wurde nach der Mod aktualisiert. Version {1} ist erschienen (du hast {2}). Jetzt aktualisieren?", false),
@@ -93,6 +96,7 @@ namespace COTLMP.Language
             new("Multiplayer/Lobby/WaitingFriend", "Warte auf einen Freund...", false),
             new("Multiplayer/Lobby/WaitingHost", "Warte, bis der Host startet", false),
             new("Multiplayer/Lobby/Failed", "Die Lobby konnte nicht geöffnet werden", false),
+            new("Multiplayer/Online/JoinFailed", "Die Lobby deines Freundes ist nicht erreichbar", false),
             new("Multiplayer/Intro/WaitCrown", "Warte, bis dein Freund die Krone erhält...", false),
             new("Multiplayer/UI/OnlineOpen", "Online-Spiel ist offen", false),
             new("Multiplayer/UI/OnlineFailed", "Online-Spiel konnte nicht geöffnet werden", false),
@@ -121,6 +125,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Spiel", false),
             new("Multiplayer/Scene/HoldTalk", "Warte auf deinen Mitspieler: Das Gespräch beginnt, sobald er diesen Raum betritt. Bis dahin kannst du dich im Raum bewegen, seine Türen öffnen sich danach.", false),
             new("Multiplayer/Scene/PartnerWaits", "Dein Mitspieler wartet auf dich: Ein Gespräch beginnt, sobald du zu ihm kommst", false),
+            new("Multiplayer/Scene/WaitHostLead", "Das Spiel des Hosts hängt hinterher: Das Gespräch geht weiter, sobald es aufholt", false),
             new("Multiplayer/Update/Failed", "Konnte nicht von selbst aktualisieren", false),
             new("Multiplayer/Update/OpenPage", "Die Seite von Version {0} zum Herunterladen öffnen?", false)
         ];

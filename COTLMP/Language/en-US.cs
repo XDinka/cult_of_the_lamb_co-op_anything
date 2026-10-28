@@ -154,6 +154,7 @@ namespace COTLMP.Language
             new("Multiplayer/Scene/GameSpeaker", "Game", false),
             new("Multiplayer/Scene/HoldTalk", "Waiting for your partner: the conversation starts once they come into this room. You can move about the room meanwhile, its doors open after it.", false),
             new("Multiplayer/Scene/PartnerWaits", "Your partner is waiting for you: a conversation starts once you join them", false),
+            new("Multiplayer/Scene/WaitHostLead", "The host's game lags behind: the conversation goes on as soon as it catches up", false),
             new("Multiplayer/Update/Failed", "Couldn't update by itself", false),
             new("Multiplayer/Update/OpenPage", "Open the page of version {0} to download it?", false)
 
