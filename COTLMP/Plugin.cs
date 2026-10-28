@@ -147,6 +147,7 @@ public class Plugin : BaseUnityPlugin
         COTLMP.Game.MiniMapHeads.Initialize();
         COTLMP.Game.MapCrowns.Initialize();
         COTLMP.Game.SharedScenes.Initialize();
+        COTLMP.Game.SceneTrace.Initialize();
         COTLMP.Game.SceneEnds.Initialize();
         COTLMP.Game.PuppetSync.Initialize();
         COTLMP.Game.HostSave.Initialize();

@@ -113,6 +113,9 @@ namespace COTLMP.Debug
         private static float AutoTalk;
         private static bool AutoShoot;
         private static bool ChatTest, FinalTest;
+        /* -cotlmp-scenetest=chain|scene|leave: at its second line the host's talk is replaced by the next one
+           (never closed), or the host goes to another scene, or the host ends the session */
+        private static string SceneBreak;
         /* -cotlmp-lobbyclose=N: the host closes its lobby N s after opening it (the friend must land back in the menu) */
         private static float LobbyClose = -1f;
 
@@ -195,6 +198,8 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-sessionlen=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SessionLength);
                 else if (Arg.StartsWith("-cotlmp-land=", StringComparison.OrdinalIgnoreCase))
                     int.TryParse(Arg.Substring("-cotlmp-land=".Length), out Land);
+                else if (Arg.StartsWith("-cotlmp-stuckafter=", StringComparison.OrdinalIgnoreCase))
+                    float.TryParse(Arg.Substring("-cotlmp-stuckafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out COTLMP.Game.SceneTrace.StuckAfter);
                 else if (Arg.Equals("-cotlmp-finaltest", StringComparison.OrdinalIgnoreCase))
                     FinalTest = true;
                 else if (Arg.StartsWith("-cotlmp-lobbyclose=", StringComparison.OrdinalIgnoreCase))
@@ -249,8 +254,12 @@ namespace COTLMP.Debug
                     CultTest = true;
                 else if (Arg.Equals("-cotlmp-templetest", StringComparison.OrdinalIgnoreCase))
                     TempleTest = true;
-                else if (Arg.Equals("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
+                else if (Arg.StartsWith("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
+                {
                     SceneTest = true;
+                    if (Arg.StartsWith("-cotlmp-scenetest=", StringComparison.OrdinalIgnoreCase))
+                        SceneBreak = Arg.Substring("-cotlmp-scenetest=".Length).ToLowerInvariant();
+                }
                 else if (Arg.StartsWith("-cotlmp-endtest", StringComparison.OrdinalIgnoreCase))
                 {
                     EndTest = true;
@@ -618,6 +627,9 @@ namespace COTLMP.Debug
                 yield return Wait;
                 var Conversation = MMTools.MMConversation.mmConversation;
                 if (!MMTools.MMConversation.isPlaying || Conversation == null || MMTools.MMConversation.isBark)
+                    continue;
+                /* The scene test reads on as a player does (the button), never past the mod's hold */
+                if (SceneTest)
                     continue;
                 try
                 {

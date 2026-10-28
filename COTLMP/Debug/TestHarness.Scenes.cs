@@ -200,7 +200,12 @@ namespace COTLMP.Debug
             };
             float Started = Time.unscaledTime;
             Plugin.Logger?.LogWarning($"{Tag} Scene test: starting");
-            MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, Responses, null));
+            /* =scripted: a scene's own talk (as a chest's or a leader's intro): the game's end-of-talk
+               handling is off, the scene lets the player go from its callback */
+            if (SceneBreak == "scripted")
+                MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, null, () => GameManager.GetInstance().OnConversationEnd()), false);
+            else
+                MMTools.MMConversation.Play(new MMTools.ConversationObject(Entries, Responses, null));
             var Next = AccessTools.Method(typeof(MMTools.MMConversation), "HandleNextClicked");
             var Answer = AccessTools.Method(typeof(MMTools.MMConversation), "OnGiveAnswer");
             int Last = -2;
@@ -215,6 +220,23 @@ namespace COTLMP.Debug
                     Last = MMTools.MMConversation.Position;
                     Plugin.Logger?.LogWarning($"{Tag} Scene test: at line {Last} after {Time.unscaledTime - Started:F1} s");
                 }
+                /* The host's copy breaks off at its second line, each the way the game or a player does it */
+                if (Host && SceneBreak != null && Last >= 1)
+                {
+                    string Break = SceneBreak;
+                    SceneBreak = null;
+                    Plugin.Logger?.LogWarning($"{Tag} Scene test: the host's talk breaks off ({Break})");
+                    if (Break == "chain" || Break == "scripted")
+                        MMTools.MMConversation.Play(new MMTools.ConversationObject(new List<MMTools.ConversationEntry>
+                        {
+                            new(Me, "Scene test chained line", "talk", "", null, "Lamb")
+                        }, null, null));
+                    else if (Break == "scene")
+                        MMTransition.Play(MMTransition.TransitionType.ChangeSceneAutoResume, MMTransition.Effect.BlackFade, "Base Biome 1", 1f, "", null);
+                    else if (Break == "leave")
+                        PauseMenuPatches.EndSession("Multiplayer/Steam/Stopped");
+                    continue;
+                }
                 if (Box.DialogueWheel != null && Box.DialogueWheel.gameObject.activeSelf)
                     Answer.Invoke(Box, new object[] { Host ? 1 : 0 });
                 else
@@ -223,7 +245,12 @@ namespace COTLMP.Debug
                     Next.Invoke(Box, null);
                 }
             }
-            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}");
+            Plugin.Logger?.LogWarning($"{Tag} Scene test: over after {Time.unscaledTime - Started:F1} s, answer {Picked}, shared {COTLMP.Game.SharedScenes.Shared}, lines followed {COTLMP.Game.SharedScenes.LinesFollowed}, answers {COTLMP.Game.SharedScenes.AnswersFollowed}, ends {COTLMP.Game.SharedScenes.EndsFollowed}, leads lost {COTLMP.Game.SharedScenes.LeadsLost}, stuck {COTLMP.Game.SceneTrace.Stuck}, scripted released {COTLMP.Game.SharedScenes.ScriptedReleased}");
+            yield return new WaitForSecondsRealtime(3f);
+            yield return Until(() => !MMTransition.IsPlaying && PlayerFarming.Instance != null, 30f);
+            yield return new WaitForSecondsRealtime(2f);
+            Shot("scene-after");
+            Plugin.Logger?.LogWarning($"{Tag} Scene test: after it in {SceneManager.GetActiveScene().name} talk={MMTools.MMConversation.isPlaying} letterbox={LetterBox.IsPlaying} state={PlayerFarming.Instance?.state?.CURRENT_STATE} hudhidden={HUD_Manager.Instance?.Hidden}");
         }
 
         /// <summary>

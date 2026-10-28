@@ -55,12 +55,25 @@ namespace COTLMP.Game
         private const float WaitForHost = 4f;
         /* What the host's game did with a conversation is kept this long, for a friend who comes late */
         private const float Remember = 20f;
+        /* The host's pulse comes every 2 s while its copy is on screen; silence past this is the last safety net */
+        private const float HostQuiet = 6f;
+        private static float LastPulse;
+        internal static int LeadsLost;
+
+        /*
+         * How the host's conversation ended, in its End step: a real close runs the conversation's
+         * callback (its rewards, the next step of its chain); one the game replaced with the next
+         * talk, or that went with the scene, never ran it on the host, so the friend's copy goes
+         * without it too
+         */
+        private const int EndClosed = 0, EndReplaced = 1, EndGone = 2;
 
         private sealed class HostScene
         {
             public int Position = -1;
             public int Answer = -1;
             public bool Ended;
+            public int EndedHow;
             public float At;
         }
 
@@ -148,6 +161,7 @@ namespace COTLMP.Game
                     break;
                 case Event.End:
                     Scene.Ended = true;
+                    Scene.EndedHow = Value;
                     break;
             }
             Follow();
@@ -196,11 +210,12 @@ namespace COTLMP.Game
                     GiveAnswer.Invoke(Box, new object[] { Scene.Answer });
                     return;
                 }
-                if (Scene.Ended && (Current.Responses == null || Current.Responses.Count == 0))
+                /* Over on the host's side, answers or not: ours goes the way the host's went */
+                if (Scene.Ended)
                 {
                     ++EndsFollowed;
-                    Plugin.Logger?.LogInfo("[COOP] The host's conversation is over, ours too");
-                    Box.Close();
+                    Plugin.Logger?.LogInfo($"[COOP] The host's conversation is over ({EndName(Scene.EndedHow)}), ours too");
+                    CloseOurs(Box, Scene.EndedHow == EndClosed);
                 }
             }
             catch (Exception e)
@@ -210,6 +225,71 @@ namespace COTLMP.Game
             finally
             {
                 Applying = false;
+            }
+        }
+
+        private static string EndName(int How) => How == EndClosed ? "closed" : How == EndReplaced ? "replaced by the next talk" : "gone";
+
+        /// <summary>
+        /// Ends our copy of a conversation the host led. Without the callback when the host's never
+        /// ran it (the game's rewards and next steps happen once, on the host's side)
+        /// </summary>
+        private static void CloseOurs(MMConversation Box, bool WithCallback)
+        {
+            if (Box == null || Current == null || MMConversation.CURRENT_CONVERSATION != Current)
+                return;
+            /* The object stays on its NPC for the next talk: its callback is skipped for this close only
+               (DoClose calls it right away, inside Close) */
+            ConversationObject Talk = Current;
+            Action Callback = Talk.CallBack;
+            /* A scripted scene plays its talk without the game's end-of-talk handling: its script lets
+               the player go, usually from the callback. With the callback skipped, nothing would */
+            bool Scripted = CallsConversationEnd != null && !(bool)CallsConversationEnd.GetValue(null);
+            if (!WithCallback)
+                Talk.CallBack = null;
+            bool Was = Applying;
+            Applying = true;
+            try
+            {
+                Box.Close();
+            }
+            finally
+            {
+                Talk.CallBack = Callback;
+                Applying = Was;
+                Current = null;
+                Led = Waiting = false;
+            }
+            if (!WithCallback && Scripted)
+                LeaveScriptedScene();
+        }
+
+        private static readonly FieldInfo CallsConversationEnd = AccessTools.Field(typeof(MMConversation), "CallOnConversationEnd");
+        internal static int ScriptedReleased;
+
+        /// <summary>
+        /// The way the game itself leaves a scene of its own once its talk is over (CoopManager's
+        /// co-op cards do it this way): the letterbox and the HUD, the camera, the players free
+        /// </summary>
+        private static void LeaveScriptedScene()
+        {
+            ++ScriptedReleased;
+            Plugin.Logger?.LogWarning($"[SCENE] Released a scripted scene's state the host abandoned in {CurrentPlace ?? CoopSync.CurrentPlace()}");
+            try
+            {
+                LetterBox.Hide();
+                HUD_Manager.Instance?.Show(0);
+                GameManager Game = GameManager.GetInstance();
+                if (Game != null)
+                {
+                    Game.OnConversationEnd();
+                    Game.CameraResetTargetZoom();
+                    Game.AddPlayerToCamera();
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[SCENE] Leaving the scripted scene failed: {e.Message}");
             }
         }
 
@@ -229,6 +309,26 @@ namespace COTLMP.Game
                     Plugin.Logger?.LogWarning($"[COOP] Waiting for the partner failed: {e.Message}");
                     Gating = false;
                 }
+                if (IsHost && Current != null)
+                {
+                    /*
+                     * Ours ended without a close (the scene went and the game cleared it, or a bark took
+                     * its place: PlayBark reuses the one box, so the talk is gone, its callback never run):
+                     * the friend's must end too
+                     */
+                    if (!MMConversation.isPlaying || MMConversation.CURRENT_CONVERSATION != Current)
+                    {
+                        Send(Event.End, CurrentKey, CurrentPlace, EndGone);
+                        Plugin.Logger?.LogInfo($"[COOP] Our conversation in {CurrentPlace} ended without a close ({(MMConversation.isBark ? "a bark took its place" : "cleared")}): telling the friend");
+                        Current = null;
+                    }
+                    /* While the host reads, the friend hears it is still on */
+                    else if (Time.unscaledTime - LastPulse > 2f)
+                    {
+                        LastPulse = Time.unscaledTime;
+                        Send(Event.Line, CurrentKey, CurrentPlace, MMConversation.Position);
+                    }
+                }
                 if (Current == null || IsHost)
                     return;
                 if (!MMConversation.isPlaying || MMConversation.CURRENT_CONVERSATION != Current)
@@ -244,6 +344,19 @@ namespace COTLMP.Game
                     Waiting = false;
                     ++Released;
                     Plugin.Logger?.LogInfo($"[COOP] The host doesn't play the conversation in {CurrentPlace}: it is ours");
+                }
+                /*
+                 * The host led it and is gone (the session ended), or went silent past its pulse with
+                 * no End (the last safety net: every way out of the host's copy sends one). Ours would
+                 * never end, the friend left standing in a cutscene. Reading on alone would run the
+                 * game's answers and rewards the host never had, so ours ends without its callback
+                 */
+                if (Led && (!CoopSync.InSession || !Hosts.TryGetValue((CurrentPlace, CurrentKey), out HostScene Last) || Time.unscaledTime - Last.At > HostQuiet))
+                {
+                    ++LeadsLost;
+                    Plugin.Logger?.LogWarning($"[COOP] Lost the host's lead of the conversation in {CurrentPlace} at line {MMConversation.Position} " +
+                                              $"({(CoopSync.InSession ? "silent" : "the session ended")}): closing ours");
+                    CloseOurs(MMConversation.mmConversation, false);
                 }
             }
         }
@@ -274,6 +387,23 @@ namespace COTLMP.Game
                 Dialogs.GameLine = null;
             GatePlace = null;
             Gating = false;
+
+            /* The host led the conversation on screen and is gone: ours ends with it, as the host's never closed for us */
+            try
+            {
+                if (!IsHost && Led && Current != null && MMConversation.isPlaying && MMConversation.CURRENT_CONVERSATION == Current)
+                {
+                    Plugin.Logger?.LogInfo($"[COOP] The session ended while the host led the conversation in {CurrentPlace}: closing ours");
+                    CloseOurs(MMConversation.mmConversation, false);
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Closing the led conversation at the session's end failed: {e.Message}");
+            }
+            Current = null;
+            Led = Waiting = false;
+            Hosts.Clear();
         }
 
         private static float PullAt = -1f;
@@ -616,6 +746,12 @@ namespace COTLMP.Game
             {
                 if (!CoopSync.InSession || ConversationObject == null)
                     return;
+                /* The game started the next talk over ours, never closing it: the friend's copy of ours ends */
+                if (IsHost && Current != null && Current != ConversationObject)
+                {
+                    Send(Event.End, CurrentKey, CurrentPlace, EndReplaced);
+                    Plugin.Logger?.LogInfo($"[COOP] Our conversation in {CurrentPlace} was replaced by the next: telling the friend");
+                }
                 Current = ConversationObject;
                 CurrentKey = KeyOf(ConversationObject);
                 SceneEnds.Talked(CurrentKey);
@@ -685,7 +821,7 @@ namespace COTLMP.Game
         {
             if (IsHost && Current != null && MMConversation.CURRENT_CONVERSATION == Current)
             {
-                Send(Event.End, CurrentKey, CurrentPlace, 0);
+                Send(Event.End, CurrentKey, CurrentPlace, EndClosed);
                 Current = null;
             }
         }
