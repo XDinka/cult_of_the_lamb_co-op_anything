@@ -102,6 +102,18 @@ namespace COTLMP.Game
         private static float MenuFor, MenuCheckedAt = -1f;
         private static bool MenuTold;
 
+        /* The game's room of coming back to life (a resurrection) shows no HUD on purpose, while it is up */
+        private static bool RespawnTold;
+
+        private static bool InRespawnRoom()
+        {
+            bool Up = RespawnRoomManager.Instance != null && RespawnRoomManager.Instance.gameObject.activeInHierarchy;
+            if (Up && !RespawnTold)
+                Plugin.Logger?.LogInfo("[COOP] The game's room of coming back to life is up: its hidden HUD stays hidden");
+            RespawnTold = Up;
+            return Up;
+        }
+
         private static bool InGameMenu()
         {
             List<string> Shown = Lamb.UI.UIMenuBase.ActiveMenus.Where(Menu => Menu != null && Menu.gameObject.activeInHierarchy).Select(Menu => Menu.GetType().Name).ToList();
@@ -139,7 +151,7 @@ namespace COTLMP.Game
                         MMTools.MMConversation.isPlaying || SceneEnds.Waiting ||
                         (MMTools.MMVideoPlayer.Instance != null && MMTools.MMVideoPlayer.Instance.activeSelf) ||
                         PlayerFarming.Instance.health == null || PlayerFarming.Instance.health.HP <= 0f ||
-                        InGameScene() || InGameMenu())
+                        InGameScene() || InGameMenu() || InRespawnRoom())
                     {
                         GoneOnce = false;
                         continue;
