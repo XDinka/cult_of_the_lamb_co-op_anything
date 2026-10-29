@@ -59,6 +59,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-ingameupdate=N</c>, <c>-cotlmp-updatechoice=lobby|game|later</c>: N s into a game the update (from -cotlmp-updatefrom) is taken and that way of putting it in picked</item>
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-loadslot=6</c>: no session, load the hidden save slot 6 from the main menu as Continue does (other slots are refused); <c>-cotlmp-savelater=N</c>: N s in the cult, save</item>
+    /// <item><c>-cotlmp-nowoolhaven</c>: the friend, while playing in the host's game only, is taken as not owning Woolhaven (the game's own CheatConsole.MAJOR_DLC_DISABLED); refused anywhere else, where the game would take Woolhaven off the player's own save</item>
     /// <item><c>-cotlmp-dlcprobe</c>: in the cult, every 20 s log what the save has of the DLCs (flags, the land, marriages, decorations); it only reads</item>
     /// <item><c>-cotlmp-followthrow</c>: the enemy follow loop's next round throws once (it must be logged, counted and go on)</item>
     /// <item><c>-cotlmp-campprobe</c>: in the cult, every 15 s log the faith circle's and the hunger bar's state (container, fade), the flags and the flock, and save a frame</item>
@@ -118,7 +119,7 @@ namespace COTLMP.Debug
         private static bool AutoShoot;
         private static bool ChatTest, FinalTest;
         private static bool CampProbe;
-        private static bool DlcProbe;
+        private static bool DlcProbe, NoWoolhaven;
         private static int LoadSlot = -1;
         private static float SaveLater;
         /* -cotlmp-scenetest=chain|scene|leave: at its second line the host's talk is replaced by the next one
@@ -370,6 +371,8 @@ namespace COTLMP.Debug
                     int.TryParse(Arg.Substring("-cotlmp-loadslot=".Length), out LoadSlot);
                 else if (Arg.StartsWith("-cotlmp-savelater=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-savelater=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SaveLater);
+                else if (Arg.Equals("-cotlmp-nowoolhaven", StringComparison.OrdinalIgnoreCase))
+                    NoWoolhaven = true;
                 else if (Arg.Equals("-cotlmp-dlcprobe", StringComparison.OrdinalIgnoreCase))
                     DlcProbe = true;
                 else if (Arg.Equals("-cotlmp-followthrow", StringComparison.OrdinalIgnoreCase))
@@ -472,6 +475,8 @@ namespace COTLMP.Debug
                 Run("WatchCamp", WatchCamp());
             if (DlcProbe)
                 Run("WatchDlc", WatchDlc());
+            if (NoWoolhaven)
+                Run("NoWoolhaven", WithoutWoolhaven());
             if (LoadSlot >= 0)
                 Run("LoadSlot", LoadOwnSlot());
             if (SaveLater > 0f)

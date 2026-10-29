@@ -93,7 +93,10 @@ namespace COTLMP.Game
             "playerDamageReceived", "EnemyHealthMultiplier", "BossHealthMultiplier", "CurseFeverMultiplier", "SpecialAttackDamageMultiplier",
             "EnemiesInNextRoomHaveModifiers", "EnemiesDropGoldDuringRun", "EnemiesDropBombOnDeath", "NoRollInNextCombatRoom", "NoHeartDrops",
             "NextChestGold", "CurrentRoomCoordinates", "RoomVariant", "TakenBossDamage", "RedHeartsTemporarilyRemoved", "BlackSouls",
-            "BlackSoulTarget", "PlayerEaten_COOP", "WorldMapCurrentSelection", "PlayerDeathDay"
+            "BlackSoulTarget", "PlayerEaten_COOP", "WorldMapCurrentSelection", "PlayerDeathDay",
+            /* Which DLCs the save has is the host's Steam ownership: a friend's game sets them by its own
+               (GameManager drops MAJOR_DLC outright for a game without Woolhaven), and that never goes back */
+            "MAJOR_DLC", "DLC_Pre_Purchase", "DLC_Cultist_Pack", "DLC_Heretic_Pack", "DLC_Sinful_Pack", "DLC_Pilgrim_Pack"
         };
         private static readonly string[] NotCultStarts = { "dungeon", "DUNGEON_", "PLAYER_", "COOP_PLAYER_", "Twitch", "playerDeaths", "CurrentRun", "ChoreXP" };
         private static readonly string[] NotCultEnds = { "ThisRun", "OnRun", "Run" };

@@ -60,6 +60,28 @@ namespace COTLMP.Debug
             }
         }
 
+        /* -cotlmp-nowoolhaven: a friend without Woolhaven, only while in the host's game (there the game's own DLC check
+           runs on the host's save); off again at once anywhere else, so the player's own save is never checked so */
+        private static IEnumerator WithoutWoolhaven()
+        {
+            bool Told = false;
+            while (true)
+            {
+                bool InHosts = HostSave.Playing && !Plugin.GlobalsInternal.IsServerCreator;
+                if (CheatConsole.MAJOR_DLC_DISABLED != InHosts)
+                {
+                    CheatConsole.MAJOR_DLC_DISABLED = InHosts;
+                    Plugin.Logger?.LogWarning($"{Tag} Woolhaven taken as not owned: {InHosts}");
+                }
+                if (!InHosts && !Told && (Plugin.GlobalsInternal.IsServerCreator || PlayerFarming.Instance != null))
+                {
+                    Told = true;
+                    Plugin.Logger?.LogError($"{Tag} -cotlmp-nowoolhaven works only for a friend in the host's game: not here");
+                }
+                yield return null;
+            }
+        }
+
         /* What the save has of the DLCs, the things the game takes away from a save whose DLC isn't owned
            (DataManager.Deactivate*DLC); it only reads */
         private static IEnumerator WatchDlc()
