@@ -14,18 +14,19 @@ happened in co-op and alone too, for anyone who had the mod installed, and the n
 saves on its own) made it stay. In co-op a friend without a DLC could also take the host's DLC
 things away from the host's save. Now the game checks your DLCs with Steam itself, as without the
 mod, and a friend playing in your game never changes your save's DLCs, neither taking them away nor
-adding their own.
+adding their own. A friend still on 0.9.3 can still take your DLC things out of your save: have them
+update before you play together.
 
 **If you own a DLC and played with the mod before 0.9.4:** what was taken away doesn't come back by
 itself. When the game sees you own a DLC again it gives back the packs' skins, buildings, outfits
 (at the next load) and fleece, though the fleece you wore is back to the plain one; of Woolhaven
 only the access comes back, not the land you bought and the expansion progress, the followers'
 marriages, the wedding ritual, the DLC shrine's decorations and the offerings to Yngya. Older copies
-of a save may still have them: the game itself keeps a few in the backup folder next to its saves
-folder (slot_N.1.mp to slot_N.5.mp), and the mod keeps copies only before a co-op game (in the
-cotlmp-backups folder next to the game's saves). Either can be from after the loss, so check their
-dates; a copy from before you first played with the mod is the safe one. Steam Cloud keeps only the
-latest save. We're sorry.
+of a save may still have them: the game itself keeps the last 10 in the backup folder next to its
+saves folder (slot_N.<number>.mp, the highest number the newest), and the mod keeps copies only
+before a co-op game (in the cotlmp-backups folder next to the game's saves). Either can be from
+after the loss, so check their dates; a copy from before you first played with the mod is the safe
+one. Steam Cloud keeps only the latest save. We're sorry.
 
 **A long Steam name no longer keeps you out.** The server takes a name of up to 35 bytes, so 18
 Cyrillic letters, 12 Chinese or Japanese ones or 9 emoji were too many: such a player could neither
@@ -41,17 +42,21 @@ installed.
 **A new Discord invite** that doesn't run out: the log button and the menu's "Bugs and ideas" lead
 to it (the old one runs out on 25 November).
 
-**Tested** on this release's build (two copies of the game on one PC, a loopback stand-in for Steam,
-the host on copies of a save given the DLCs): DLCs in co-op with the host owning them and the friend
-not, and alone, saved and loaded again, kept as the player's own Steam ownership says; a dungeon
-run. On a development build with the same code: on 0.9.3 such a save lost the land, the expansion
-and the marriages and kept that after a save; the other way round in co-op (the friend owning, the
-host not); the fitted names and the server taking them (the server's own checks); the Twitch keys (a
-friend's copy of a test save had none, without the change it had them); a made-up partner version
-taken as unknown.
+**Tested** on this release's package (two copies of the game on one PC, a loopback stand-in for
+Steam, copies of a test save with the DLCs, on a Steam account owning Woolhaven and not the packs):
+alone, saved and loaded again: Woolhaven's land, the expansion and the marriages kept; in co-op with
+the host owning Woolhaven and the friend's game taken as not owning it: the host's save kept them
+after a save and a new load; a dungeon run; the update in the game from 0.9.3 to this release. On
+0.9.3's own package such a save lost the land, the expansion and the marriages and kept that after a
+save. On a development build with the same code: the same co-op test without the fix, where the
+host's save got Woolhaven marked as not owned within a minute; a friend's game made to take the
+packs as owned left the host's save without them; the fitted names and the server taking them (the
+server's own checks); the Twitch keys (a friend's copy of a test save had none, without the change
+it had them); a made-up partner version taken as unknown.
 
-**Not tested:** real two-account Steam play; a long name in a real game of two; a real DLC owner's
-save with real Woolhaven progress (only a test save marked so).
+**Not tested:** real two-account Steam play; a friend who really doesn't own Woolhaven (only taken
+so by a test switch); the packs really owned; a long name in a real game of two; a real DLC owner's
+save with real Woolhaven progress (only a test save given it).
 
 **Known issues:**
 - In the cult the friend sometimes has only the hearts, without the faith circle and the hunger bar.
@@ -64,8 +69,10 @@ save with real Woolhaven progress (only a test save marked so).
   after it aren't checked. The crown's pyre and the Deal aren't tested in online co-op.
 - In the final fight the great form's eyes don't die on the friend's side; the fight still plays
   through to the end for both.
-- The friend can still get stuck after a scene (black bars, no HUD). Then press the log button in
-  the pause menu and send us the log.
+- The friend can still get stuck after a scene (black bars, no HUD). Then send us
+  BepInEx\LogOutput.log from the game's folder before starting the game again.
+- In a dungeon the mod can open a room's doors by itself, for example in the room you enter after
+  picking the next stop on the map.
 - Reported, not yet checked or fixed: shared progress can break; if the host leaves the lobby, the
   friend's menu can hang; a talk with a follower breaks if both players are in it.
 
@@ -76,18 +83,21 @@ save with real Woolhaven progress (only a test save marked so).
 - A friend coming back can now and then lose their chore level, experience and extra hearts (found
   in the code, not seen in our runs).
 - A host left alone in a dungeon who falls stays knocked out instead of getting the death screen.
+- After the game brings a player back (the crown's pyre, the Deal, the corrupted monolith) the mod
+  takes them as dead until the run ends: the partner sees their hearts empty, and the partner's fall
+  is game over at once.
 
 <!-- discord-ru
-**Важно владельцам DLC.** До 0.9.3 включительно мод говорил игре, что DLC не куплены, и при каждой загрузке сейва игра убирала из него то, что дают DLC: землю Woolhaven и прогресс расширения, браки последователей, скины, постройки, одежду и руно паков. Это было и в коопе, и в одиночной игре с установленным модом, а после автосейва оставалось навсегда; в коопе друг без DLC мог так же урезать сейв хоста. В 0.9.4 DLC проверяет сама игра через Steam, а друг в вашей игре DLC вашего сейва не меняет.
-Если вы владеете DLC и играли с модом до 0.9.4: потерянное само не вернётся. Скины, постройки, одежду (на следующей загрузке) и руно паков игра выдаст снова, но выбранное руно сбросится на обычное; от Woolhaven вернётся только доступ, но не купленная земля и прогресс расширения, браки последователей, свадебный ритуал, декорации святилища DLC и подношения Yngya. Старые копии сейва могут ещё их хранить: игра сама держит несколько в папке backup рядом с папкой saves (slot_N.1.mp–slot_N.5.mp), а мод делает копии только перед кооп-игрой (папка cotlmp-backups). И те и другие могут быть уже после потери — смотрите даты; надёжна копия от времени до первой игры с модом. Steam Cloud хранит только последнюю версию сейва. Нам очень жаль.
+**Важно владельцам DLC.** До 0.9.3 включительно мод говорил игре, что DLC не куплены, и при каждой загрузке сейва игра убирала из него то, что дают DLC: землю Woolhaven и прогресс расширения, браки последователей, скины, постройки, одежду и руно паков. Это было и в коопе, и в одиночной игре с установленным модом, а после автосейва закреплялось в сейве; в коопе друг без DLC мог так же урезать сейв хоста. В 0.9.4 DLC проверяет сама игра через Steam, а друг в вашей игре DLC вашего сейва не меняет. Друг на 0.9.3 всё ещё может убрать из вашего сейва то, что дают DLC: пусть обновится до совместной игры.
+Если вы владеете DLC и играли с модом до 0.9.4: потерянное само не вернётся. Скины, постройки, одежду (на следующей загрузке) и руно паков игра выдаст снова, но выбранное руно сбросится на обычное; от Woolhaven вернётся только доступ, но не купленная земля и прогресс расширения, браки последователей, свадебный ритуал, декорации святилища DLC и подношения Yngya. Старые копии сейва могут ещё их хранить: игра сама держит 10 последних в папке backup рядом с папкой saves (slot_N.<номер>.mp, чем больше номер, тем новее), а мод делает копии только перед кооп-игрой (папка cotlmp-backups). И те и другие могут быть уже после потери — смотрите даты; надёжна копия от времени до первой игры с модом. Steam Cloud хранит только последнюю версию сейва. Нам очень жаль.
 Ещё: длинное имя Steam больше не мешает войти и хостить; ключи Twitch хоста не уходят другу с сейвом; обновление только до настоящей версии; новое бессрочное приглашение в Discord.
 Известное: выход кнопкой игры «Главное меню» не завершает онлайн-сессию, и потом своя игра друга не сохраняется до перезапуска — выходите кнопкой мода в паузе или перезапустите игру перед одиночной.
 Обоим игрокам нужно установить 0.9.4.
 Если Windows (Smart App Control) не даёт запустить установщик — используйте install.cmd из архива cotl-coop-anything-0.9.4.zip (см. страницу вики «Это безопасно»).
 -->
 <!-- discord-en
-**Important for DLC owners.** Up to 0.9.3 the mod told the game no DLC was owned, and each time a save loaded the game took the DLCs' things out of it: the Woolhaven land and expansion progress, the followers' marriages, the packs' skins, buildings, outfits and fleece. This happened in co-op and alone with the mod installed, and stayed after the game's next save; in co-op a friend without a DLC could do the same to the host's save. In 0.9.4 the game checks your DLCs with Steam itself, and a friend in your game never changes your save's DLCs.
-If you own a DLC and played with the mod before 0.9.4: what was taken doesn't come back by itself. The packs' skins, buildings, outfits (next load) and fleece come back, the worn fleece back to the plain one; of Woolhaven only the access, not the land, the expansion progress, the marriages, the wedding ritual, the DLC shrine's decorations and the offerings to Yngya. Older copies may still have them: the game keeps a few in the backup folder next to its saves (slot_N.1.mp to slot_N.5.mp), and the mod's copies (cotlmp-backups) are made only before a co-op game. Either can be from after the loss: check the dates; a copy from before you first played with the mod is the safe one. Steam Cloud keeps only the latest save. We're sorry.
+**Important for DLC owners.** Up to 0.9.3 the mod told the game no DLC was owned, and each time a save loaded the game took the DLCs' things out of it: the Woolhaven land and expansion progress, the followers' marriages, the packs' skins, buildings, outfits and fleece. This happened in co-op and alone with the mod installed, and stayed after the game's next save; in co-op a friend without a DLC could do the same to the host's save. In 0.9.4 the game checks your DLCs with Steam itself, and a friend in your game never changes your save's DLCs. A friend still on 0.9.3 can still take your DLC things out of your save: have them update before you play together.
+If you own a DLC and played with the mod before 0.9.4: what was taken doesn't come back by itself. The packs' skins, buildings, outfits (next load) and fleece come back, the worn fleece back to the plain one; of Woolhaven only the access, not the land, the expansion progress, the marriages, the wedding ritual, the DLC shrine's decorations and the offerings to Yngya. Older copies may still have them: the game keeps the last 10 in the backup folder next to its saves (slot_N.<number>.mp, the highest number the newest), and the mod's copies (cotlmp-backups) are made only before a co-op game. Either can be from after the loss: check the dates; a copy from before you first played with the mod is the safe one. Steam Cloud keeps only the latest save. We're sorry.
 Also: a long Steam name no longer keeps you out; the host's Twitch keys don't go to the friend with the save; an update only to a real version; a new Discord invite that doesn't run out.
 Known: leaving with the game's own Main Menu button doesn't end the online session, and the friend's own game then doesn't save until a restart: leave with the mod's button in the pause menu, or restart the game before playing alone.
 Both players need 0.9.4.
