@@ -100,7 +100,7 @@ namespace COTLMP.Network
         /// </summary>
         private static IEnumerator Read(string Tag, Action<string> Done)
         {
-            using UnityWebRequest Request = UnityWebRequest.Get(ReleaseFrom ?? (Tag == null ? Api + "/latest" : $"{Api}/tags/v{Tag}"));
+            using UnityWebRequest Request = UnityWebRequest.Get(ReleaseFrom ?? (Tag == null ? Api + "/latest" : $"{Api}/tags/v{Uri.EscapeDataString(Tag)}"));
             Request.SetRequestHeader("User-Agent", "CotlCoopAnything/" + Data.Version.CotlMpVer);
             Request.SetRequestHeader("Accept", "application/vnd.github+json");
             Request.timeout = 15;
@@ -211,9 +211,15 @@ namespace COTLMP.Network
         private static IEnumerator TakeVersionNow(string Wanted, ulong Rejoin, Action Failed)
         {
             string Found = null;
-            yield return Read(Wanted, Tag => Found = Tag);
-            if (Found == null)
+            /* Only a version that names a release, and only that release: a different tag back takes nothing */
+            if (COTLMPServer.Data.ModVersionText.IsValid(Wanted))
+                yield return Read(Wanted, Tag => Found = Tag);
+            if (Found == null || Found != Wanted)
+            {
+                if (Found != null)
+                    Plugin.Logger?.LogWarning($"[UPDATE] Asked for release {Wanted}, GitHub gave {Found}: not taken");
                 InstallerUrl = PackageUrl = null;
+            }
             yield return Install(Wanted, Rejoin, Failed);
         }
 

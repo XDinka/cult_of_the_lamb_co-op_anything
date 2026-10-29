@@ -65,8 +65,14 @@ namespace COTLMP.Game
         internal static void OnVersion(BinaryReader Reader)
         {
             string Theirs = Reader.ReadString();
+            /* Only a version that can name a release: anything else is an unknown one (no update to it) */
+            if (!COTLMPServer.Data.ModVersionText.IsValid(Theirs))
+            {
+                Plugin.Logger?.LogWarning($"[COOP] The partner's mod version doesn't read as one ({Theirs?.Length ?? 0} characters): taken as unknown");
+                Theirs = null;
+            }
             Partner = Theirs;
-            Plugin.Logger?.LogInfo($"[COOP] The partner's mod is {Theirs}, ours {Ours}");
+            Plugin.Logger?.LogInfo($"[COOP] The partner's mod is {Theirs ?? "unknown"}, ours {Ours}");
             if (!Plugin.GlobalsInternal.IsServerCreator)
                 return;
 
@@ -79,7 +85,8 @@ namespace COTLMP.Game
             {
                 try
                 {
-                    NotificationCentre.Instance?.PlayGenericNotificationNonLocalizedParams("Multiplayer/Version/FriendHas", Theirs, Ours);
+                    NotificationCentre.Instance?.PlayGenericNotificationNonLocalizedParams("Multiplayer/Version/FriendHas",
+                        Theirs ?? LocalizationManager.GetTranslation("Multiplayer/Version/Unknown"), Ours);
                 }
                 catch (Exception e)
                 {
@@ -168,6 +175,11 @@ namespace COTLMP.Game
             string Theirs = Reader.ReadString();
             if (!Plugin.GlobalsInternal.IsServerCreator)
                 return;
+            if (!COTLMPServer.Data.ModVersionText.IsValid(Theirs))
+            {
+                Plugin.Logger?.LogWarning($"[COOP] The friend asks us to update to a version that doesn't read as one ({Theirs?.Length ?? 0} characters): not offered");
+                return;
+            }
             Plugin.Logger?.LogInfo($"[COOP] The friend asks us to update to {Theirs} (ours {Ours})");
             string Lines = string.Format(LocalizationManager.GetTranslation("Multiplayer/Version/FriendLines"), Theirs, Ours) + "\n\n" +
                            LocalizationManager.GetTranslation("Multiplayer/Version/HostUpdate");

@@ -43,6 +43,12 @@ namespace ServerChecks
             A.Connect(At);
             B.Connect(At);
 
+            /* A partner's mod version names a release only when it is digits and dots */
+            foreach (string Good in new[] { "0.9.3", "0.10.12", "1.0", "1.2.3.4" })
+                Check($"the version {Good} is taken", ModVersionText.IsValid(Good));
+            foreach (string Bad in new[] { "9-/../x", "../../repos/x", "", null, "0.9.3 ", "v0.9.3", "1", "1.2.3.4.5", "12345.1", new string('1', 50), "0.9.3?x=1", "0.9.3/../0.9.2", "0.9.3\n", "٠.٩.٣" })
+                Check($"the version '{Bad}' is refused", !ModVersionText.IsValid(Bad));
+
             /* Names the server takes, whatever the Steam name: cut by UTF-8 bytes at whole characters */
             Check("an empty name is Player", HandshakeClient.FitName("  ") == "Player" && HandshakeClient.FitName(null) == "Player");
             Check("a short name stays", HandshakeClient.FitName(" Валя ") == "Валя");
