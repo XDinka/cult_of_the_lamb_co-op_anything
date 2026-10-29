@@ -242,7 +242,7 @@ namespace COTLMP.Debug
                     continue;
 
                 /* Make the host's save differ from the joining one (in memory only, test copies) */
-                if (!Unlocked && Plugin.GlobalsInternal.IsServerCreator && Plugin.GlobalsInternal.InGameSession)
+                if (!Unlocked && Plugin.GlobalsInternal.IsServerCreator && Plugin.GlobalsInternal.InGameSession && OnTestSave("-cotlmp-drawtest"))
                 {
                     Unlocked = true;
                     foreach (TarotCards.Card Card in DataManager.AllTrinkets)
@@ -316,6 +316,14 @@ namespace COTLMP.Debug
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             /* Both standing in the room before either changes anything */
             yield return new WaitForSecondsRealtime(3f);
+            if (!OnTestSave("-cotlmp-bosstest"))
+                yield break;
+            /* The DLC's lands (5 and 6) only for a game that owns the DLC */
+            if (Land >= 5 && !GameManager.AuthenticateMajorDLC())
+            {
+                Plugin.Logger?.LogError($"{Tag} Boss test: land {Land} is the DLC's, and this game doesn't own it: left out");
+                yield break;
+            }
             MMBiomeGeneration.BiomeGenerator Generator = MMBiomeGeneration.BiomeGenerator.Instance;
             /*
              * A layer's guardian (layers 1 to 3: the land's one guardian room, whose guardian goes by the layer) or
@@ -432,6 +440,8 @@ namespace COTLMP.Debug
             yield return Until(() => Plugin.GlobalsInternal.InGameSession && PlayerFarming.Instance != null && AnyRemotePlayer() && !MMTransition.IsPlaying, 400f);
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 6f : 10f);
+            if (!OnTestSave("-cotlmp-finaltest"))
+                yield break;
             Plugin.Logger?.LogWarning($"{Tag} Final test: through the chained door");
             GameManager.NewRun("", false);
             MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Dungeon Final", 1f, "", null);
@@ -714,6 +724,8 @@ namespace COTLMP.Debug
                 ++Failed;
                 yield break;
             }
+            if (!OnTestSave("-cotlmp-fleece"))
+                yield break;
             DataManager.Instance.PlayerFleece = Fleece;
             Plugin.Logger?.LogWarning($"{Tag} Fleece test: fleece {Fleece}, free tarot cards {PlayerFleeceManager.GetFreeTarotCards()}");
             yield return Until(() => SceneManager.GetActiveScene().name == DungeonScene && PlayerFarming.Instance != null, 300f);

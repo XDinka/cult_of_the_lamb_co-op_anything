@@ -408,6 +408,8 @@ namespace COTLMP.Debug
                 yield return new WaitForSecondsRealtime(1f);
                 if (!COTLMP.Game.CoopSync.InSession || PlayerFarming.Instance == null || MMTransition.IsPlaying)
                     continue;
+                if (!TestHarness.OnTestSave("-cotlmp-geartest"))
+                    yield break;
 
                 /* The host saves a while after the friend's character came, so it is written with the save */
                 if (Plugin.GlobalsInternal.IsServerCreator)

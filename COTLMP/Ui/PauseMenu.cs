@@ -228,9 +228,17 @@ namespace COTLMP.Ui
         /// Starts the integrated server, connects the host to it and opens it to Steam friends.
         /// </summary>
         /// <returns>Returns true if the server was started, false otherwise.</returns>
-        internal static bool StartHosting()
+        internal static bool StartHosting(int Slot = -1)
         {
             IPEndPoint LanPoint;
+
+            /* The loopback stand-in for Steam is the test stand: there the host's game is only ever the hidden
+               slot 6, so test steps on the friend's side (which reach the host's save) never touch a player's own */
+            if (COTLMP.Network.SteamBridge.IsFake && (Slot >= 0 ? Slot : SaveAndLoad.SAVE_SLOT) != 6)
+            {
+                Plugin.Logger?.LogError($"[COOP] The loopback stand-in hosts only the hidden test slot 6, not slot {(Slot >= 0 ? Slot : SaveAndLoad.SAVE_SLOT)}: not hosting");
+                return false;
+            }
 
             try
             {

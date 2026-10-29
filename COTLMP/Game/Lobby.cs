@@ -97,7 +97,7 @@ namespace COTLMP.Game
             SaveLine = New ? LocalizationManager.GetTranslation("Multiplayer/Lobby/NewGame") : SlotLine(SaveSlot);
 
             SteamBridge.InviteOnOpen = false;
-            bool Started = PauseMenuPatches.StartHosting();
+            bool Started = PauseMenuPatches.StartHosting(SaveSlot);
             SteamBridge.InviteOnOpen = true;
             if (!Started)
             {

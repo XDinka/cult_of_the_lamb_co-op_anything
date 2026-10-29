@@ -126,6 +126,8 @@ namespace COTLMP.Debug
                 yield return null;
             yield return new WaitForSecondsRealtime(10f);
 
+            if (!OnTestSave("-cotlmp-foxtest"))
+                yield break;
             /* Night first (the friend's clock follows the host's), with followers for a deal */
             if (Plugin.GlobalsInternal.IsServerCreator)
             {
@@ -172,6 +174,8 @@ namespace COTLMP.Debug
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 8f : 2f);
+            if (!OnTestSave("-cotlmp-recruittest"))
+                yield break;
             Vector3 Gate = PlayerFarming.Instance.transform.position + new Vector3(2.5f, 0f);
             FollowerRecruit Recruit = null;
             if (Host)
@@ -236,6 +240,8 @@ namespace COTLMP.Debug
                    (!Plugin.GlobalsInternal.IsServerCreator && !HostSave.Playing))
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
+            if (!OnTestSave("-cotlmp-templetest"))
+                yield break;
             Run("LogTemple", LogTemple());
             Run("CloseTutorials", CloseTutorials());
 
@@ -394,6 +400,8 @@ namespace COTLMP.Debug
                 yield return null;
             bool Host = Plugin.GlobalsInternal.IsServerCreator;
             yield return new WaitForSecondsRealtime(Host ? 10f : 25f);
+            if (!OnTestSave("-cotlmp-culttest"))
+                yield break;
             Vector3 Here = PlayerFarming.Instance.transform.position;
 
             if (Host)

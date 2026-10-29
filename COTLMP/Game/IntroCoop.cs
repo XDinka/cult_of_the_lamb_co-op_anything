@@ -288,6 +288,9 @@ namespace COTLMP.Game
                 while (SceneManager.GetActiveScene().name != "Game Biome Intro" || MMTransition.IsPlaying)
                     yield return null;
                 yield return new WaitForSecondsRealtime(SkipTo);
+                /* It moves a new save's story on: only a test save */
+                if (!COTLMP.Debug.TestHarness.OnTestSave("-cotlmp-skipintro"))
+                    yield break;
                 IntroManager Intro = UnityEngine.Object.FindObjectOfType<IntroManager>();
                 if (Intro != null && !CrownedHere)
                 {

@@ -188,6 +188,22 @@ namespace COTLMP.Debug
         /// </summary>
         private static Coroutine Run(string Name, IEnumerator Step) => Plugin.MonoInstance.StartCoroutine(Guard(Name, Step));
 
+        /* Test steps refused because they would change a player's save, each told once */
+        private static readonly HashSet<string> RefusedOnSave = new();
+
+        /// <summary>
+        /// A test step that changes the save (gives items, unlocks, builds, moves the story on) goes ahead only on a
+        /// test save: our own game in the hidden slot 6, or a friend's game on the loopback stand-in for Steam, whose
+        /// host is held to slot 6 there (PauseMenuPatches.StartHosting). A player's own save is never touched.
+        /// </summary>
+        internal static bool OnTestSave(string Switch)
+        {
+            bool Test = COTLMP.Game.HostSave.Playing ? COTLMP.Network.SteamBridge.IsFake : SaveAndLoad.SAVE_SLOT == 6;
+            if (!Test && RefusedOnSave.Add(Switch))
+                Plugin.Logger?.LogError($"{Tag} {Switch} changes the save: only the hidden test slot 6 (or a friend on the loopback stand-in), not slot {SaveAndLoad.SAVE_SLOT}: left out");
+            return Test;
+        }
+
         private static IEnumerator Guard(string Name, IEnumerator Step)
         {
             while (true)
