@@ -28,6 +28,38 @@ namespace COTLMP.Debug
 {
     internal static partial class TestHarness
     {
+        /* The cult's HUD as each side has it: the faith circle and the hunger bar (shown when their container is up and their
+           canvas not faded: the game fades the circle out while there are no followers), the flags and the flock; a frame each time */
+        private static IEnumerator WatchCamp()
+        {
+            /* With runs in a row, the cult is looked at once back from a run */
+            bool Back = DeathRuns == 0;
+            float Since = Time.unscaledTime;
+            for (int Look = 0; Look < 12 && Time.unscaledTime - Since < 600f;)
+            {
+                yield return new WaitForSecondsRealtime(15f);
+                Back |= GameManager.IsDungeon(PlayerFarming.Location);
+                if (!Back || PlayerFarming.Location != FollowerLocation.Base || PlayerFarming.Instance == null || HUD_Manager.Instance == null || MMTransition.IsPlaying)
+                    continue;
+                ++Look;
+                /* A notice of the game's own on top (as the one-life mode's, after the end) is read and accepted, as a player would */
+                foreach (src.UI.UIMenuConfirmationWindow Notice in UnityEngine.Object.FindObjectsOfType<src.UI.UIMenuConfirmationWindow>())
+                {
+                    string Header = (AccessTools.Field(typeof(src.UI.UIMenuConfirmationWindow), "_headerText")?.GetValue(Notice) as TMPro.TextMeshProUGUI)?.text;
+                    Plugin.Logger?.LogWarning($"{Tag} Camp: the game's notice '{Header}' up, accepting it");
+                    Shot($"camp-notice-{Look}");
+                    (AccessTools.Field(typeof(src.UI.UIMenuConfirmationWindow), "_confirmButton")?.GetValue(Notice) as MMButton)?.onClick.Invoke();
+                }
+                CultFaithManager Faith = UnityEngine.Object.FindObjectOfType<CultFaithManager>(true);
+                HungerBar Hunger = UnityEngine.Object.FindObjectOfType<HungerBar>(true);
+                Plugin.Logger?.LogWarning($"{Tag} Camp {Look}: hud hidden {HUD_Manager.Instance.Hidden}" +
+                    $", faith circle {(Faith == null ? "none" : $"container {Faith.Container?.activeInHierarchy} alpha {Faith.CanvasGroup?.alpha:F2}")} flag {DataManager.Instance.ShowCultFaith}" +
+                    $", hunger {(Hunger == null ? "none" : $"container {Hunger.Container?.activeInHierarchy} alpha {Hunger.CanvasGroup?.alpha:F2}")} flag {DataManager.Instance.ShowCultHunger}" +
+                    $", followers {DataManager.Instance.Followers.Count}, players {PlayerFarming.players.Count}");
+                Shot($"camp-{Look}");
+            }
+        }
+
         private static IEnumerator MeetFox()
         {
             while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)

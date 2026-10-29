@@ -59,6 +59,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-ingameupdate=N</c>, <c>-cotlmp-updatechoice=lobby|game|later</c>: N s into a game the update (from -cotlmp-updatefrom) is taken and that way of putting it in picked</item>
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
     /// <item><c>-cotlmp-followthrow</c>: the enemy follow loop's next round throws once (it must be logged, counted and go on)</item>
+    /// <item><c>-cotlmp-campprobe</c>: in the cult, every 15 s log the faith circle's and the hunger bar's state (container, fade), the flags and the flock, and save a frame</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-hudtrace</c>: log every time the HUD is hidden or shown, with who asked</item>
     /// <item><c>-cotlmp-dieonrevive</c>: with the other copy's -cotlmp-autodie, we die halfway through getting them up (both down test)</item>
@@ -114,6 +115,7 @@ namespace COTLMP.Debug
         private static float AutoTalk;
         private static bool AutoShoot;
         private static bool ChatTest, FinalTest;
+        private static bool CampProbe;
         /* -cotlmp-scenetest=chain|scene|leave: at its second line the host's talk is replaced by the next one
            (never closed), or the host goes to another scene, or the host ends the session; =hold: the host's
            talk starts in the next room before the friend is in */
@@ -345,6 +347,8 @@ namespace COTLMP.Debug
                     HudBreak = true;
                 else if (Arg.Equals("-cotlmp-followthrow", StringComparison.OrdinalIgnoreCase))
                     COTLMP.Game.RoomSync.FollowThrow = true;
+                else if (Arg.Equals("-cotlmp-campprobe", StringComparison.OrdinalIgnoreCase))
+                    CampProbe = true;
                 else if (Arg.StartsWith("-cotlmp-scenequiet=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-scenequiet=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SceneQuiet);
                 else if (Arg.StartsWith("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))
@@ -437,6 +441,8 @@ namespace COTLMP.Debug
                 Run("PlayAttacks", PlayAttacks());
             if (CultTest)
                 Run("ChangeCult", ChangeCult());
+            if (CampProbe)
+                Run("WatchCamp", WatchCamp());
             if (TempleTest)
                 Run("TempleRun", TempleRun());
             if (SceneTest)
