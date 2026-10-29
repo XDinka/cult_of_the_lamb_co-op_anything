@@ -25,6 +25,7 @@ import json, os, sys, zipfile
 bin, out, version, contract, bepinex, cotlapi = sys.argv[1:]
 files = {"COTLMP.bin": "COTLMP.dll", "COTLMP.pdb": "COTLMP.pdb",
          "COTLMPServer.bin": "COTLMPServer.dll", "COTLMPServer.pdb": "COTLMPServer.pdb"}
+# tools/release.py checks MOD.zip's manifest.json is exactly these keys and values: a new key needs it too
 manifest = {"version": version, "loader": int(contract), "bepinex": bepinex, "cotlapi": cotlapi}
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     z.writestr("manifest.json", json.dumps(manifest, indent=2))
