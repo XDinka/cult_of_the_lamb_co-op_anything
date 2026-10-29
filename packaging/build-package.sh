@@ -29,6 +29,11 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 if [ -z "${ALLOW_DIRTY:-}" ] && [ -n "$(git -C "$SRC" status --porcelain --untracked-files=no)" ]; then
     echo "Uncommitted changes in $SRC: commit the version first, then build (ALLOW_DIRTY=1 for checks only)"; exit 1
 fi
+# The SDK projects compile every .cs file in their folders, committed or not
+if [ -z "${ALLOW_DIRTY:-}" ] && [ -n "$(git -C "$SRC" ls-files --others --exclude-standard -- '*.cs')" ]; then
+    echo "Files not in git would be built in: $(git -C "$SRC" ls-files --others --exclude-standard -- '*.cs' | tr '
+' ' ')"; exit 1
+fi
 HEAD=$(git -C "$SRC" rev-parse HEAD)
 mkdir -p "$REL"
 # Nothing of an earlier build may end up in the package
