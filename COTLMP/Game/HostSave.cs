@@ -236,15 +236,26 @@ namespace COTLMP.Game
         {
             byte[] Save, Meta;
             CultSync.OnSaveSent();
+            /* The host's Twitch keys are the host's own: they are out of the save while it is packed (on this
+               thread, nothing saves in between) and back right after; the friend's game gets none to connect with */
+            DataManager Data = DataManager.Instance;
+            string TwitchToken = Data.TwitchToken, TwitchSecretKey = Data.TwitchSecretKey, ChannelID = Data.ChannelID;
             try
             {
-                Save = Pack(typeof(DataManager), DataManager.Instance);
-                Meta = Pack(typeof(MetaData), DataManager.Instance.MetaData);
+                Data.TwitchToken = Data.TwitchSecretKey = Data.ChannelID = null;
+                Save = Pack(typeof(DataManager), Data);
+                Meta = Pack(typeof(MetaData), Data.MetaData);
             }
             catch (Exception Error)
             {
                 Plugin.Logger?.LogError($"[COOP] Can't pack our save for player {From}: {Error}");
                 return;
+            }
+            finally
+            {
+                Data.TwitchToken = TwitchToken;
+                Data.TwitchSecretKey = TwitchSecretKey;
+                Data.ChannelID = ChannelID;
             }
 
             /* Both in one stream: the meta data (difficulty) is a file of its own in the game */
