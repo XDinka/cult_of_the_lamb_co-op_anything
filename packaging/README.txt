@@ -1,4 +1,4 @@
-Cult of the Lamb Co-op Anything 0.9.2: онлайн-кооператив через Steam (предрелиз)
+Cult of the Lamb Co-op Anything 0.9.3: онлайн-кооператив через Steam (предрелиз)
 ==================================================================================
 (English below)
 
@@ -150,7 +150,7 @@ github.com/XDinka/cult_of_the_lamb_co-op_anything
 
 
 ==================================================================================
-Cult of the Lamb Co-op Anything 0.9.2: online co-op over Steam (pre-release)
+Cult of the Lamb Co-op Anything 0.9.3: online co-op over Steam (pre-release)
 ==================================================================================
 
 github.com/XDinka/cult_of_the_lamb_co-op_anything

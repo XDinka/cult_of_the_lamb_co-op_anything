@@ -3,6 +3,58 @@
 Every release is on the [releases page](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases)
 with its installer. Both players need the same version.
 
+## 0.9.3 (2026-10-29)
+
+Both players need this version. An urgent fix.
+
+**The friend's enemies keep following the host.** In a shared room the enemies of whoever came in
+second (usually the friend) follow those of whoever came in first (usually the host). When the mod
+took away the friend's copy of an enemy the host's game no longer had, and that death brought the
+next enemy in (a boss's next stage, a brood), the part of the mod that moves the enemies broke and
+stayed broken: for the rest of the game the friend's enemies no longer followed the host's, until
+the game was restarted. This could be one of the causes of "the final boss breaks": in our test of
+the final fight on 0.9.2 it happened on the friend's side when the first guardian died. Now such a
+death no longer breaks it.
+
+**And if it ever breaks again, it goes on.** A fault there is written to the log with where it
+happened and the enemies keep following from the next frame, instead of stopping for the whole game.
+
+**Tested** on this release's build (two copies of the game on one PC, a loopback stand-in for Steam,
+the host on a copy of a real save): a dungeon with the host killing and the friend following, with
+enemies taken away on the friend's side by the part that moves them and no unhandled errors in the
+mod; a fault made on purpose was logged once and the enemies went on following.
+
+**Not tested:** a death that brings the next enemy in (a boss's stage, a brood) on this build; the
+host as the one following (in a room the friend entered first); real two-account Steam play.
+
+**Known issues:**
+- In the cult the friend sometimes has only the hearts, without the faith circle and the hunger bar;
+  going out of the cult and back in helps. The cause isn't found yet.
+- The game's ways back from death: coming back from the corrupted monolith (after the final boss)
+  was checked on a 0.9.2 build by the logs on both sides; the partner's figure and the run's clock
+  after it aren't checked. The crown's pyre and the Deal aren't tested in online co-op.
+- In the final fight the great form's eyes don't die on the friend's side; the fight still plays
+  through to the end for both.
+- In a dungeon leader's room the room can open and its chest appear while the leader is still
+  talking.
+- The friend can still get stuck after a scene (black bars, no HUD). Then press the log button in
+  the pause menu and send us the log.
+- Reported, not yet checked or fixed: shared progress can break; if the host leaves the lobby, the
+  friend's menu can hang; a talk with a follower breaks if both players are in it.
+
+<!-- discord-ru
+**Срочное обновление: враги у друга снова следуют за хостом.** Если мод убирал у друга врага, которого у хоста уже не было, и после него появлялся следующий (стадия босса, выводок), враги у друга переставали двигаться за хостом до перезапуска игры. Возможно, это одна из причин «ломается финальный босс». Исправлено и проверено в подземелье; стадия босса на этой сборке ещё не проверена. Если такое случится снова, синхронизация не остановится, а продолжит со следующего кадра.
+Обоим игрокам нужна эта версия.
+Известное: в культе у друга бывают только сердца, без круга веры и шкалы голода (помогает перезайти в культ); возврат через монолит после финала проверен только по логам на 0.9.2 (кукла напарника и часы забега после него не проверены), костёр и «Сделка» в онлайн-коопе не проверены; у друга в финале не умирают глаза босса, бой при этом доходит до конца; в комнате лидера подземелья комната может открыться и сундук появиться, пока лидер ещё говорит; если друг застрял после сцены — кнопка лога в паузе, пришлите лог. Сообщали, ещё не проверено и не исправлено: может ломаться общая прогрессия; если хост выходит из лобби, у друга может зависнуть меню; разговор с последователем ломается, если в нём оба.
+Если Windows (Smart App Control) не даёт запустить установщик — используйте install.cmd из архива cotl-coop-anything-0.9.3.zip (см. страницу вики «Это безопасно»).
+-->
+<!-- discord-en
+**Urgent fix: the friend's enemies follow the host again.** When the mod took away the friend's copy of an enemy the host no longer had and that brought the next one in (a boss's stage, a brood), the friend's enemies stopped following the host until the game was restarted. This could be one of the causes of "the final boss breaks". Fixed and checked in a dungeon; a boss's stage on this build isn't tested yet. Should it happen again, the syncing goes on from the next frame instead of stopping.
+Both players need this version.
+Known: in the cult the friend sometimes has only the hearts, without the faith circle and the hunger bar (going back into the cult helps); coming back from the monolith after the final boss is checked only by the logs on 0.9.2 (not the partner's figure or the run's clock after it), the pyre and the Deal aren't tested online; in the final fight the friend's copy of the boss's eyes doesn't die, the fight still ends; in a dungeon leader's room the room can open and its chest appear while the leader is still talking; if the friend gets stuck after a scene, use the log button in the pause menu and send us the log. Reported, not yet checked or fixed: shared progress can break; if the host leaves the lobby, the friend's menu can hang; a talk with a follower breaks if both players are in it.
+If Windows (Smart App Control) won't let the installer start, use install.cmd from the cotl-coop-anything-0.9.3.zip archive (see the Unsigned installer wiki page).
+-->
+
 ## 0.9.2 (2026-10-29)
 
 Both players need this version.
