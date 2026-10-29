@@ -482,10 +482,10 @@ namespace COTLMP.Network
 
             registration = cancelToken.Register(client.Dispose);
 
-            byte[] handshakeBytes = new Message(MessageType.Handshake, 1, new HandshakeClient(Plugin.Globals.PlayerName, Application.version, Appearance.LocalSkin()).Serialize()).Serialize();
-
             try
             {
+                /* A name the server takes: a long Steam name (18 Cyrillic letters are 36 bytes) was refused, an empty one threw here */
+                byte[] handshakeBytes = new Message(MessageType.Handshake, 1, new HandshakeClient(HandshakeClient.FitName(Plugin.Globals.PlayerName), Application.version, Appearance.LocalSkin()).Serialize()).Serialize();
                 await client.SendAsync(handshakeBytes, handshakeBytes.Length);
 
                 Task<UdpReceiveResult> resultTask = client.ReceiveAsync();

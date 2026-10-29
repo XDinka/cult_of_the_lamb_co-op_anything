@@ -8,6 +8,7 @@
 /* IMPORTS ********************************************************************/
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -22,9 +23,14 @@ namespace COTLMPServer.Messages
     {
         public int Skin;
         /// <summary>
-        /// The client's username (max. 35 characters)
+        /// The client's username (max. MaxUsernameBytes bytes of UTF-8)
         /// </summary>
         public string Username;
+
+        /// <summary>
+        /// The longest username the server takes, in bytes of UTF-8 (a longer one is refused)
+        /// </summary>
+        public const int MaxUsernameBytes = 35;
         /// <summary>
         /// The client's game version (max. 45 characters)
         /// </summary>
@@ -37,6 +43,34 @@ namespace COTLMPServer.Messages
         /// The magic number to be used for verification when sent over the network
         /// </summary>
         public const int MagicNumber = 0xBE12475;
+
+        /// <summary>
+        /// A name the server takes: trimmed, "Player" when empty, and cut to MaxUsernameBytes bytes of UTF-8
+        /// at a whole character (an emoji or a letter with its marks stays whole or goes whole)
+        /// </summary>
+        /// <param name="Name">The player's name as it is (a Steam name can be any length and any script).</param>
+        public static string FitName(string Name)
+        {
+            Name = Name?.Trim();
+            if (string.IsNullOrEmpty(Name))
+                return "Player";
+            if (Encoding.UTF8.GetByteCount(Name) <= MaxUsernameBytes)
+                return Name;
+            StringBuilder Fitted = new StringBuilder();
+            int Bytes = 0;
+            TextElementEnumerator Elements = StringInfo.GetTextElementEnumerator(Name);
+            while (Elements.MoveNext())
+            {
+                string Element = Elements.GetTextElement();
+                int Size = Encoding.UTF8.GetByteCount(Element);
+                if (Bytes + Size > MaxUsernameBytes)
+                    break;
+                Fitted.Append(Element);
+                Bytes += Size;
+            }
+            string Result = Fitted.ToString().TrimEnd();
+            return Result.Length == 0 ? "Player" : Result;
+        }
 
         /// <summary>
         /// Serialize the object into a byte array
@@ -97,7 +131,7 @@ namespace COTLMPServer.Messages
                 int skin = reader.ReadInt32();
 
                 byte[] userBytes = Utils.ReadBytes(reader) ?? throw new InvalidDataException("Corrupt username string");
-                if (userBytes.Length > 35)
+                if (userBytes.Length > MaxUsernameBytes)
                     throw new InvalidDataException("Username string too long");
                 string user = Encoding.UTF8.GetString(userBytes);
 

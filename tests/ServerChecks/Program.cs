@@ -43,9 +43,29 @@ namespace ServerChecks
             A.Connect(At);
             B.Connect(At);
 
+            /* Names the server takes, whatever the Steam name: cut by UTF-8 bytes at whole characters */
+            Check("an empty name is Player", HandshakeClient.FitName("  ") == "Player" && HandshakeClient.FitName(null) == "Player");
+            Check("a short name stays", HandshakeClient.FitName(" Валя ") == "Валя");
+            Check("40 Latin letters are cut to 35", HandshakeClient.FitName(new string('a', 40)) == new string('a', 35));
+            Check("18 Cyrillic letters are cut to 17", HandshakeClient.FitName(new string('я', 18)) == new string('я', 17));
+            Check("12 CJK letters are cut to 11", HandshakeClient.FitName(new string('猫', 12)) == new string('猫', 11));
+            string Emoji = string.Concat(System.Linq.Enumerable.Repeat("\U0001F411", 9));
+            Check("9 emoji are cut to 8 whole ones", HandshakeClient.FitName(Emoji) == string.Concat(System.Linq.Enumerable.Repeat("\U0001F411", 8)));
+            foreach (string Name in new[] { new string('я', 18), new string('猫', 12), Emoji, "Валентина Сергеевна" })
+                Check($"a fitted name of {Name.Length} chars fits the limit",
+                      System.Text.Encoding.UTF8.GetByteCount(HandshakeClient.FitName(Name)) <= HandshakeClient.MaxUsernameBytes);
+
+            /* A long Steam name as it is is refused; fitted, the same player is taken */
+            string Long = new string('я', 18);
+            using (UdpClient C = new(new IPEndPoint(IPAddress.Loopback, 0)))
+            {
+                C.Connect(At);
+                Check("18 Cyrillic letters as they are are refused", (await Handshake(C, Long))?.Type != MessageType.Handshake);
+            }
+
             /* Two players join */
             Check("player A is accepted", (await Handshake(A))?.Type == MessageType.Handshake);
-            Check("player B is accepted", (await Handshake(B))?.Type == MessageType.Handshake);
+            Check("player B with the fitted long name is accepted", (await Handshake(B, HandshakeClient.FitName(Long)))?.Type == MessageType.Handshake);
 
             /* A relay bigger than one network frame reaches the other player */
             byte[] Big = new byte[20000];
@@ -91,9 +111,9 @@ namespace ServerChecks
             Client.Send(Bytes, Bytes.Length);
         }
 
-        private static async Task<Message> Handshake(UdpClient Client)
+        private static async Task<Message> Handshake(UdpClient Client, string Name = "checker")
         {
-            Send(Client, new Message(MessageType.Handshake, 1, new HandshakeClient("checker", Version, 0).Serialize()));
+            Send(Client, new Message(MessageType.Handshake, 1, new HandshakeClient(Name, Version, 0).Serialize()));
             return await Receive(Client, MessageType.Handshake, MessageType.Disconnect);
         }
 
