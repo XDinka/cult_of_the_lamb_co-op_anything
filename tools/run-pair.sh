@@ -18,6 +18,8 @@
 #                     (600) and checking every minute; else no game starts (exit 3). A crash in a
 #                     run started below 4096 MB says little about the mod: run it once more
 #   CRASH_CHECK=DIR   only look for crashes in the logs a run left in DIR (no build, no games)
+#   RELEASE_PKG=DIR   no build: the mod's files come from a release package's game folder (DIR has
+#                     BepInEx/plugins/COTLMP), so a run tests exactly what players got
 #
 # A game that crashed (the crash handler's "Crash!!!" in its log, a new crash report, or its process
 # gone before the end) is told as "CRASH host|client ..." and the script exits with 4.
@@ -65,7 +67,11 @@ launch() { # folder args
 
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 mkdir -p "$OUT"
+if [ -n "${RELEASE_PKG:-}" ] && [ ! -f "$RELEASE_PKG/BepInEx/plugins/COTLMP/Mod/COTLMP.bin" ]; then
+    echo "RELEASE_PKG has no BepInEx/plugins/COTLMP/Mod/COTLMP.bin: $RELEASE_PKG"; exit 2
+fi
 for P in COTLMP/COTLMP.csproj Loader/COTLMP.Loader.csproj; do
+    [ -n "${RELEASE_PKG:-}" ] && break
     if ! $DOTNET build "$SRC/$P" -c Release "-p:CotlManagedDir=$(winpath "$G1/Cult Of The Lamb_Data/Managed")" > "$OUT/build.log" 2>&1; then
         grep -E "error" "$OUT/build.log" | sort -u; echo "BUILD FAILED"; exit 1
     fi
@@ -92,7 +98,14 @@ echo "available $Avail MB"
 CRASHES="$(cygpath -u "$LOCALAPPDATA")/Temp/Massive Monster/Cult Of The Lamb/Crashes"
 CrashesBefore=$(ls "$CRASHES" 2>/dev/null | sort)
 for G in "$G1" "$G2"; do
-    bash "$SRC/tools/deploy-mod.sh" "$G/BepInEx/plugins/COTLMP"
+    if [ -n "${RELEASE_PKG:-}" ]; then
+        # The plugin folder as the package has it, nothing left over from earlier builds
+        rm -rf "${G:?}/BepInEx/plugins/COTLMP" && mkdir -p "$G/BepInEx/plugins/COTLMP"
+        cp -r "$RELEASE_PKG/BepInEx/plugins/COTLMP/." "$G/BepInEx/plugins/COTLMP/"
+        echo "release files in $(basename "$G"): COTLMP.bin $(sha256sum "$G/BepInEx/plugins/COTLMP/Mod/COTLMP.bin" | cut -c1-16)"
+    else
+        bash "$SRC/tools/deploy-mod.sh" "$G/BepInEx/plugins/COTLMP"
+    fi
     rm -f "$G/BepInEx/LogOutput.log" "$G/BepInEx/config/cotlmp-rejoin.json"
 done
 
