@@ -58,6 +58,7 @@ namespace COTLMP.Debug
     /// <item><c>-cotlmp-updatebarshot=FILE</c>: a frame of the update's screen with its bar</item>
     /// <item><c>-cotlmp-ingameupdate=N</c>, <c>-cotlmp-updatechoice=lobby|game|later</c>: N s into a game the update (from -cotlmp-updatefrom) is taken and that way of putting it in picked</item>
     /// <item><c>-cotlmp-foxtest</c>: both go to the shore at night; the friend tries to talk to the night fox (refused), then the host makes its deal</item>
+    /// <item><c>-cotlmp-followthrow</c>: the enemy follow loop's next round throws once (it must be logged, counted and go on)</item>
     /// <item><c>-cotlmp-culttest</c>: in the cult, each side changes it (the host: wood, a bed, a new follower; the friend: stone, a torch, a follower's name, the bed gone) for the other to show</item>
     /// <item><c>-cotlmp-hudtrace</c>: log every time the HUD is hidden or shown, with who asked</item>
     /// <item><c>-cotlmp-dieonrevive</c>: with the other copy's -cotlmp-autodie, we die halfway through getting them up (both down test)</item>
@@ -342,6 +343,8 @@ namespace COTLMP.Debug
                     int.TryParse(Arg.Substring("-cotlmp-fleece=".Length), out Fleece);
                 else if (Arg.Equals("-cotlmp-hudbreak", StringComparison.OrdinalIgnoreCase))
                     HudBreak = true;
+                else if (Arg.Equals("-cotlmp-followthrow", StringComparison.OrdinalIgnoreCase))
+                    COTLMP.Game.RoomSync.FollowThrow = true;
                 else if (Arg.StartsWith("-cotlmp-scenequiet=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-scenequiet=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out SceneQuiet);
                 else if (Arg.StartsWith("-cotlmp-scenetest", StringComparison.OrdinalIgnoreCase))

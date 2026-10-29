@@ -103,6 +103,9 @@ namespace COTLMP.Game
         /* Counters for the test harness report */
         private static int HitsRefused;
         internal static int SnapshotsSent, SnapshotsApplied, PuppetHitsSent, HitsTaken, EnemiesRemoved, EnemyAnimations;
+        /* Rounds of the follow loop that threw (a test fault); FollowThrow: the next round throws once (-cotlmp-followthrow) */
+        internal static int LoopFaults;
+        internal static bool FollowThrow;
 
         /* The partner's hit the game holds back for a moment (a dodge in time still clears it) */
         private static object RemoteHitQueued;
@@ -482,96 +485,111 @@ namespace COTLMP.Game
                 if (FollowedEnemies.Count == 0)
                     continue;
 
-                float Now = Time.realtimeSinceStartup;
-                Gone.Clear();
-
-                /* A kill here (one the owner hasn't got) runs the game's death, and that can bring the next one in
-                   (a boss's next form, a brood) and follow it at once: so the round goes over a copy */
-                Round.Clear();
-                Round.AddRange(FollowedEnemies.Values);
-                foreach (Followed Entry in Round)
+                /* A round that throws past its entries is logged as an error and the loop goes on: dead, it would leave
+                   the enemies here unfollowed for the rest of the session */
+                try
                 {
-                    try
+                    float Now = Time.realtimeSinceStartup;
+                    Gone.Clear();
+
+                    /* A kill here (one the owner hasn't got) runs the game's death, and that can bring the next one in
+                       (a boss's next form, a brood) and follow it at once: so the round goes over a copy */
+                    Round.Clear();
+                    Round.AddRange(FollowedEnemies.Values);
+                    if (FollowThrow)
                     {
-                        if (Entry.Enemy == null || Entry.Enemy.HP <= 0f)
+                        FollowThrow = false;
+                        throw new InvalidOperationException("a round made to throw (-cotlmp-followthrow)");
+                    }
+                    foreach (Followed Entry in Round)
+                    {
+                        try
                         {
-                            Gone.Add(Entry);
-                            continue;
-                        }
-
-                        /* The owner hasn't got this one (anymore): our room came out different, or it died there */
-                        /*
-                         * Seen and then gone for a while: it died there and the kill didn't reach us.
-                         * Never seen at all: our room came out different. Waves spawn at slightly
-                         * different moments on the two sides, so that one waits longer.
-                         */
-                        float Timeout = Entry.SeenOnce ? MissingTimeout : NeverSeenTimeout;
-                        if (SnapshotsApplied > 0 && Now - Entry.LastSeen > Timeout && Now - FollowingSince > Timeout)
-                        {
-                            Plugin.Logger?.LogInfo($"[COOP] Removing {Entry.Enemy.name}, the room's owner doesn't have it");
-                            ++EnemiesRemoved;
-                            CoopSync.KillLocal(Entry.Enemy);
-                            Gone.Add(Entry);
-                            continue;
-                        }
-
-                        /* Still spawning in on its own */
-                        if (!TryFreeze(Entry, Now))
-                            continue;
-
-                        if (Entry.Target.HasValue)
-                        {
-                            Vector3 Position = Entry.Enemy.transform.position;
-                            Vector3 Target = Entry.Target.Value;
-                            Vector3 Next = (Target - Position).magnitude > 4f ? Target : Vector3.Lerp(Position, Target, 1f - Mathf.Exp(-FollowRate * Time.deltaTime));
-                            Entry.Enemy.transform.position = Next;
-                            if (Entry.Body != null)
+                            if (Entry.Enemy == null || Entry.Enemy.HP <= 0f)
                             {
-                                Entry.Body.velocity = Vector2.zero;
-                                Entry.Body.position = Next;
-                                Entry.Body.MovePosition(Next);
+                                Gone.Add(Entry);
+                                continue;
                             }
-                        }
 
-                        if (Entry.Spine != null && Entry.SpineZ.HasValue && Entry.Spine.transform != Entry.Enemy.transform)
-                        {
-                            Transform Model = Entry.Spine.transform;
-                            Vector3 Local = Model.localPosition;
-                            Local.z = Mathf.Lerp(Local.z, Entry.SpineZ.Value, 1f - Mathf.Exp(-FollowRate * Time.deltaTime));
-                            Model.localPosition = Local;
-                        }
-
-                        if (Entry.Spine != null && Entry.Spine.Skeleton != null)
-                        {
-                            Entry.Spine.Skeleton.ScaleX = Entry.ScaleX;
-                            if (Entry.Animation != null)
+                            /* The owner hasn't got this one (anymore): our room came out different, or it died there */
+                            /*
+                             * Seen and then gone for a while: it died there and the kill didn't reach us.
+                             * Never seen at all: our room came out different. Waves spawn at slightly
+                             * different moments on the two sides, so that one waits longer.
+                             */
+                            float Timeout = Entry.SeenOnce ? MissingTimeout : NeverSeenTimeout;
+                            if (SnapshotsApplied > 0 && Now - Entry.LastSeen > Timeout && Now - FollowingSince > Timeout)
                             {
-                                var Current = Entry.Spine.AnimationState?.GetCurrent(0);
-                                if ((Current == null || Current.Animation == null || Current.Animation.Name != Entry.Animation) &&
-                                    Entry.Spine.Skeleton.Data.FindAnimation(Entry.Animation) != null)
+                                Plugin.Logger?.LogInfo($"[COOP] Removing {Entry.Enemy.name}, the room's owner doesn't have it");
+                                ++EnemiesRemoved;
+                                CoopSync.KillLocal(Entry.Enemy);
+                                Gone.Add(Entry);
+                                continue;
+                            }
+
+                            /* Still spawning in on its own */
+                            if (!TryFreeze(Entry, Now))
+                                continue;
+
+                            if (Entry.Target.HasValue)
+                            {
+                                Vector3 Position = Entry.Enemy.transform.position;
+                                Vector3 Target = Entry.Target.Value;
+                                Vector3 Next = (Target - Position).magnitude > 4f ? Target : Vector3.Lerp(Position, Target, 1f - Mathf.Exp(-FollowRate * Time.deltaTime));
+                                Entry.Enemy.transform.position = Next;
+                                if (Entry.Body != null)
                                 {
-                                    Entry.Spine.AnimationState.SetAnimation(0, Entry.Animation, Entry.Loop);
-                                    ++EnemyAnimations;
+                                    Entry.Body.velocity = Vector2.zero;
+                                    Entry.Body.position = Next;
+                                    Entry.Body.MovePosition(Next);
+                                }
+                            }
+
+                            if (Entry.Spine != null && Entry.SpineZ.HasValue && Entry.Spine.transform != Entry.Enemy.transform)
+                            {
+                                Transform Model = Entry.Spine.transform;
+                                Vector3 Local = Model.localPosition;
+                                Local.z = Mathf.Lerp(Local.z, Entry.SpineZ.Value, 1f - Mathf.Exp(-FollowRate * Time.deltaTime));
+                                Model.localPosition = Local;
+                            }
+
+                            if (Entry.Spine != null && Entry.Spine.Skeleton != null)
+                            {
+                                Entry.Spine.Skeleton.ScaleX = Entry.ScaleX;
+                                if (Entry.Animation != null)
+                                {
+                                    var Current = Entry.Spine.AnimationState?.GetCurrent(0);
+                                    if ((Current == null || Current.Animation == null || Current.Animation.Name != Entry.Animation) &&
+                                        Entry.Spine.Skeleton.Data.FindAnimation(Entry.Animation) != null)
+                                    {
+                                        Entry.Spine.AnimationState.SetAnimation(0, Entry.Animation, Entry.Loop);
+                                        ++EnemyAnimations;
+                                    }
                                 }
                             }
                         }
+                        catch (Exception e)
+                        {
+                            PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Following an enemy failed: {e.Message}");
+                            Gone.Add(Entry);
+                        }
                     }
-                    catch (Exception e)
+
+                    foreach (Followed Entry in Gone)
                     {
-                        PrintLogger.Print(DebugLevel.WARNING_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Following an enemy failed: {e.Message}");
-                        Gone.Add(Entry);
+                        /* Unity's Equals treats a destroyed object as equal to itself, so this finds it */
+                        FollowedEnemies.Remove(Entry.Enemy);
+                        foreach (var Pair in new List<KeyValuePair<int, Followed>>(FollowedByHash))
+                        {
+                            if (Pair.Value == Entry)
+                                FollowedByHash.Remove(Pair.Key);
+                        }
                     }
                 }
-
-                foreach (Followed Entry in Gone)
+                catch (Exception e)
                 {
-                    /* Unity's Equals treats a destroyed object as equal to itself, so this finds it */
-                    FollowedEnemies.Remove(Entry.Enemy);
-                    foreach (var Pair in new List<KeyValuePair<int, Followed>>(FollowedByHash))
-                    {
-                        if (Pair.Value == Entry)
-                            FollowedByHash.Remove(Pair.Key);
-                    }
+                    ++LoopFaults;
+                    PrintLogger.Print(DebugLevel.ERROR_LEVEL, DebugComponent.NETWORK_STACK_COMPONENT, $"Following the enemies failed: {e}");
                 }
             }
         }

@@ -54,7 +54,7 @@ namespace COTLMP.Game
         internal static int GoTos, GoTosEnded, GoTosAborted, GoTosBroken, GoTosStuck, GoTosReplaced;
 
         /* What a test counts as failed: a scene held for good, a walk's callback lost or never heard */
-        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet + HudsOff + CoopHud.HudHeals + MenusStuck;
+        internal static int Faults => Stuck + GoTosBroken + GoTosStuck + GoTosReplaced + InputsToPuppet + HudsOff + CoopHud.HudHeals + MenusStuck + RoomSync.LoopFaults;
 
         /*
          * The HUD as the player sees it, not its flag: Show sets Hidden=false at once and brings the hearts
