@@ -7,95 +7,94 @@
 
 /* IMPORTS ********************************************************************/
 
-using COTLMP;
-using COTLMP.Debug;
 using HarmonyLib;
-using BepInEx;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 /* CLASSES & CODE *************************************************************/
 
 namespace COTLMP.Game
 {
+    /// <summary>
+    /// The DLCs stay the game's own business: whoever owns one keeps it, in their own game and in a session.
+    /// </summary>
+    /// <remarks>
+    /// Each time a game scene starts the game asks Steam about every DLC the save has and takes away from
+    /// the save the ones the player doesn't own (GameManager.CheckDLCStatus: DataManager.Deactivate*DLC drop
+    /// the decorations, the skins, the Woolhaven land, the followers' marriages...). The mod once answered
+    /// "not owned" for all of them, so a DLC owner's save lost all that as soon as it loaded, and for good
+    /// at the next save. Now the game asks Steam itself; only a friend playing in the host's game (whose
+    /// save is the host's, sent over) never changes the host's DLCs by their own Steam account, neither
+    /// taking them away nor adding the friend's own: what the friend's game changes in the cult goes back
+    /// to the host's save.
+    /// </remarks>
     [HarmonyPatch]
     internal static class DlcPatches
     {
-        /// <summary>
-        /// Patches the authentication of the Heretic DLC method, of which we are going to force disable it.
-        /// </summary>
-        /// <param name = "__result">The current result value being returned. Typically the original method returns a boolean.</param>
-        /// <returns>Returns TRUE if the original method of the game is to be executed. FALSE if our method is to be executed instead.</returns>
-        [HarmonyPatch(typeof(GameManager), "AuthenticateHereticDLC")]
-        [HarmonyPrefix]
-        private static bool DisableHereticDLC(ref bool __result)
+        private static readonly string[] Dlcs = { "Heretic", "Cultist", "Sinful", "Pilgrim", "PrePurchase" };
+
+        /* The game's methods by name, those this game version has (an update may drop or rename one) */
+        private static IEnumerable<MethodBase> Methods(Type Of, IEnumerable<string> Names)
         {
-            __result = false;
+            foreach (string Name in Names)
+            {
+                MethodBase Method = AccessTools.Method(Of, Name);
+                if (Method != null)
+                    yield return Method;
+            }
+        }
+
+        private static IEnumerable<MethodBase> TargetMethods() =>
+            Methods(typeof(DataManager), Dlcs.Select(Dlc => $"Deactivate{Dlc}DLC").Append("DeactivateWoolhavenDLC"));
+
+        [HarmonyPrefix]
+        private static bool KeepTheHostsDlc(MethodBase __originalMethod)
+        {
+            if (!HostSave.Playing)
+                return true;
+            Plugin.Logger?.LogInfo($"[COOP] Not owned here, kept as the host's save has it: {__originalMethod.Name} left out");
             return false;
         }
 
         /// <summary>
-        /// Patches the authentication of the Cultist DLC method, of which we are going to force disable it.
+        /// The friend's own DLCs don't go into the host's save either (the game adds an owned DLC's things on load)
         /// </summary>
-        /// <param name = "__result">The current result value being returned. Typically the original method returns a boolean.</param>
-        /// <returns>Returns TRUE if the original method of the game is to be executed. FALSE if our method is to be executed instead.</returns>
-        [HarmonyPatch(typeof(GameManager), "AuthenticateCultistDLC")]
-        [HarmonyPrefix]
-        private static bool DisableCultistDLC(ref bool __result)
+        [HarmonyPatch]
+        private static class KeepTheHostsLack
         {
-            __result = false;
-            return false;
+            private static IEnumerable<MethodBase> TargetMethods() =>
+                Methods(typeof(DataManager), Dlcs.Select(Dlc => $"Activate{Dlc}DLC").Append("ActivateMajorDLC"));
+
+            [HarmonyPrefix]
+            private static bool Skip(MethodBase __originalMethod, ref bool __result)
+            {
+                if (!HostSave.Playing)
+                    return true;
+                Plugin.Logger?.LogInfo($"[COOP] Owned here, but the host's save is kept as it is: {__originalMethod.Name} left out");
+                __result = false;
+                return false;
+            }
         }
 
         /// <summary>
-        /// Patches the authentication of the Sinful DLC method, of which we are going to force disable it.
+        /// Test switch -cotlmp-fakedlc: this game owns every DLC, as a DLC owner's does
         /// </summary>
-        /// <param name = "__result">The current result value being returned. Typically the original method returns a boolean.</param>
-        /// <returns>Returns TRUE if the original method of the game is to be executed. FALSE if our method is to be executed instead.</returns>
-        [HarmonyPatch(typeof(GameManager), "AuthenticateSinfulDLC")]
-        [HarmonyPrefix]
-        private static bool DisableSinfulDLC(ref bool __result)
+        [HarmonyPatch]
+        private static class FakeOwned
         {
-            __result = false;
-            return false;
-        }
+            private static bool Prepare() => Array.Exists(Environment.GetCommandLineArgs(), Arg => Arg.Equals("-cotlmp-fakedlc", StringComparison.OrdinalIgnoreCase));
 
-        /// <summary>
-        /// Patches the authentication of the Pilgrim DLC method, of which we are going to force disable it.
-        /// </summary>
-        /// <param name = "__result">The current result value being returned. Typically the original method returns a boolean.</param>
-        /// <returns>Returns TRUE if the original method of the game is to be executed. FALSE if our method is to be executed instead.</returns>
-        [HarmonyPatch(typeof(GameManager), "AuthenticatePilgrimDLC")]
-        [HarmonyPrefix]
-        private static bool DisablePilgrimDLC(ref bool __result)
-        {
-            __result = false;
-            return false;
-        }
+            private static IEnumerable<MethodBase> TargetMethods() =>
+                Methods(typeof(GameManager), Dlcs.Select(Dlc => $"Authenticate{Dlc}DLC").Append("AuthenticateMajorDLC"));
 
-        /// <summary>
-        /// Patches the authentication of the the early purchase DLC method, of which we are going to force disable it.
-        /// </summary>
-        /// <param name = "__result">The current result value being returned. Typically the original method returns a boolean.</param>
-        /// <returns>Returns TRUE if the original method of the game is to be executed. FALSE if our method is to be executed instead.</returns>
-        [HarmonyPatch(typeof(GameManager), "AuthenticatePrePurchaseDLC")]
-        [HarmonyPrefix]
-        private static bool DisablePrePurchaseDLC(ref bool __result)
-        {
-            __result = false;
-            return false;
-        }
-
-        /// <summary>
-        /// Patches the authentication of the Woolhaven DLC method, of which we are going to force disable it.
-        /// </summary>
-        /// <param name = "__result">The current result value being returned. Typically the original method returns a boolean.</param>
-        /// <returns>Returns TRUE if the original method of the game is to be executed. FALSE if our method is to be executed instead.</returns>
-        [HarmonyPatch(typeof(GameManager), "AuthenticateMajorDLC")]
-        [HarmonyPrefix]
-        private static bool DisableWoolhavenDLC(ref bool __result)
-        {
-            __result = false;
-            return false;
+            [HarmonyPrefix]
+            private static bool Owned(ref bool __result)
+            {
+                __result = true;
+                return false;
+            }
         }
     }
 }

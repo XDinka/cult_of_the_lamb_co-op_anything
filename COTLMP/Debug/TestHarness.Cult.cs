@@ -60,6 +60,85 @@ namespace COTLMP.Debug
             }
         }
 
+        /* What the save has of the DLCs, the things the game takes away from a save whose DLC isn't owned
+           (DataManager.Deactivate*DLC): with -cotlmp-dlcmark the host first gives it some of them and saves */
+        private static IEnumerator WatchDlc()
+        {
+            while (PlayerFarming.Location != FollowerLocation.Base || PlayerFarming.Instance == null || MMTransition.IsPlaying)
+                yield return null;
+            yield return new WaitForSecondsRealtime(8f);
+            DataManager Data = DataManager.Instance;
+            /* Two followers to wed (the cult test brings them a while in) */
+            if (DlcMark && Plugin.GlobalsInternal.IsServerCreator)
+                yield return Until(() => DataManager.Instance.Followers.Count >= 2, 240f);
+            Data = DataManager.Instance;
+            /* It writes the save: only the hidden test slot, never a player's own */
+            if (DlcMark && Plugin.GlobalsInternal.IsServerCreator && SaveAndLoad.SAVE_SLOT != 6)
+                Plugin.Logger?.LogError($"{Tag} DLC: -cotlmp-dlcmark only marks save slot 6, this is slot {SaveAndLoad.SAVE_SLOT}: left alone");
+            else if (DlcMark && Plugin.GlobalsInternal.IsServerCreator)
+            {
+                Data.LandPurchased = 0;
+                Data.OnboardedBaseExpansion = true;
+                if (Data.Followers.Count >= 2)
+                {
+                    Data.Followers[0].SpouseFollowerID = Data.Followers[1].ID;
+                    Data.Followers[1].SpouseFollowerID = Data.Followers[0].ID;
+                }
+                SaveAndLoad.Save();
+                Plugin.Logger?.LogWarning($"{Tag} DLC: the land bought, {Math.Min(Data.Followers.Count, 2)} followers wed, saved");
+            }
+            for (int Look = 0; Look < 15; Look++)
+            {
+                int Decorations = Interaction_DLCShrine.Decorations.Count(Data.UnlockedStructures.Contains);
+                int Wed = Data.Followers.Count(Follower => Follower.SpouseFollowerID != -1);
+                Plugin.Logger?.LogWarning($"{Tag} DLC {Look}: major {Data.MAJOR_DLC} heretic {Data.DLC_Heretic_Pack} cultist {Data.DLC_Cultist_Pack} " +
+                    $"sinful {Data.DLC_Sinful_Pack} pilgrim {Data.DLC_Pilgrim_Pack} pre {Data.DLC_Pre_Purchase}, land {Data.LandPurchased} expansion {Data.OnboardedBaseExpansion}, " +
+                    $"decorations {Decorations}, wed {Wed}, wedding {Data.UnlockedUpgrades.Contains(UpgradeSystem.Type.Ritual_FollowerWedding)}, followers {Data.Followers.Count}, " +
+                    $"convo {Data.LandConvoProgress} yngya {Data.YngyaOffering} day {Data.CurrentDayIndex}, expand base failed {ExpandFailed(Data)}");
+                yield return new WaitForSecondsRealtime(20f);
+            }
+        }
+
+        /* One game, no session: the hidden slot 6 loaded as the menu's Continue does (the player's own slots never) */
+        private static IEnumerator LoadOwnSlot()
+        {
+            if (LoadSlot != 6)
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-loadslot only loads the hidden slot 6, not {LoadSlot}");
+                yield break;
+            }
+            while (SceneManager.GetActiveScene().name != "Main Menu" || MMTransition.IsPlaying || Lamb.UI.MainMenu.UIMainMenuController.Instance?.LoadMenu == null)
+                yield return null;
+            yield return new WaitForSecondsRealtime(5f);
+            Plugin.Logger?.LogWarning($"{Tag} Loading save slot {LoadSlot} on our own");
+            AccessTools.Method(typeof(Lamb.UI.MainMenu.LoadMenu), "ContinueGame").Invoke(Lamb.UI.MainMenu.UIMainMenuController.Instance.LoadMenu, new object[] { LoadSlot });
+        }
+
+        /* -cotlmp-savelater=N: N s in the cult the game saves (the host's or our own game; the hidden slot 6 only) */
+        private static IEnumerator SaveInCultLater()
+        {
+            while (PlayerFarming.Location != FollowerLocation.Base || PlayerFarming.Instance == null || MMTransition.IsPlaying)
+                yield return null;
+            yield return new WaitForSecondsRealtime(SaveLater);
+            if (HostSave.Playing || SaveAndLoad.SAVE_SLOT != 6)
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-savelater only saves the hidden slot 6 of our own game, not slot {SaveAndLoad.SAVE_SLOT} (host's save: {HostSave.Playing})");
+                yield break;
+            }
+            SaveAndLoad.Save();
+            Plugin.Logger?.LogWarning($"{Tag} Saved slot {SaveAndLoad.SAVE_SLOT} after {SaveLater:F0} s in the cult, followers {DataManager.Instance.Followers.Count}");
+        }
+
+        /* What the game's taking Woolhaven away leaves (DataManager.DeactivateWoolhavenDLC fails this objective group) */
+        private static string ExpandFailed(DataManager Data)
+        {
+            const string Group = "Objectives/GroupTitles/ExpandBase";
+            int Open = Data.Objectives?.Count(Item => Item != null && Item.GroupId == Group && Item.IsFailed) ?? 0;
+            int Failed = Data.FailedObjectives?.Count(Item => Item != null && Item.GroupId == Group) ?? 0;
+            int History = Data.FailedObjectivesHistory?.Count(Item => Item != null && Item.GroupId == Group) ?? 0;
+            return $"open {Open}, failed {Failed}, history {History}";
+        }
+
         private static IEnumerator MeetFox()
         {
             while (SceneManager.GetActiveScene().name != "Base Biome 1" || PlayerFarming.Instance == null || !AnyRemotePlayer() || MMTransition.IsPlaying)
