@@ -77,25 +77,6 @@ namespace COTLMP.Game
                 return false;
             }
         }
-
-        /// <summary>
-        /// Test switch -cotlmp-fakedlc: this game owns every DLC, as a DLC owner's does
-        /// </summary>
-        [HarmonyPatch]
-        private static class FakeOwned
-        {
-            private static bool Prepare() => Array.Exists(Environment.GetCommandLineArgs(), Arg => Arg.Equals("-cotlmp-fakedlc", StringComparison.OrdinalIgnoreCase));
-
-            private static IEnumerable<MethodBase> TargetMethods() =>
-                Methods(typeof(GameManager), Dlcs.Select(Dlc => $"Authenticate{Dlc}DLC").Append("AuthenticateMajorDLC"));
-
-            [HarmonyPrefix]
-            private static bool Owned(ref bool __result)
-            {
-                __result = true;
-                return false;
-            }
-        }
     }
 }
 

@@ -61,32 +61,13 @@ namespace COTLMP.Debug
         }
 
         /* What the save has of the DLCs, the things the game takes away from a save whose DLC isn't owned
-           (DataManager.Deactivate*DLC): with -cotlmp-dlcmark the host first gives it some of them and saves */
+           (DataManager.Deactivate*DLC); it only reads */
         private static IEnumerator WatchDlc()
         {
             while (PlayerFarming.Location != FollowerLocation.Base || PlayerFarming.Instance == null || MMTransition.IsPlaying)
                 yield return null;
             yield return new WaitForSecondsRealtime(8f);
             DataManager Data = DataManager.Instance;
-            /* Two followers to wed (the cult test brings them a while in) */
-            if (DlcMark && Plugin.GlobalsInternal.IsServerCreator)
-                yield return Until(() => DataManager.Instance.Followers.Count >= 2, 240f);
-            Data = DataManager.Instance;
-            /* It writes the save: only the hidden test slot, never a player's own */
-            if (DlcMark && Plugin.GlobalsInternal.IsServerCreator && SaveAndLoad.SAVE_SLOT != 6)
-                Plugin.Logger?.LogError($"{Tag} DLC: -cotlmp-dlcmark only marks save slot 6, this is slot {SaveAndLoad.SAVE_SLOT}: left alone");
-            else if (DlcMark && Plugin.GlobalsInternal.IsServerCreator)
-            {
-                Data.LandPurchased = 0;
-                Data.OnboardedBaseExpansion = true;
-                if (Data.Followers.Count >= 2)
-                {
-                    Data.Followers[0].SpouseFollowerID = Data.Followers[1].ID;
-                    Data.Followers[1].SpouseFollowerID = Data.Followers[0].ID;
-                }
-                SaveAndLoad.Save();
-                Plugin.Logger?.LogWarning($"{Tag} DLC: the land bought, {Math.Min(Data.Followers.Count, 2)} followers wed, saved");
-            }
             for (int Look = 0; Look < 15; Look++)
             {
                 int Decorations = Interaction_DLCShrine.Decorations.Count(Data.UnlockedStructures.Contains);
