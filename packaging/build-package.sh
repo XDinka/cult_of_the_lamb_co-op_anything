@@ -9,7 +9,12 @@
 #   COTL_BEPINEX_CFG  a BepInEx.cfg with Preloader.Entrypoint Assembly = Assembly-CSharp.dll, Type = TwitchManager
 #   OUT_DIR           where the zip goes (default: ./out)
 #   DOTNET            the dotnet executable (default: dotnet)
-set -eu
+#   ALLOW_DIRTY=1     build from a tree with uncommitted changes (checks only: a release never is)
+#
+# A failed build stops here (exit 1, the errors from the build's log). A release is built from a clean,
+# committed tree, and the DLL must carry that commit (its InformationalVersion), so the build can be
+# made again from the tag.
+set -euo pipefail
 SRC=$(cd "$(dirname "$0")/.." && pwd)
 DL=${COTL_DL:?set COTL_DL}
 REL=${OUT_DIR:-$SRC/out}
@@ -21,8 +26,28 @@ OUT=$REL/$NAME
 DOTNET=${DOTNET:-dotnet}
 
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
-$DOTNET build "$SRC/COTLMP/COTLMP.csproj" -c Release "-p:CotlManagedDir=$MANAGED" | grep -E "error|Errors|Ошибок" || true
-$DOTNET build "$SRC/Loader/COTLMP.Loader.csproj" -c Release "-p:CotlManagedDir=$MANAGED" | grep -E "error|Errors|Ошибок" || true
+if [ -z "${ALLOW_DIRTY:-}" ] && [ -n "$(git -C "$SRC" status --porcelain --untracked-files=no)" ]; then
+    echo "Uncommitted changes in $SRC: commit the version first, then build (ALLOW_DIRTY=1 for checks only)"; exit 1
+fi
+HEAD=$(git -C "$SRC" rev-parse HEAD)
+mkdir -p "$REL"
+# Nothing of an earlier build may end up in the package
+rm -rf "$SRC/COTLMP/bin/Release" "$SRC/Loader/bin/Release"
+for P in COTLMP/COTLMP.csproj Loader/COTLMP.Loader.csproj; do
+    if ! $DOTNET build "$SRC/$P" -c Release "-p:CotlManagedDir=$MANAGED" > "$REL/build.log" 2>&1; then
+        grep -E " error " "$REL/build.log" | sort -u || true
+        echo "BUILD FAILED: $P (log: $REL/build.log)"; exit 1
+    fi
+done
+# The DLL tells the commit it was built from: it must be this one
+python -I - "$SRC/COTLMP/bin/Release/net472/COTLMP.dll" "$VERSION+$HEAD" <<'PY'
+import sys
+dll, want = sys.argv[1], sys.argv[2]
+data = open(dll, 'rb').read()
+if want.encode() not in data and want.encode('utf-16-le') not in data:
+    sys.exit(f"COTLMP.dll doesn't carry {want}: not built from this commit")
+print(f"COTLMP.dll carries {want}")
+PY
 
 rm -rf "$OUT" "$OUT.zip"
 mkdir -p "$OUT/game/BepInEx/config" "$OUT/game/BepInEx/plugins/COTLMP" "$OUT/LICENSES"
