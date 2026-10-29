@@ -474,6 +474,7 @@ namespace COTLMP.Game
         private static IEnumerator FollowLoop()
         {
             List<Followed> Gone = new();
+            List<Followed> Round = new();
 
             while (true)
             {
@@ -484,7 +485,11 @@ namespace COTLMP.Game
                 float Now = Time.realtimeSinceStartup;
                 Gone.Clear();
 
-                foreach (Followed Entry in FollowedEnemies.Values)
+                /* A kill here (one the owner hasn't got) runs the game's death, and that can bring the next one in
+                   (a boss's next form, a brood) and follow it at once: so the round goes over a copy */
+                Round.Clear();
+                Round.AddRange(FollowedEnemies.Values);
+                foreach (Followed Entry in Round)
                 {
                     try
                     {
