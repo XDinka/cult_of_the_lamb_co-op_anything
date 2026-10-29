@@ -8,7 +8,7 @@
 
 <p align="center">
   <b>Online co-op for Cult of the Lamb over Steam.</b><br>
-  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest">Release zip and notes</a> · <a href="#по-русски">По-русски</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="https://discord.gg/52azdsYMD">Discord: bugs and ideas</a> · <a href="LICENSE">MIT</a>
+  <a href="https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest">Release zip and notes</a> · <a href="#по-русски">По-русски</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="https://discord.gg/h8ZJNyWUP9">Discord: bugs and ideas</a> · <a href="LICENSE">MIT</a>
 </p>
 
 <p align="center"><sub>Fan-made mod, not affiliated with or endorsed by Massive Monster or Devolver Digital.</sub></p>
@@ -26,7 +26,7 @@ damage to enemies counts on both sides.
 > **Pre-release 0.9.3.** Tested with two copies of the game on one PC and a loopback stand-in for
 > Steam (a simulated bad connection on earlier builds). Real two-account Steam play has not been
 > tested yet.
-> Expect bugs: report them, and ideas, on [our Discord](https://discord.gg/52azdsYMD) (in the game:
+> Expect bugs: report them, and ideas, on [our Discord](https://discord.gg/h8ZJNyWUP9) (in the game:
 > Multiplayer → Bugs and ideas; an error window's "Copy the log" copies the log and opens it). The host's
 > save is copied aside before every game together (`cotlmp-backups` next to the game's saves folder).
 
@@ -175,7 +175,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 снаряжением; после трёх неудачных попыток — главное меню с ошибкой. Чат: T открыть, Enter отправить,
 Esc закрыть. Мод обновляется прямо в игре, без перезапуска. Если обновление игры сломало часть мода,
 остальное работает, а главное меню об этом скажет (и предложит обновиться, если есть версия новее).
-Ошибки и идеи — в [наш Discord](https://discord.gg/52azdsYMD) (в игре: «Мультиплеер» → «Ошибки и идеи»; в окнах ошибок кнопка «Скопировать лог» копирует лог и открывает Discord). Мод переведён на все 15 языков игры; арабский в окнах мода (реплики напарника, чат) идёт справа налево и с соединёнными буквами, даже внутри латинской строки. На мини-карте подземелья стоят головы обоих игроков.
+Ошибки и идеи — в [наш Discord](https://discord.gg/h8ZJNyWUP9) (в игре: «Мультиплеер» → «Ошибки и идеи»; в окнах ошибок кнопка «Скопировать лог» копирует лог и открывает Discord). Мод переведён на все 15 языков игры; арабский в окнах мода (реплики напарника, чат) идёт справа налево и с соединёнными буквами, даже внутри латинской строки. На мини-карте подземелья стоят головы обоих игроков.
 
 <p align="center"><img alt="For the devout" src="Media/readme/title-devout.png" width="760"></p>
 

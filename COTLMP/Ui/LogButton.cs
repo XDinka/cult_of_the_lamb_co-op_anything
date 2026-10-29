@@ -44,7 +44,7 @@ namespace COTLMP.Ui
         /// <summary>
         /// The mod's Discord: bug reports and ideas
         /// </summary>
-        internal const string Discord = "https://discord.gg/52azdsYMD";
+        internal const string Discord = "https://discord.gg/h8ZJNyWUP9";
 
         /// <summary>
         /// The mod's Discord in the browser (not on the test harness's copies)
