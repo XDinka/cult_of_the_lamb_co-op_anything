@@ -29,6 +29,8 @@ damage to enemies counts on both sides.
 > Expect bugs: report them, and ideas, on [our Discord](https://discord.gg/h8ZJNyWUP9) (in the game:
 > Multiplayer → Bugs and ideas; an error window's "Copy the log" copies the log and opens it). The host's
 > save is copied aside before every game together (`cotlmp-backups` next to the game's saves folder).
+> Putting an older copy of a save back, and what DLC owners whose saves lost things with 0.9.3 or older
+> can do: [Troubleshooting](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/wiki/Troubleshooting).
 
 Based on [COTLMP](https://github.com/GeoB99/COTLMP) by GeoB99, Neco-Arc and contributors (MIT),
 which provides the player puppets, the UDP protocol and the integrated server.
@@ -56,7 +58,11 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 1. **Both players** [download `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe), close the game and press **Install**.
    It finds the game in Steam, backs up what it replaces, and **Remove mod** puts it back. Windows may
    warn about an unknown publisher: "More info", then "Run anyway". Without the installer:
-   `install.cmd` from the [release zip](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest).
+   `install.cmd` from the [release zip](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest);
+   if you already have the mod, run that zip's `uninstall.cmd` first (`install.cmd` over an installed mod
+   leaves the old version behind when you remove it). Play on the same version: with a friend on 0.9.3
+   or older, don't start a game together (their mod can take what the DLCs give out of the host's save;
+   see [Installation](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/wiki/Installation)).
 2. The host opens a lobby and invites, the friend joins it (see above), the host presses Play. On a
    new game each of you plays the opening alone until the crown; whoever gets it first waits, then you
    come back to life together and go on to the cult as one. Accepting an invite while your own game is
@@ -152,7 +158,7 @@ invite). You stand in the lobby until the host presses Play. You play as the Goa
 игре: заходит из главного меню, своё сохранение ему не нужно, играет на сохранении хоста (у него оно
 не записывается, его собственные сохранения не трогаются). Вы видите друг друга в культе и в забегах. Подземелье общее: враги одни на двоих и атакуют обоих, лут
 получают оба, павшего друга можно поднять (подойти и отдать ему одно своё сердце, как в кооперативе игры) или зачистить комнату.
-Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива).
+Хост выглядит Ягнёнком, друг Козлом, как в оригинальном кооперативе. Установка: [скачайте `CotlCoopInstaller.exe`](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/releases/latest/download/CotlCoopInstaller.exe) у обоих игроков (или `install.cmd` из релизного архива; если мод уже стоит, сначала `uninstall.cmd` этого архива: `install.cmd` поверх установленного мода оставляет старую версию после удаления). Играйте на одной версии: с другом на 0.9.3 или более ранней версии не начинайте общую игру, его мод может убрать из сейва хоста то, что дают DLC (см. страницу вики [Установка](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/wiki/%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0)). Как вернуть старую копию сейва и что делать владельцам DLC — на странице вики [Что-то не так](https://github.com/XDinka/cult_of_the_lamb_co-op_anything/wiki/%D0%A7%D1%82%D0%BE-%D1%82%D0%BE-%D0%BD%D0%B5-%D1%82%D0%B0%D0%BA).
 Хост: в главном меню «Мультиплеер», «Создать лобби», выбрать сохранение (или пустой слот для новой игры вдвоём),
 «Пригласить друга», потом «Играть». Друг: «Мультиплеер», имя друга в «Лобби друзей» (или принять приглашение).
 В лобби стоят Ягнёнок и Козёл с именами и аватарками из Steam. В новой игре каждый проходит пролог сам до короны,
