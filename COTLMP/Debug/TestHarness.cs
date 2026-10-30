@@ -448,6 +448,22 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-endafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out EndAfter);
             }
 
+            /* A release from elsewhere only as a test's local file, on the loopback stand-in for Steam: nothing is installed quietly from anywhere else */
+            if (COTLMP.Network.Updater.ReleaseFrom != null &&
+                (!COTLMP.Network.SteamBridge.IsFake || !COTLMP.Network.Updater.ReleaseFrom.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)))
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-updatefrom is only for a file:/// release on the loopback stand-in for Steam (-cotlmp-fakesteam): left out, and no update is taken by itself");
+                COTLMP.Network.Updater.ReleaseFrom = null;
+                COTLMP.Network.Updater.TakeOffer = COTLMP.Network.Updater.QuietInstaller = false;
+                COTLMP.Game.Relobby.TestAfter = -1f;
+            }
+            /* A made-up version of ours only on the loopback stand-in: a partner's version check is never fooled */
+            if (COTLMP.Network.Updater.PretendVersion != null && !COTLMP.Network.SteamBridge.IsFake)
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-pretendversion is only for the loopback stand-in for Steam (-cotlmp-fakesteam): left out, the mod is {COTLMP.Data.Version.CotlMpVer}");
+                COTLMP.Network.Updater.PretendVersion = null;
+            }
+
             if (!AutoHost && !AutoEnter && !AutoWalk && !Report && QuitAfter <= 0 && EndAfter <= 0)
                 return;
 

@@ -28,11 +28,24 @@ namespace COTLMP.Debug
 {
     internal static partial class TestHarness
     {
+        /// <summary>
+        /// The DLC's lands (5 and 6) only for a game that owns the DLC: a test switch opens nothing paid
+        /// </summary>
+        private static bool OwnsLand(string Switch)
+        {
+            if (Land < 5 || GameManager.AuthenticateMajorDLC())
+                return true;
+            Plugin.Logger?.LogError($"{Tag} {Switch}: land {Land} is the DLC's, and this game doesn't own it: left out");
+            return false;
+        }
+
         private static IEnumerator EnterDungeon()
         {
             while (!Plugin.GlobalsInternal.InGameSession || PlayerFarming.Instance == null || MMTransition.IsPlaying)
                 yield return null;
             yield return new WaitForSecondsRealtime(AutoDungeon);
+            if (!OnTestSave("-cotlmp-autodungeon") || !OwnsLand("-cotlmp-autodungeon"))
+                yield break;
 
             /* Already taken into the partner's run on the way (going back to the host): no base door to go through */
             if (SceneManager.GetActiveScene().name == DungeonScene)
@@ -245,9 +258,11 @@ namespace COTLMP.Debug
                 if (!Unlocked && Plugin.GlobalsInternal.IsServerCreator && Plugin.GlobalsInternal.InGameSession && OnTestSave("-cotlmp-drawtest"))
                 {
                     Unlocked = true;
+                    /* Woolhaven's cards only for a game that owns it */
+                    bool Owned = GameManager.AuthenticateMajorDLC();
                     foreach (TarotCards.Card Card in DataManager.AllTrinkets)
                     {
-                        if (!DataManager.Instance.PlayerFoundTrinkets.Contains(Card))
+                        if (!DataManager.Instance.PlayerFoundTrinkets.Contains(Card) && (Owned || !TarotCards.MajorDLCCards.Contains(Card)))
                             DataManager.Instance.PlayerFoundTrinkets.Add(Card);
                     }
                     Plugin.Logger?.LogWarning($"{Tag} Host now has {DataManager.Instance.PlayerFoundTrinkets.Count} tarot cards");
@@ -318,12 +333,8 @@ namespace COTLMP.Debug
             yield return new WaitForSecondsRealtime(3f);
             if (!OnTestSave("-cotlmp-bosstest"))
                 yield break;
-            /* The DLC's lands (5 and 6) only for a game that owns the DLC */
-            if (Land >= 5 && !GameManager.AuthenticateMajorDLC())
-            {
-                Plugin.Logger?.LogError($"{Tag} Boss test: land {Land} is the DLC's, and this game doesn't own it: left out");
+            if (!OwnsLand("-cotlmp-bosstest"))
                 yield break;
-            }
             MMBiomeGeneration.BiomeGenerator Generator = MMBiomeGeneration.BiomeGenerator.Instance;
             /*
              * A layer's guardian (layers 1 to 3: the land's one guardian room, whose guardian goes by the layer) or
@@ -726,6 +737,12 @@ namespace COTLMP.Debug
             }
             if (!OnTestSave("-cotlmp-fleece"))
                 yield break;
+            /* Only the game's own fleeces: none of a DLC's, none of the outfits past them */
+            if (Fleece > (int)PlayerFleeceManager.FleeceType.BlindFaith || PlayerFleeceManager.IS_DLC.Contains((PlayerFleeceManager.FleeceType)Fleece))
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-fleece={Fleece} is a DLC's or an outfit, not the game's own: left out");
+                yield break;
+            }
             DataManager.Instance.PlayerFleece = Fleece;
             Plugin.Logger?.LogWarning($"{Tag} Fleece test: fleece {Fleece}, free tarot cards {PlayerFleeceManager.GetFreeTarotCards()}");
             yield return Until(() => SceneManager.GetActiveScene().name == DungeonScene && PlayerFarming.Instance != null, 300f);
@@ -889,6 +906,8 @@ namespace COTLMP.Debug
                 yield return Until(() => SceneManager.GetActiveScene().name == "Base Biome 1" && PlayerFarming.Instance != null && !MMTransition.IsPlaying &&
                                          (!Session || AnyRemotePlayer()), 240f);
                 yield return new WaitForSecondsRealtime(!Session || Host ? 3f : 8f);
+                if (!OnTestSave("-cotlmp-deathruns") || !OwnsLand("-cotlmp-deathruns"))
+                    yield break;
                 Plugin.Logger?.LogWarning($"{Tag} Runs in a row: run {Run} of {DeathRuns} into {DungeonScene}{(Session ? "" : ", alone")}");
                 GameManager.NewRun("", false, DungeonStart);
                 float Started = Time.time;
