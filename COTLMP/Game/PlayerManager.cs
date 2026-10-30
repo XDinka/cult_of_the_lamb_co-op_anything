@@ -739,6 +739,65 @@ namespace COTLMP.Game
                 }
             }
 
+            /*
+             * The puppet is a PlayerFarming without the co-op features, and its own Update starts by giving
+             * such a player the game's first input player (our keyboard and pad) whenever it has none. Our
+             * Update postfix takes it away only after the rest of that Update: the dodge, the meditation and
+             * the carried item read our buttons in between, so our roll rolled the partner's puppet too
+             * (sliding, as its skeleton plays the partner's animations, until their pose put it back).
+             * Whatever the puppet holds, every button and axis it asks for reads as untouched.
+             */
+            private static bool IsManaged(PlayerFarming playerFarming) =>
+                playerFarming != null && Array.IndexOf(players, playerFarming) >= 0;
+
+            [HarmonyPatch(typeof(InputSource), nameof(InputSource.GetButtonDown), new Type[] { typeof(int), typeof(PlayerFarming) })]
+            [HarmonyPostfix]
+            private static void PuppetButtonDown(PlayerFarming playerFarming, ref bool __result)
+            {
+                if (__result && IsManaged(playerFarming))
+                    __result = false;
+            }
+
+            [HarmonyPatch(typeof(InputSource), "GetButtonHeld", new Type[] { typeof(int), typeof(PlayerFarming) })]
+            [HarmonyPostfix]
+            private static void PuppetButtonHeld(PlayerFarming playerFarming, ref bool __result)
+            {
+                if (__result && IsManaged(playerFarming))
+                    __result = false;
+            }
+
+            [HarmonyPatch(typeof(InputSource), "GetButtonUp", new Type[] { typeof(int), typeof(PlayerFarming) })]
+            [HarmonyPostfix]
+            private static void PuppetButtonUp(PlayerFarming playerFarming, ref bool __result)
+            {
+                if (__result && IsManaged(playerFarming))
+                    __result = false;
+            }
+
+            [HarmonyPatch(typeof(InputSource), "GetAxis", new Type[] { typeof(int), typeof(PlayerFarming) })]
+            [HarmonyPostfix]
+            private static void PuppetAxis(PlayerFarming playerFarming, ref float __result)
+            {
+                if (__result != 0f && IsManaged(playerFarming))
+                    __result = 0f;
+            }
+
+            [HarmonyPatch(typeof(RewiredGameplayInputSource), nameof(RewiredGameplayInputSource.GetAnyButtonDownExcludingMouse))]
+            [HarmonyPostfix]
+            private static void PuppetAnyButtonDown(PlayerFarming playerFarming, ref bool __result)
+            {
+                if (__result && IsManaged(playerFarming))
+                    __result = false;
+            }
+
+            [HarmonyPatch(typeof(GeneralInputSource), nameof(GeneralInputSource.GetAnyButton))]
+            [HarmonyPostfix]
+            private static void PuppetAnyButton(PlayerFarming playerFarming, ref bool __result)
+            {
+                if (__result && IsManaged(playerFarming))
+                    __result = false;
+            }
+
             /// <summary>
             /// Prevent the managed player from being controlled by the actual player
             /// </summary>

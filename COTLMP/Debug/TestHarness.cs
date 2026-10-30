@@ -436,6 +436,10 @@ namespace COTLMP.Debug
                     ShotsDir = Arg.Substring("-cotlmp-shots=".Length);
                 else if (Arg.Equals("-cotlmp-autokill", StringComparison.OrdinalIgnoreCase))
                     AutoKill = true;
+                else if (Arg.Equals("-cotlmp-rolltest", StringComparison.OrdinalIgnoreCase))
+                    RollTest = true;
+                else if (Arg.Equals("-cotlmp-rollwatch", StringComparison.OrdinalIgnoreCase))
+                    RollWatch = true;
                 else if (Arg.Equals("-cotlmp-steamselftest", StringComparison.OrdinalIgnoreCase))
                     SteamSelfTest = true;
                 else if (Arg.Equals("-cotlmp-autowalk", StringComparison.OrdinalIgnoreCase))
@@ -547,6 +551,10 @@ namespace COTLMP.Debug
                 Run("EnterDungeon", EnterDungeon());
             if (AutoKill)
                 Run("HitEnemies", HitEnemies());
+            if (RollTest)
+                Run("RollTest", RollTestLoop());
+            if (RollWatch)
+                Run("RollWatch", RollWatchLoop());
             /* The voting test takes its own frames */
             if (!string.IsNullOrEmpty(ShotsDir) && NetShots)
                 Run("NetIconShots", NetIconShots());
