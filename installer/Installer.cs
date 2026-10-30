@@ -97,6 +97,17 @@ namespace CotlCoopInstaller
             !string.IsNullOrEmpty(Dir) && File.Exists(Path.Combine(Dir, ManifestName));
 
         /// <summary>
+        /// This mod's folder (its loader in it) without the list of its files: install.cmd run over an install,
+        /// before 0.9.5, left the old mod behind this way after a removal. Another mod's folder of the same
+        /// name isn't one.
+        /// </summary>
+        internal static bool IsOrphan(string Dir) =>
+            !string.IsNullOrEmpty(Dir) && !IsInstalled(Dir) &&
+            (File.Exists(Path.Combine(ModFolder(Dir), "COTLMP.Loader.dll")) || File.Exists(Path.Combine(ModFolder(Dir), "Mod", "COTLMP.bin")));
+
+        private static string ModFolder(string Dir) => Path.Combine(Dir, "BepInEx", "plugins", "COTLMP");
+
+        /// <summary>
         /// The game started from this folder is running
         /// </summary>
         internal static bool GameRunning(string Dir)
@@ -158,12 +169,15 @@ namespace CotlCoopInstaller
             {
                 string Text = Line.Trim('\uFEFF', ' ');
                 if (Text.StartsWith("#backup ", StringComparison.Ordinal))
-                    Backup = Text.Substring(8);
-                else if (Text.Length > 0 && !Text.StartsWith("#", StringComparison.Ordinal))
+                    Backup = Inside(Text.Substring(8)) ? Text.Substring(8) : Backup;
+                else if (Text.Length > 0 && !Text.StartsWith("#", StringComparison.Ordinal) && Inside(Text))
                     Files.Add(Text);
             }
             return (Files, Backup);
         }
+
+        /* Only paths inside the game folder are taken from the list */
+        private static bool Inside(string Relative) => Relative.Length > 0 && !Path.IsPathRooted(Relative) && !Relative.Contains("..");
 
         /// <summary>
         /// Puts the mod into the game folder. An earlier install is updated in place and keeps
@@ -172,21 +186,25 @@ namespace CotlCoopInstaller
         internal static int Install(string Dir, Action<int, int, string> Progress)
         {
             var (Earlier, Backup) = ReadManifest(Dir);
+            /* A mod folder without its list holds the mod's own files: replaced, not kept aside as the game's */
+            if (IsOrphan(Dir))
+                Earlier.AddRange(Directory.GetFiles(ModFolder(Dir), "*", SearchOption.AllDirectories).Select(Each => Each.Substring(Dir.TrimEnd('\\').Length + 1)));
             HashSet<string> Ours = new(Earlier, StringComparer.OrdinalIgnoreCase);
             Backup ??= "COTLMP-backup-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
             string BackupDir = Path.Combine(Dir, Backup);
             bool BackedUp = Directory.Exists(BackupDir);
 
-            /* Before 0.3.6 the mod itself was the plugin; now the loader is, and the mod is in Mod\ (both would load) */
+            /* Before 0.3.6 the mod itself was the plugin; now the loader is, and the mod is in Mod\ (both would load).
+               Only files an earlier install of ours listed go: another mod's of the same name stay */
             foreach (string Old in new[] { "COTLMP.dll", "COTLMP.pdb", "COTLMPServer.dll", "COTLMPServer.pdb" })
             {
-                string Before = Path.Combine(Dir, "BepInEx", "plugins", "COTLMP", Old);
-                if (File.Exists(Before))
-                    File.Delete(Before);
+                string Relative = Path.Combine("BepInEx", "plugins", "COTLMP", Old);
+                if (Ours.Contains(Relative) && File.Exists(Path.Combine(Dir, Relative)))
+                    File.Delete(Path.Combine(Dir, Relative));
             }
             /* Before 0.3.6 the mod had asset bundles for COTLMP's server browser, which is gone */
             string OldAssets = Path.Combine(Dir, "BepInEx", "plugins", "COTLMP", "Assets");
-            if (Directory.Exists(OldAssets))
+            if (Directory.Exists(OldAssets) && Earlier.Any(Each => Each.StartsWith(@"BepInEx\plugins\COTLMP\Assets\", StringComparison.OrdinalIgnoreCase)))
                 Directory.Delete(OldAssets, true);
 
             List<string> Installed = new();
@@ -241,6 +259,14 @@ namespace CotlCoopInstaller
         /// </summary>
         internal static int Uninstall(string Dir, Action<int, int, string> Progress)
         {
+            /* A mod folder without its list: only that folder goes, BepInEx and other mods stay */
+            if (IsOrphan(Dir))
+            {
+                int Count = Directory.GetFiles(ModFolder(Dir), "*", SearchOption.AllDirectories).Length;
+                Directory.Delete(ModFolder(Dir), true);
+                Progress?.Invoke(Count, Count, "");
+                return Count;
+            }
             var (Files, Backup) = ReadManifest(Dir);
             if (!IsInstalled(Dir))
                 throw new InvalidOperationException("The mod isn't installed in " + Dir);

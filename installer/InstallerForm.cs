@@ -192,13 +192,16 @@ namespace CotlCoopInstaller
         private void Check()
         {
             bool Game = Installer.IsGameFolder(Dir);
-            bool Installed = Game && Installer.IsInstalled(Dir);
+            bool Orphan = Game && Installer.IsOrphan(Dir);
+            bool Installed = Game && Installer.IsInstalled(Dir) || Orphan;
             if (!Busy)
             {
                 if (string.IsNullOrEmpty(Dir))
                     SetStatus(Words.NotFound, Theme.Gold);
                 else if (!Game)
                     SetStatus(Words.NotGame, Theme.BloodLight);
+                else if (Orphan)
+                    SetStatus(Words.Orphan, Theme.Gold);
                 else if (Installed)
                     SetStatus(Words.AlreadyInstalled, Theme.Moss);
                 else if (FoundBuild != null && FoundBuild != Installer.ExpectedBuild)
