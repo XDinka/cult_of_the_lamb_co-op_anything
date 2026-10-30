@@ -75,6 +75,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "¿Actualizar ahora? Se descarga mientras juegas; después eliges cómo instalarla: volver a la sala con esta partida o reiniciar el juego.", false),
             new("Multiplayer/Version/FriendAsks", "Tu amigo te pide que actualices el mod", false),
             new("Multiplayer/Version/FriendHas", "El mod de tu amigo es {0}, el tuyo es {1}", false),
+            new("Multiplayer/Version/FriendRefused", "La versión del mod de tu amigo es {0}. Las versiones anteriores a la 0.9.4 quitan de tu partida lo que dan los DLC, así que tu amigo no puede unirse. Pídele que actualice en el menú principal del juego.", false),
+            new("Multiplayer/Version/HostStrips", "El mod del anfitrión ({0}) quita de su propia partida lo que dan los DLC.", false),
             new("Multiplayer/Version/Update", "Actualizar", false),
             new("Multiplayer/Version/PlayAnyway", "Jugar igualmente", false),
             new("Multiplayer/Version/Suggest", "Pedir al anfitrión que actualice", false),

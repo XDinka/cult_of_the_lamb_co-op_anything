@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "現在更新？會在你遊戲時下載；之後由你選擇如何安裝：用此存檔回到大廳，或重新啟動遊戲。",
 "Multiplayer/Version/FriendAsks": "好友請你更新模組",
 "Multiplayer/Version/FriendHas": "好友的模組為 {0}，你的為 {1}",
+"Multiplayer/Version/FriendRefused": "好友的模組為 {0}。0.9.4 之前的版本會從你的存檔中移除 DLC 提供的內容，因此好友無法加入。請讓好友在遊戲主選單中更新。",
+"Multiplayer/Version/HostStrips": "主機的模組 {0} 會從主機自己的存檔中移除 DLC 提供的內容。",
 "Multiplayer/Version/Update": "更新",
 "Multiplayer/Version/PlayAnyway": "仍然遊戲",
 "Multiplayer/Version/Suggest": "請主機更新",

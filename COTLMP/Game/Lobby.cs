@@ -126,8 +126,11 @@ namespace COTLMP.Game
             ++Started;
             Ours = NewSave && !Options.QuickStart ? Phase.NewGame : Phase.Continue;
             Plugin.Logger?.LogInfo($"[LOBBY] Play: {Ours} with {SteamBridge.PartnerIds().Count} friend(s)");
-            Send();
-            IntroCoop.Begin(Ours == Phase.NewGame && SteamBridge.PartnerIds().Count > 0);
+            /* A friend refused for their version doesn't come into the game, nor hears of it: the opening goes on alone */
+            bool KeptOut = VersionCheck.KeepOutOfGame();
+            if (!KeptOut)
+                Send();
+            IntroCoop.Begin(Ours == Phase.NewGame && SteamBridge.PartnerIds().Count > 0 && !KeptOut);
             OnlineMenu.Leave();
 
             LoadMenu Menu = UIMainMenuController.Instance.LoadMenu;

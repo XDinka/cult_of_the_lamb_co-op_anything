@@ -517,10 +517,16 @@ namespace COTLMP.Network
             Peer.Socket.Client.ReceiveBufferSize = LocalBufferSize;
             Peer.Socket.Connect(IPAddress.Loopback, ServerPort);
             Peers[Id] = Peer;
+            NewestPeer = Id;
             _ = System.Threading.Tasks.Task.Run(() => HostPeerLoop(Peer));
             Plugin.Logger?.LogInfo($"[STEAM] Player {Id} connected through Steam");
             return Peer;
         }
+
+        /// <summary>
+        /// The friend whose connection came last (the one a hello now is from)
+        /// </summary>
+        internal static ulong NewestPeer { get; private set; }
 
         private static async System.Threading.Tasks.Task HostPeerLoop(HostPeer Peer)
         {
@@ -550,6 +556,7 @@ namespace COTLMP.Network
             Peer.Socket.Dispose();
             Peers.Remove(Id);
             Link?.Close(Id);
+            COTLMP.Game.VersionCheck.OnFriendGone(Id);
         }
 
         /* CLIENT *************************************************************/
@@ -813,6 +820,8 @@ namespace COTLMP.Network
                 ++FromLink;
                 if (IsHost)
                 {
+                    if (StillLetGo(From, Data))
+                        continue;
                     GetPeer(From).Socket.Send(Data, Data.Length);
                 }
                 else if (From == HostId && GameClient != null)
@@ -933,6 +942,72 @@ namespace COTLMP.Network
             }
         }
 
+        /* Friends the host let go, and when: for a while their packets get a goodbye again instead of a way back in */
+        private static readonly Dictionary<ulong, float> LetGo = new();
+        private const float LetGoFor = 120f;
+
+        /// <summary>
+        /// The host lets a friend go (0: every friend joined) and tells them so: their game sees the host leave, ours
+        /// their leaving. The Steam session isn't closed here (closing drops what is still queued on it, the goodbye
+        /// too); it closes by itself once idle. The lobby stays open for the next one.
+        /// </summary>
+        internal static void LetPartnersGo(ulong Only)
+        {
+            if (!IsHost)
+                return;
+            byte[] Disconnect = new Message(MessageType.Disconnect, 0, Encoding.UTF8.GetBytes("Disconnected")).Serialize();
+            foreach (ulong Id in new List<ulong>(Peers.Keys))
+            {
+                if (Only != 0 && Id != Only)
+                    continue;
+                try
+                {
+                    Link?.Send(Id, Goodbye);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[STEAM] Couldn't say goodbye to {Id}: {e.Message}");
+                }
+                LetGo[Id] = Time.realtimeSinceStartup;
+                HostPeer Peer = Peers[Id];
+                Peer.Socket.Send(Disconnect, Disconnect.Length);
+                Peer.Socket.Dispose();
+                Peers.Remove(Id);
+                Plugin.Logger?.LogInfo($"[STEAM] Let {Id} go");
+                COTLMP.Game.VersionCheck.OnFriendGone(Id);
+            }
+        }
+
+        private static readonly Dictionary<ulong, float> ByeAgainAt = new();
+
+        /* A packet from a friend we let go: another goodbye (at most once a second), and nothing more (true). A
+           new handshake is the friend joining again (after updating, say): that one is let in. */
+        private static bool StillLetGo(ulong From, byte[] Data)
+        {
+            if (!LetGo.TryGetValue(From, out float At))
+                return false;
+            bool Joining = Data.Length >= 8 && BitConverter.ToInt32(Data, 4) == (int)MessageType.Handshake;
+            if (Joining || Time.realtimeSinceStartup - At > LetGoFor)
+            {
+                LetGo.Remove(From);
+                ByeAgainAt.Remove(From);
+                return false;
+            }
+            if (!ByeAgainAt.TryGetValue(From, out float Last) || Time.realtimeSinceStartup - Last >= 1f)
+            {
+                ByeAgainAt[From] = Time.realtimeSinceStartup;
+                try
+                {
+                    Link?.Send(From, Goodbye);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger?.LogWarning($"[STEAM] Couldn't say goodbye to {From} again: {e.Message}");
+                }
+            }
+            return true;
+        }
+
         /// <summary>
         /// The mod is going away for a newer one in the running game: our Steam callbacks go too.
         /// </summary>
@@ -985,6 +1060,8 @@ namespace COTLMP.Network
                 Peers[Id].Socket.Dispose();
                 Peers.Remove(Id);
             }
+            LetGo.Clear();
+            ByeAgainAt.Clear();
 
             Proxy?.Dispose();
             Proxy = null;

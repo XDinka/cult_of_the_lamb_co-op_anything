@@ -92,6 +92,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "Update now? It downloads while you play; then you pick how it goes in: back to the lobby on this save, or the game restarted.", false),
             new("Multiplayer/Version/FriendAsks", "Your friend asks you to update the mod", false),
             new("Multiplayer/Version/FriendHas", "Your friend's mod is {0}, yours is {1}", false),
+            new("Multiplayer/Version/FriendRefused", "Your friend's mod is {0}. Versions before 0.9.4 take what the DLCs give out of your save, so your friend can't join. Ask them to update in the game's main menu.", false),
+            new("Multiplayer/Version/HostStrips", "The host's mod {0} takes what the DLCs give out of the host's own save.", false),
             new("Multiplayer/Version/Update", "Update", false),
             new("Multiplayer/Version/PlayAnyway", "Play anyway", false),
             new("Multiplayer/Version/Suggest", "Ask the host to update", false),

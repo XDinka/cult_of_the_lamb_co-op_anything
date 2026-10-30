@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "Nu bijwerken? Het downloadt terwijl je speelt; daarna kies je hoe het erin komt: terug naar de lobby met deze opslag of het spel opnieuw starten.",
 "Multiplayer/Version/FriendAsks": "Je vriend vraagt je de mod bij te werken",
 "Multiplayer/Version/FriendHas": "De mod van je vriend is {0}, die van jou {1}",
+"Multiplayer/Version/FriendRefused": "De mod van je vriend is {0}. Versies vóór 0.9.4 halen uit je opslag wat de DLC's geven, dus je vriend kan niet meedoen. Vraag je vriend bij te werken in het hoofdmenu van het spel.",
+"Multiplayer/Version/HostStrips": "De mod van de host ({0}) haalt uit de eigen opslag van de host wat de DLC's geven.",
 "Multiplayer/Version/Update": "Bijwerken",
 "Multiplayer/Version/PlayAnyway": "Toch spelen",
 "Multiplayer/Version/Suggest": "Host vragen bij te werken",

@@ -75,6 +75,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "今すぐ更新しますか？プレイ中にダウンロードされ、その後に適用方法を選べます：このセーブでロビーに戻るか、ゲームを再起動するか。", false),
             new("Multiplayer/Version/FriendAsks", "フレンドがMODの更新を求めています", false),
             new("Multiplayer/Version/FriendHas", "フレンドのMODは {0}、あなたのは {1} です", false),
+            new("Multiplayer/Version/FriendRefused", "フレンドのMODは {0} です。0.9.4 より前のバージョンはあなたのセーブからDLCで得たものを取り除くため、フレンドは参加できません。ゲームのメインメニューで更新するよう頼んでください。", false),
+            new("Multiplayer/Version/HostStrips", "ホストのMOD {0} はホスト自身のセーブからDLCで得たものを取り除きます。", false),
             new("Multiplayer/Version/Update", "更新する", false),
             new("Multiplayer/Version/PlayAnyway", "このままプレイ", false),
             new("Multiplayer/Version/Suggest", "ホストに更新を頼む", false),

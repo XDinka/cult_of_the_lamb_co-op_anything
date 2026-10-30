@@ -82,6 +82,20 @@ namespace COTLMP.Game
         }
 
         /// <summary>
+        /// The host: the friend was refused for their version: the opening is ours alone from here (held at the
+        /// crown, it goes on)
+        /// </summary>
+        internal static void GoAlone(string Why)
+        {
+            if (!Shared || OwnIntro)
+                return;
+            Shared = false;
+            Plugin.Logger?.LogInfo($"[INTRO] {Why}: the opening goes on alone");
+            if (Held != null)
+                Release();
+        }
+
+        /// <summary>
         /// The friend: the host pressed Play on a new game, our own opening starts as the game starts one
         /// </summary>
         internal static void StartAlone(int Difficulty, bool Permadeath)
@@ -127,7 +141,7 @@ namespace COTLMP.Game
                 Plugin.Logger?.LogInfo($"[INTRO] We have the crown, the partner {(CrownedThere ? "too" : "not yet")}");
                 SendCrown();
             }
-            if (CrownedThere || !CoopSync.InSession)
+            if (CrownedThere || !CoopSync.InSession || VersionCheck.KeptOut || SteamBridge.PartnerIds().Count == 0)
             {
                 Together += CrownedThere ? 1 : 0;
                 return true;

@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "今すぐ更新しますか？プレイ中にダウンロードされ、その後に適用方法を選べます：このセーブでロビーに戻るか、ゲームを再起動するか。",
 "Multiplayer/Version/FriendAsks": "フレンドがMODの更新を求めています",
 "Multiplayer/Version/FriendHas": "フレンドのMODは {0}、あなたのは {1} です",
+"Multiplayer/Version/FriendRefused": "フレンドのMODは {0} です。0.9.4 より前のバージョンはあなたのセーブからDLCで得たものを取り除くため、フレンドは参加できません。ゲームのメインメニューで更新するよう頼んでください。",
+"Multiplayer/Version/HostStrips": "ホストのMOD {0} はホスト自身のセーブからDLCで得たものを取り除きます。",
 "Multiplayer/Version/Update": "更新する",
 "Multiplayer/Version/PlayAnyway": "このままプレイ",
 "Multiplayer/Version/Suggest": "ホストに更新を頼む",
