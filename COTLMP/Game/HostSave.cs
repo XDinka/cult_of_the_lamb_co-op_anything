@@ -193,6 +193,14 @@ namespace COTLMP.Game
             if (!Plugin.GlobalsInternal.IsServerCreator || DataManager.Instance == null)
                 return;
 
+            /* Asked from our open lobby: the friend doesn't stand in it, so Play won't share an opening with them */
+            if (Lobby.Open && VersionCheck.FriendJoined)
+                VersionCheck.MarkNotStanding();
+            /* An opening we share, but the friend asks for the save instead of playing theirs (a friend in their own
+               opening asks only after their crown): ours goes on alone, or we'd wait at the crown for good */
+            if (IntroCoop.Shared && !IntroCoop.PartnerCrowned)
+                IntroCoop.GoAlone("The friend asked for our save instead of playing the opening");
+
             /* Only to a friend whose mod leaves our save's DLC things alone (0.9.4 or newer) */
             VersionCheck.OnSaveAsked(From, Answer);
         }

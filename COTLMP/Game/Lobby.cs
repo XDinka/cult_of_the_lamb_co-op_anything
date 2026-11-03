@@ -130,7 +130,7 @@ namespace COTLMP.Game
             bool KeptOut = VersionCheck.KeepOutOfGame();
             if (!KeptOut)
                 Send();
-            IntroCoop.Begin(Ours == Phase.NewGame && SteamBridge.PartnerIds().Count > 0 && !KeptOut);
+            IntroCoop.Begin(Ours == Phase.NewGame && SteamBridge.PartnerIds().Count > 0 && !KeptOut && !VersionCheck.NotStanding);
             OnlineMenu.Leave();
 
             LoadMenu Menu = UIMainMenuController.Instance.LoadMenu;

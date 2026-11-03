@@ -74,12 +74,33 @@ namespace COTLMP.Game
         /* The Steam peer of the friend now joined (the newest one when its hello came): only they are let go */
         private static ulong FriendPeer;
 
+        /// <summary>
+        /// The host: the friend now joined asked for our save while our lobby was open, so they don't stand in it
+        /// (they came from their own game): they don't follow Play into an opening. A friend still in the versions
+        /// window doesn't ask yet; one that asks after Play has our opening go on alone (HostSave.OnRequest)
+        /// </summary>
+        internal static bool NotStanding { get; private set; }
+
+        internal static void MarkNotStanding()
+        {
+            if (NotStanding)
+                return;
+            NotStanding = true;
+            Plugin.Logger?.LogInfo("[LOBBY] The friend asked for our save from the lobby: not standing in it, no opening shared with them");
+        }
+
+        /// <summary>
+        /// The host: a friend is now joined (a late ask from one already gone is nobody's)
+        /// </summary>
+        internal static bool FriendJoined => FriendPeer != 0;
+
         private static string Ours => Updater.Version;
 
         internal static void Reset()
         {
             Partner = null;
-            Refused = Told = LettingGo = false;
+            Refused = Told = LettingGo = NotStanding = false;
+            FriendPeer = 0;
             ++Joining;
         }
 
@@ -110,7 +131,7 @@ namespace COTLMP.Game
             if (!Plugin.GlobalsInternal.IsServerCreator || (FriendPeer != 0 && Peer != FriendPeer))
                 return;
             Partner = null;
-            Refused = Told = LettingGo = false;
+            Refused = Told = LettingGo = NotStanding = false;
             FriendPeer = 0;
             ++Joining;
             IntroCoop.GoAlone("The friend left");
@@ -125,9 +146,9 @@ namespace COTLMP.Game
                 Refuse();
         }
 
-        /* An unfit friend: refused at once (nothing of theirs is taken), the host told. The friend's own mod shows it
-           the versions and may update right there; it is let go only if it asks for our save anyway, or when we
-           start the game */
+        /* An unfit friend: refused at once (nothing of theirs is taken), the host told. The friend gets two chat
+           lines and is let go LinesShown (11.5 s) later. A mod that sent its version shows it both and may update
+           and join again; one that sent none (0.2.8 and before) has no such window and is just let go */
         private static void Refuse()
         {
             if (Refused)

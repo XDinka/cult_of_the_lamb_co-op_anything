@@ -942,7 +942,8 @@ namespace COTLMP.Network
             }
         }
 
-        /* Friends the host let go, and when: for a while their packets get a goodbye again instead of a way back in */
+        /* Friends the host let go, and when: for a while their packets get a goodbye again; a new handshake from
+           one (joining again, after updating, say) is let in */
         private static readonly Dictionary<ulong, float> LetGo = new();
         private const float LetGoFor = 120f;
 

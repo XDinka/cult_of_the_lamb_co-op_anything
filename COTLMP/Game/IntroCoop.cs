@@ -51,6 +51,12 @@ namespace COTLMP.Game
         private const int IntroSlot = 7;
 
         private static bool CrownedHere, CrownedThere;
+
+        /* Our crown room is behind us (we went on, together or alone): nothing of the opening waits on the friend */
+        private static bool WentOn;
+
+        /* The test harness: this opening's crown room reached (shared or not, held there too) */
+        private static bool PassedCrown;
         private static int HostRun;
         private static IntroDeathSceneManager Held;
         private static bool Passing;
@@ -69,6 +75,11 @@ namespace COTLMP.Game
         /// </summary>
         internal static bool Apart => Shared && !(CrownedHere && CrownedThere) && SceneManager.GetActiveScene().name == "Game Biome Intro";
 
+        /// <summary>
+        /// The partner has the crown (their IntroCrown came)
+        /// </summary>
+        internal static bool PartnerCrowned => CrownedThere;
+
         internal static string State => $"{(Shared ? 1 : 0)}{(OwnIntro ? 1 : 0)}{(CrownedHere ? 1 : 0)}{(CrownedThere ? 1 : 0)}/{Crowns}/{Waited}/{Together}";
 
         /// <summary>
@@ -77,19 +88,22 @@ namespace COTLMP.Game
         internal static void Begin(bool WithFriend)
         {
             Shared = WithFriend;
-            CrownedHere = CrownedThere = false;
+            CrownedHere = CrownedThere = WentOn = false;
             Held = null;
         }
 
         /// <summary>
-        /// The host: the friend was refused for their version: the opening is ours alone from here (held at the
-        /// crown, it goes on)
+        /// The host: the friend was refused, left, or asked for our save instead of playing: the opening is ours
+        /// alone from here, from Play on (held at the crown, it goes on). Once we went on past our crown room only
+        /// the flag goes
         /// </summary>
         internal static void GoAlone(string Why)
         {
             if (!Shared || OwnIntro)
                 return;
             Shared = false;
+            if (WentOn)
+                return;
             Plugin.Logger?.LogInfo($"[INTRO] {Why}: the opening goes on alone");
             if (Held != null)
                 Release();
@@ -116,7 +130,7 @@ namespace COTLMP.Game
         internal static bool Reset()
         {
             bool Was = OwnIntro;
-            Shared = OwnIntro = CrownedHere = CrownedThere = false;
+            Shared = OwnIntro = CrownedHere = CrownedThere = WentOn = false;
             if (Held != null)
                 Release();
             return Was;
@@ -132,8 +146,12 @@ namespace COTLMP.Game
         [HarmonyPrefix]
         private static bool ChangeRoom(IntroDeathSceneManager __instance)
         {
+            PassedCrown = true;
             if (Passing || !Shared)
+            {
+                WentOn = true;
                 return true;
+            }
             if (!CrownedHere)
             {
                 CrownedHere = true;
@@ -144,6 +162,7 @@ namespace COTLMP.Game
             if (CrownedThere || !CoopSync.InSession || VersionCheck.KeptOut || SteamBridge.PartnerIds().Count == 0)
             {
                 Together += CrownedThere ? 1 : 0;
+                WentOn = true;
                 return true;
             }
 
@@ -301,12 +320,13 @@ namespace COTLMP.Game
             {
                 while (SceneManager.GetActiveScene().name != "Game Biome Intro" || MMTransition.IsPlaying)
                     yield return null;
+                PassedCrown = false;
                 yield return new WaitForSecondsRealtime(SkipTo);
                 /* It moves a new save's story on: only a test save */
                 if (!COTLMP.Debug.TestHarness.OnTestSave("-cotlmp-skipintro"))
                     yield break;
                 IntroManager Intro = UnityEngine.Object.FindObjectOfType<IntroManager>();
-                if (Intro != null && !CrownedHere)
+                if (Intro != null && !PassedCrown)
                 {
                     Plugin.Logger?.LogWarning("[QA] Skipping to the crown");
                     MMConversation.CURRENT_CONVERSATION = null;
@@ -317,7 +337,7 @@ namespace COTLMP.Game
                 }
                 if (LeaveAfter >= 0f)
                 {
-                    while (SceneManager.GetActiveScene().name == "Game Biome Intro" && !(CrownedHere && (CrownedThere || !Shared)))
+                    while (SceneManager.GetActiveScene().name == "Game Biome Intro" && !(PassedCrown && (CrownedThere || !Shared)))
                         yield return null;
                     yield return new WaitForSecondsRealtime(LeaveAfter + 25f);
                     if (SceneManager.GetActiveScene().name == "Game Biome Intro")
