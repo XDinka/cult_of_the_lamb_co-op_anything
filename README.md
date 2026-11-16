@@ -194,7 +194,8 @@ dotnet build COTLMP/COTLMP.csproj -c Release "-p:CotlManagedDir=<game dir>\Cult 
 ```
 
 .NET SDK 10 (the code uses C# 14 null-conditional assignment). `CotlManagedDir` points at the
-game's `Managed` folder for `com.steamworks.net.dll`. `packaging/build-package.sh` builds the
+game's `Managed` folder for `com.steamworks.net.dll`, `UnifyLibrary.dll`, `RTLTMPro.dll` and
+`Rewired_Core.dll` (none of them goes into the package). `packaging/build-package.sh` builds the
 release zip, and `tools/run-pair.sh` runs the automated two-copy test. Both scripts read their
 paths from environment variables (see the top of each).
 

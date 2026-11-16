@@ -50,7 +50,20 @@
       <HintPath>$(CotlManagedDir)\RTLTMPro.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- The game's controls library: the game's own copy, not GameLibs' (Defender takes that one for a trojan) -->
+    <Reference Include="Rewired_Core">
+      <HintPath>$(CotlManagedDir)\Rewired_Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
+
+  <!-- GameLibs' Rewired_Core neither compiled against nor copied -->
+  <Target Name="RewiredFromGame" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <ResolvedCompileFileDefinitions Remove="@(ResolvedCompileFileDefinitions)" Condition="'%(Filename)' == 'Rewired_Core' And '%(NuGetPackageId)' == 'CultOfTheLamb.GameLibs'" />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="'%(Filename)' == 'Rewired_Core' And '%(NuGetPackageId)' == 'CultOfTheLamb.GameLibs'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <!-- The main menu's "x CO-OP ANYTHING" under the game's logo (tools/make-menu-title.py draws it from the cover) -->
