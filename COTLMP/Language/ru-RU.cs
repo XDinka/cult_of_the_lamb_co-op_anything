@@ -92,6 +92,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "Обновиться сейчас? Обновление скачается, пока вы играете; потом выберете, как его поставить: вернуться в лобби на этом сохранении или перезапустить игру.", false),
             new("Multiplayer/Version/FriendAsks", "Друг предлагает обновить мод", false),
             new("Multiplayer/Version/FriendHas", "У друга мод {0}, у вас {1}", false),
+            new("Multiplayer/Version/FriendRefused", "У друга версия мода {0}. Версии до 0.9.4 убирают из вашего сохранения то, что дают DLC, поэтому друг не может зайти. Попросите его обновиться в главном меню игры.", false),
+            new("Multiplayer/Version/HostStrips", "Мод хоста {0} убирает из сохранения самого хоста то, что дают DLC.", false),
             new("Multiplayer/Version/Update", "Обновиться", false),
             new("Multiplayer/Version/PlayAnyway", "Играть так", false),
             new("Multiplayer/Version/Suggest", "Предложить хосту обновиться", false),

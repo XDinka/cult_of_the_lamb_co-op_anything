@@ -193,14 +193,30 @@ namespace COTLMP.Game
             if (!Plugin.GlobalsInternal.IsServerCreator || DataManager.Instance == null)
                 return;
 
+            /* Asked from our open lobby: the friend doesn't stand in it, so Play won't share an opening with them */
+            if (Lobby.Open && VersionCheck.FriendJoined)
+                VersionCheck.MarkNotStanding();
+            /* An opening we share, but the friend asks for the save instead of playing theirs (a friend in their own
+               opening asks only after their crown): ours goes on alone, or we'd wait at the crown for good */
+            if (IntroCoop.Shared && !IntroCoop.PartnerCrowned)
+                IntroCoop.GoAlone("The friend asked for our save instead of playing the opening");
+
+            /* Only to a friend whose mod leaves our save's DLC things alone (0.9.4 or newer) */
+            VersionCheck.OnSaveAsked(From, Answer);
+        }
+
+        private static void Answer(uint From)
+        {
             /* Still in the lobby, loading, or in the opening: the save goes once our game is up */
             if (!Up)
             {
+                /* The last one to ask is the one it goes to (a friend who came back while we load asks again) */
+                DeferredFor = (From, VersionCheck.JoiningNow);
                 if (!Deferred)
                 {
                     Deferred = true;
                     Plugin.Logger?.LogInfo($"[COOP] Player {From} asks for our save, sent once our game is up");
-                    Plugin.MonoInstance.StartCoroutine(SendWhenUp(From));
+                    Plugin.MonoInstance.StartCoroutine(SendWhenUp());
                 }
                 return;
             }
@@ -208,6 +224,7 @@ namespace COTLMP.Game
         }
 
         private static bool Deferred;
+        private static (uint From, int AskedIn) DeferredFor;
 
         /// <summary>
         /// Our game is loaded and standing (not the menu, the opening or a transition)
@@ -222,14 +239,22 @@ namespace COTLMP.Game
             }
         }
 
-        private static IEnumerator SendWhenUp(uint From)
+        private static IEnumerator SendWhenUp()
         {
             while (!Up && CoopSync.InSession)
                 yield return null;
             yield return new WaitForSecondsRealtime(1f);
             Deferred = false;
-            if (CoopSync.InSession && Plugin.GlobalsInternal.IsServerCreator)
-                SendSave(From);
+            if (!CoopSync.InSession || !Plugin.GlobalsInternal.IsServerCreator)
+                yield break;
+            var (From, AskedIn) = DeferredFor;
+            /* Only to the friend who asked, still joined and still fit (one who joined meanwhile asks for itself) */
+            if (!VersionCheck.StillFit(AskedIn))
+            {
+                Plugin.Logger?.LogInfo($"[COOP] The save player {From} asked for isn't sent: another friend joined since, or this one can't have it");
+                yield break;
+            }
+            SendSave(From);
         }
 
         private static void SendSave(uint From)

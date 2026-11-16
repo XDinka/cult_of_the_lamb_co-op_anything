@@ -436,6 +436,10 @@ namespace COTLMP.Debug
                     ShotsDir = Arg.Substring("-cotlmp-shots=".Length);
                 else if (Arg.Equals("-cotlmp-autokill", StringComparison.OrdinalIgnoreCase))
                     AutoKill = true;
+                else if (Arg.Equals("-cotlmp-rolltest", StringComparison.OrdinalIgnoreCase))
+                    RollTest = true;
+                else if (Arg.Equals("-cotlmp-rollwatch", StringComparison.OrdinalIgnoreCase))
+                    RollWatch = true;
                 else if (Arg.Equals("-cotlmp-steamselftest", StringComparison.OrdinalIgnoreCase))
                     SteamSelfTest = true;
                 else if (Arg.Equals("-cotlmp-autowalk", StringComparison.OrdinalIgnoreCase))
@@ -446,6 +450,22 @@ namespace COTLMP.Debug
                     float.TryParse(Arg.Substring("-cotlmp-quitafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out QuitAfter);
                 else if (Arg.StartsWith("-cotlmp-endafter=", StringComparison.OrdinalIgnoreCase))
                     float.TryParse(Arg.Substring("-cotlmp-endafter=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out EndAfter);
+            }
+
+            /* A release from elsewhere only as a test's local file, on the loopback stand-in for Steam: nothing is installed quietly from anywhere else */
+            if (COTLMP.Network.Updater.ReleaseFrom != null &&
+                (!COTLMP.Network.SteamBridge.IsFake || !COTLMP.Network.Updater.ReleaseFrom.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)))
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-updatefrom is only for a file:/// release on the loopback stand-in for Steam (-cotlmp-fakesteam): left out, and no update is taken by itself");
+                COTLMP.Network.Updater.ReleaseFrom = null;
+                COTLMP.Network.Updater.TakeOffer = COTLMP.Network.Updater.QuietInstaller = false;
+                COTLMP.Game.Relobby.TestAfter = -1f;
+            }
+            /* A made-up version of ours only on the loopback stand-in: a partner's version check is never fooled */
+            if (COTLMP.Network.Updater.PretendVersion != null && !COTLMP.Network.SteamBridge.IsFake)
+            {
+                Plugin.Logger?.LogError($"{Tag} -cotlmp-pretendversion is only for the loopback stand-in for Steam (-cotlmp-fakesteam): left out, the mod is {COTLMP.Data.Version.CotlMpVer}");
+                COTLMP.Network.Updater.PretendVersion = null;
             }
 
             if (!AutoHost && !AutoEnter && !AutoWalk && !Report && QuitAfter <= 0 && EndAfter <= 0)
@@ -531,6 +551,10 @@ namespace COTLMP.Debug
                 Run("EnterDungeon", EnterDungeon());
             if (AutoKill)
                 Run("HitEnemies", HitEnemies());
+            if (RollTest)
+                Run("RollTest", RollTestLoop());
+            if (RollWatch)
+                Run("RollWatch", RollWatchLoop());
             /* The voting test takes its own frames */
             if (!string.IsNullOrEmpty(ShotsDir) && NetShots)
                 Run("NetIconShots", NetIconShots());

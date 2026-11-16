@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "Mettre à jour maintenant ? Le téléchargement se fait pendant que vous jouez ; ensuite vous choisissez comment l'installer : retour au salon sur cette sauvegarde, ou redémarrage du jeu.",
 "Multiplayer/Version/FriendAsks": "Votre ami vous demande de mettre le mod à jour",
 "Multiplayer/Version/FriendHas": "Le mod de votre ami est en {0}, le vôtre en {1}",
+"Multiplayer/Version/FriendRefused": "Version du mod de votre ami : {0}. Les versions antérieures à 0.9.4 retirent de votre sauvegarde ce que donnent les DLC, votre ami ne peut donc pas vous rejoindre. Demandez-lui de mettre à jour depuis le menu principal du jeu.",
+"Multiplayer/Version/HostStrips": "Le mod de l'hôte ({0}) retire de sa propre sauvegarde ce que donnent les DLC.",
 "Multiplayer/Version/Update": "Mettre à jour",
 "Multiplayer/Version/PlayAnyway": "Jouer quand même",
 "Multiplayer/Version/Suggest": "Demander à l'hôte de mettre à jour",

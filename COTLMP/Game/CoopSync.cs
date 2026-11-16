@@ -255,7 +255,13 @@ namespace COTLMP.Game
             using MemoryStream Stream = new(Data);
             using BinaryReader Reader = new(Stream);
 
-            switch ((Kind)Reader.ReadByte())
+            Kind What = (Kind)Reader.ReadByte();
+            /* A friend the host turned away (a mod before 0.9.4): only its version, asks and pings are heard */
+            if (Plugin.GlobalsInternal.IsServerCreator && VersionCheck.Refused &&
+                What != Kind.ModVersion && What != Kind.SaveRequest && What != Kind.Hello && What != Kind.NetPing && What != Kind.NetPong)
+                return;
+
+            switch (What)
             {
                 case Kind.RunStart:
                 {
@@ -533,6 +539,8 @@ namespace COTLMP.Game
         private static void OnHello(uint From)
         {
             Plugin.Logger?.LogInfo($"[COOP] Player {From} joined, sending them run {RunId}");
+            /* A new friend: what was known of the one before (their version, a refusal) goes */
+            VersionCheck.OnFriendHello();
             if (RunId == 0)
                 return;
 

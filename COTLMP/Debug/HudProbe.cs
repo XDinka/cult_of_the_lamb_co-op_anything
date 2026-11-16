@@ -469,6 +469,8 @@ namespace COTLMP.Debug
             yield return new WaitForSecondsRealtime(3f);
             Take("Base-coop");
             yield return new WaitForSecondsRealtime(5f);
+            if (!TestHarness.OnTestSave("-cotlmp-vanillacoop"))
+                yield break;
 
             Plugin.Logger?.LogWarning($"{Tag} Into the first dungeon together, as the base door does");
             GameManager.NewRun("", false, FollowerLocation.Dungeon1_1);

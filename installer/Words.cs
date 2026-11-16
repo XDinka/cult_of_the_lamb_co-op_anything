@@ -33,6 +33,8 @@ namespace CotlCoopInstaller
             $"Внимание: у вас сборка {Build}, мод сделан для {Installer.ExpectedBuild} (версия {Installer.ExpectedVersion}). Может не заработать.",
             $"Careful: your build is {Build}, the mod was made for {Installer.ExpectedBuild} (version {Installer.ExpectedVersion}). It may not work.");
         internal static string AlreadyInstalled => T("Мод уже установлен. Можно обновить или удалить.", "The mod is installed. You can update or remove it.");
+        internal static string Orphan => T("Найдена старая копия мода без списка своих файлов (BepInEx\\plugins\\COTLMP), она всё ещё работает. «Обновить» поставит новую версию на её место, «Удалить мод» удалит эту папку.",
+                                           "An old copy of the mod without its list of files is here (BepInEx\\plugins\\COTLMP), and it still runs. Update puts the new version in its place, Remove mod deletes that folder.");
         internal static string Ready => T("Всё готово к установке.", "Ready to install.");
         internal static string CloseGame => T("Сначала закройте Cult of the Lamb.", "Close Cult of the Lamb first.");
         internal static string Installing => T("Устанавливаем", "Installing");

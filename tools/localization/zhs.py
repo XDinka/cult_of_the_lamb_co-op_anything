@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "现在更新？会在你游戏时下载；之后由你选择如何安装：用此存档返回大厅，或重启游戏。",
 "Multiplayer/Version/FriendAsks": "好友请你更新模组",
 "Multiplayer/Version/FriendHas": "好友的模组为 {0}，你的为 {1}",
+"Multiplayer/Version/FriendRefused": "好友的模组为 {0}。0.9.4 之前的版本会从你的存档中移除 DLC 提供的内容，因此好友无法加入。请让好友在游戏主菜单中更新。",
+"Multiplayer/Version/HostStrips": "主机的模组 {0} 会从主机自己的存档中移除 DLC 提供的内容。",
 "Multiplayer/Version/Update": "更新",
 "Multiplayer/Version/PlayAnyway": "仍然游戏",
 "Multiplayer/Version/Suggest": "请主机更新",

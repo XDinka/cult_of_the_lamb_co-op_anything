@@ -75,6 +75,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "التحديث الآن؟ يُنزَّل أثناء لعبك، ثم تختار طريقة تثبيته: العودة إلى الردهة بهذا الحفظ أو إعادة تشغيل اللعبة.", false),
             new("Multiplayer/Version/FriendAsks", "يطلب منك صديقك تحديث التعديل", false),
             new("Multiplayer/Version/FriendHas", "تعديل صديقك {0}، وتعديلك {1}", false),
+            new("Multiplayer/Version/FriendRefused", "تعديل صديقك {0}. الإصدارات الأقدم من 0.9.4 تزيل من حفظك ما تمنحه الإضافات (DLC)، لذا لا يستطيع صديقك الانضمام. اطلب منه التحديث من القائمة الرئيسية للعبة.", false),
+            new("Multiplayer/Version/HostStrips", "تعديل المضيف {0} يزيل من حفظه الخاص ما تمنحه الإضافات (DLC).", false),
             new("Multiplayer/Version/Update", "تحديث", false),
             new("Multiplayer/Version/PlayAnyway", "العب على أي حال", false),
             new("Multiplayer/Version/Suggest", "اطلب من المضيف التحديث", false),

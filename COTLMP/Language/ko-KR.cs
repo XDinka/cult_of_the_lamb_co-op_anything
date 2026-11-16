@@ -75,6 +75,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "지금 업데이트할까요? 플레이하는 동안 다운로드되고, 그다음 적용 방법을 고릅니다: 이 저장 파일로 로비에 돌아가기, 또는 게임 재시작.", false),
             new("Multiplayer/Version/FriendAsks", "친구가 모드 업데이트를 요청합니다", false),
             new("Multiplayer/Version/FriendHas", "친구의 모드는 {0}, 내 모드는 {1}입니다", false),
+            new("Multiplayer/Version/FriendRefused", "친구의 모드는 {0}입니다. 0.9.4보다 오래된 버전은 내 저장 파일에서 DLC로 얻은 것을 없애므로 친구가 참가할 수 없습니다. 게임 메인 메뉴에서 업데이트하도록 친구에게 부탁하세요.", false),
+            new("Multiplayer/Version/HostStrips", "호스트의 모드 {0}은(는) 호스트 자신의 저장 파일에서 DLC로 얻은 것을 없앱니다.", false),
             new("Multiplayer/Version/Update", "업데이트", false),
             new("Multiplayer/Version/PlayAnyway", "그래도 플레이", false),
             new("Multiplayer/Version/Suggest", "호스트에게 업데이트 요청", false),

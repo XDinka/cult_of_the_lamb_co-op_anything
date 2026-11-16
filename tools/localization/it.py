@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "Aggiornare ora? Si scarica mentre giochi; poi scegli come installarlo: tornare alla lobby con questo salvataggio o riavviare il gioco.",
 "Multiplayer/Version/FriendAsks": "Il tuo amico ti chiede di aggiornare la mod",
 "Multiplayer/Version/FriendHas": "La mod del tuo amico è {0}, la tua è {1}",
+"Multiplayer/Version/FriendRefused": "La mod del tuo amico è {0}. Le versioni precedenti alla 0.9.4 tolgono dal tuo salvataggio ciò che danno i DLC, quindi il tuo amico non può unirsi. Chiedigli di aggiornare dal menu principale del gioco.",
+"Multiplayer/Version/HostStrips": "La mod dell'host ({0}) toglie dal suo stesso salvataggio ciò che danno i DLC.",
 "Multiplayer/Version/Update": "Aggiorna",
 "Multiplayer/Version/PlayAnyway": "Gioca comunque",
 "Multiplayer/Version/Suggest": "Chiedi all'host di aggiornare",

@@ -75,6 +75,8 @@ namespace COTLMP.Language
             new("Multiplayer/Version/HostUpdate", "Şimdi güncellensin mi? Sen oynarken indirilir; sonra nasıl yükleneceğini seçersin: bu kayıtla lobiye dönmek ya da oyunu yeniden başlatmak.", false),
             new("Multiplayer/Version/FriendAsks", "Arkadaşın modu güncellemeni istiyor", false),
             new("Multiplayer/Version/FriendHas", "Arkadaşının modu {0}, seninki {1}", false),
+            new("Multiplayer/Version/FriendRefused", "Arkadaşının modu {0}. 0.9.4'ten eski sürümler DLC'lerin verdiklerini kayıt dosyandan siler, bu yüzden arkadaşın katılamaz. Oyunun ana menüsünden güncellemesini iste.", false),
+            new("Multiplayer/Version/HostStrips", "Ev sahibinin modu ({0}), DLC'lerin verdiklerini kendi kayıt dosyasından siler.", false),
             new("Multiplayer/Version/Update", "Güncelle", false),
             new("Multiplayer/Version/PlayAnyway", "Yine de oyna", false),
             new("Multiplayer/Version/Suggest", "Ev sahibinden güncellemesini iste", false),

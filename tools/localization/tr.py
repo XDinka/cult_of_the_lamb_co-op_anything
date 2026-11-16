@@ -55,6 +55,8 @@ T = {
 "Multiplayer/Version/HostUpdate": "Şimdi güncellensin mi? Sen oynarken indirilir; sonra nasıl yükleneceğini seçersin: bu kayıtla lobiye dönmek ya da oyunu yeniden başlatmak.",
 "Multiplayer/Version/FriendAsks": "Arkadaşın modu güncellemeni istiyor",
 "Multiplayer/Version/FriendHas": "Arkadaşının modu {0}, seninki {1}",
+"Multiplayer/Version/FriendRefused": "Arkadaşının modu {0}. 0.9.4'ten eski sürümler DLC'lerin verdiklerini kayıt dosyandan siler, bu yüzden arkadaşın katılamaz. Oyunun ana menüsünden güncellemesini iste.",
+"Multiplayer/Version/HostStrips": "Ev sahibinin modu ({0}), DLC'lerin verdiklerini kendi kayıt dosyasından siler.",
 "Multiplayer/Version/Update": "Güncelle",
 "Multiplayer/Version/PlayAnyway": "Yine de oyna",
 "Multiplayer/Version/Suggest": "Ev sahibinden güncellemesini iste",

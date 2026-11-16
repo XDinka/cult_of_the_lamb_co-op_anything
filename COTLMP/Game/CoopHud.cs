@@ -271,7 +271,8 @@ namespace COTLMP.Game
         /// <summary>
         /// The partner plays with us now (the game's co-op is two players in its list)
         /// </summary>
-        private static bool Together => CoopSync.InSession && COTLMP.Network.SteamBridge.PartnerIds().Count > 0;
+        private static bool Together => CoopSync.InSession && COTLMP.Network.SteamBridge.PartnerIds().Count > 0 && !VersionCheck.KeptOut &&
+                                              (!Plugin.GlobalsInternal.IsServerCreator || VersionCheck.PartnerFit);
 
         private static bool Ours(PlayerFarming Player) => Player != null && Player == PlayerFarming.Instance && !PlayerManager.IsPuppet(Player.health);
 
