@@ -354,10 +354,13 @@ namespace COTLMP.Game
                     HostLagging(false);
                     return;
                 }
-                /* Ours started as we came in, before the host's puppet was here: once it is, ours waits for the host's after all */
-                if (!Led && !Waiting && MMConversation.Position <= 0 && Time.unscaledTime - StartedAt < HostLate && PartnerHere(CurrentPlace))
+                /*
+                 * Ours started as we came in, before the host's puppet was here: once it is, ours waits for the host's after all.
+                 * Once: a wait that ran out holds ours at its first line, which is no sign the host came late
+                 */
+                if (!Led && !Waiting && !WaitedOnce && MMConversation.Position <= 0 && Time.unscaledTime - StartedAt < HostLate && PartnerHere(CurrentPlace))
                 {
-                    Waiting = true;
+                    Waiting = WaitedOnce = true;
                     WaitSince = Time.unscaledTime;
                     ++LateWaits;
                     Plugin.Logger?.LogInfo($"[COOP] The host is in {CurrentPlace} now, {Time.unscaledTime - StartedAt:F1} s into our conversation: it waits for the host's");
@@ -445,6 +448,9 @@ namespace COTLMP.Game
         /* Our copy holds still until the host's shows up or the wait is over */
         private static bool Waiting;
 
+        /* Our copy waited for the host's already: it doesn't wait again (set as it starts, kept until the next starts) */
+        private static bool WaitedOnce;
+
         private static bool PartnerHere(string Place) =>
             CoopSync.InSession && Place != null && (RoomSync.PartnerPlace == Place || RoomSync.PartnerLastPlace == Place) && GhostLoot.PartnerHere() != null;
 
@@ -489,7 +495,7 @@ namespace COTLMP.Game
                 Plugin.Logger?.LogWarning($"[COOP] Closing the led conversation at the session's end failed: {e.Message}");
             }
             Current = null;
-            Led = Waiting = false;
+            Led = Waiting = WaitedOnce = false;
             Hosts.Clear();
             HostLagging(false);
             Delayed.Clear();
@@ -873,6 +879,7 @@ namespace COTLMP.Game
                 StartedAt = WaitSince = Time.unscaledTime;
                 Led = false;
                 Waiting = !IsHost && (PartnerHere(CurrentPlace) || PartnerComing(CurrentPlace));
+                WaitedOnce = Waiting;
                 if (Waiting && GhostLoot.PartnerHere() == null)
                     Plugin.Logger?.LogInfo($"[COOP] Our conversation in {CurrentPlace} starts as the room comes in: the host is here, its puppet not yet; it waits for the host's");
                 if (IsHost)
