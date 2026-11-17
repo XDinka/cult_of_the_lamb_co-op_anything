@@ -345,14 +345,24 @@ namespace COTLMP.Game
         {
             DataManager Save;
             MetaData? Meta;
+            /* Unpacking a save makes it the game's at once (DataManager's constructor): the one we play stays the
+               game's until Load, so its brains go under it, and a save that didn't unpack never becomes ours */
+            DataManager Ours = DataManager.Instance;
             try
             {
                 using MemoryStream Stream = new(Data);
                 using BinaryReader Reader = new(Stream);
                 byte[] MetaBytes = Reader.ReadBytes(Reader.ReadInt32());
                 byte[] SaveBytes = Reader.ReadBytes((int)(Stream.Length - Stream.Position));
-                Save = (DataManager)Unpack(typeof(DataManager), SaveBytes);
-                Meta = MetaBytes.Length == 0 ? null : (MetaData)Unpack(typeof(MetaData), MetaBytes);
+                try
+                {
+                    Save = (DataManager)Unpack(typeof(DataManager), SaveBytes);
+                    Meta = MetaBytes.Length == 0 ? null : (MetaData)Unpack(typeof(MetaData), MetaBytes);
+                }
+                finally
+                {
+                    DataManager.Instance = Ours;
+                }
             }
             catch (Exception Error)
             {
@@ -377,15 +387,23 @@ namespace COTLMP.Game
             Time.timeScale = 1f;
             /* Connecting again: the screen is black already, no fade from the game into it */
             float Fade = COTLMP.Network.Reconnect.HandOver() ? 0.01f : 3f;
-            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Base Biome 1", Fade, "", () => Load(Save, Meta));
+            /* A transition already going runs our load at once, on the scene as it is (no black, no pause) */
+            bool Dark = !MMTransition.IsPlaying;
+            MMTransition.Play(MMTransition.TransitionType.ChangeRoomWaitToResume, MMTransition.Effect.BlackFade, "Base Biome 1", Fade, "", () => Load(Save, Meta, Dark));
         }
 
         /// <summary>
         /// What the game does with a save file it read (SaveAndLoad's read callback), without the
         /// slot's own meta file
         /// </summary>
-        private static void Load(DataManager Save, MetaData? Meta)
+        private static void Load(DataManager Save, MetaData? Meta, bool Dark)
         {
+            /* The next scene binds the save's records to brains found by id: those of the save before (ours, or
+               the host's of a visit before) go first, while that save is still the game's */
+            if (Dark)
+                DropBrains("the host's save comes in");
+            else
+                Plugin.Logger?.LogWarning("[COOP] The host's save came in during another transition, on the scene as it is: the brains of the save before are kept");
             Save.DisableSaving = true;
             DataManager.Instance = Save;
             Save.Followers?.Sort((A, B) => A.ID.CompareTo(B.ID));
@@ -435,7 +453,72 @@ namespace COTLMP.Game
             if (!Was)
                 return;
             Plugin.Logger?.LogInfo("[COOP] Leaving the host's save, back to the main menu");
-            MMTransition.Play(MMTransition.TransitionType.ChangeSceneAutoResume, MMTransition.Effect.BlackFade, "Main Menu", Fade, "", null);
+            /* Our own Continue then starts on no brain of the host's; a transition already going would run it on the
+               live scene: then a game started from the menu drops them (MenuStart) */
+            bool Dark = !MMTransition.IsPlaying;
+            if (!Dark)
+                Plugin.Logger?.LogWarning("[COOP] Leaving the host's save during another transition: its brains go when a game starts from the menu");
+            MMTransition.Play(MMTransition.TransitionType.ChangeSceneAutoResume, MMTransition.Effect.BlackFade, "Main Menu", Fade, "",
+                Dark ? () => DropBrains("the host's save is left") : null);
+        }
+
+        /// <summary>
+        /// What the game's own quit to the menu drops (UIPauseMenuController.LoadMainMenu): the brains of the
+        /// followers and structures of the save played
+        /// </summary>
+        /// <remarks>Only while the save they belong to is still the game's: brains write it as they go (HasFurnace,
+        /// the missionaries', prisoners' and demons' lists).</remarks>
+        private static void DropBrains(string Why)
+        {
+            int Structures = StructureBrain.AllBrains.Count, Followers = FollowerBrain.AllBrains.Count;
+            /* Each on its own: a follower's cleanup that throws must not keep the structures' brains */
+            try
+            {
+                FollowerManager.Reset();
+            }
+            catch (Exception Error)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Dropping the followers' brains ({Why}) failed: {Error}");
+            }
+            try
+            {
+                StructureManager.Reset();
+            }
+            catch (Exception Error)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Dropping the structures' brains ({Why}) failed: {Error}");
+            }
+            int LeftStructures = StructureBrain.AllBrains.Count, LeftFollowers = FollowerBrain.AllBrains.Count;
+            if (LeftStructures + LeftFollowers > 0)
+                Plugin.Logger?.LogWarning($"[COOP] Dropped the game's brains ({Why}): {Structures} structures, {Followers} followers, still {LeftStructures}/{LeftFollowers}");
+            else
+                Plugin.Logger?.LogInfo($"[COOP] Dropped the game's brains ({Why}): {Structures} structures, {Followers} followers");
+        }
+
+        /// <summary>
+        /// A game started from the main menu on brains a save before left (the scene's teardown can make some, and
+        /// a session's end may not have dropped them): they go first
+        /// </summary>
+        [HarmonyPatch]
+        private static class MenuStart
+        {
+            private static IEnumerable<MethodBase> TargetMethods()
+            {
+                foreach (string Name in new[] { "ContinueGame", "BeginNewGame" })
+                {
+                    MethodInfo Method = AccessTools.Method(typeof(Lamb.UI.MainMenu.LoadMenu), Name);
+                    if (Method != null)
+                        yield return Method;
+                }
+            }
+
+            private static void Prefix()
+            {
+                if (StructureBrain.AllBrains.Count == 0 && FollowerBrain.AllBrains.Count == 0)
+                    return;
+                Plugin.Logger?.LogWarning($"[COOP] A game starts from the menu on brains of a save before ({StructureBrain.AllBrains.Count} structures, {FollowerBrain.AllBrains.Count} followers)");
+                DropBrains("a game starts from the menu");
+            }
         }
 
         private static void Notify(string LocKey)

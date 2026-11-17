@@ -774,9 +774,13 @@ namespace COTLMP.Game
             else
             {
                 if (!StructureBrain.TryFindBrainByID(Id, out StructureBrain Brain) || Brain == null)
+                {
+                    DropLeftover(Id, null);
                     return;
+                }
                 if (CultResources.Finish(Brain))
                 {
+                    DropLeftover(Id, Brain);
                     ++GoneApplied;
                     return;
                 }
@@ -790,8 +794,25 @@ namespace COTLMP.Game
                 }
                 Brain.Remove();
                 Plugin.Logger?.LogInfo($"[COOP] The partner's {Brain.Data.Type} ({Id}) is gone, ours too");
+                DropLeftover(Id, Brain);
             }
             ++GoneApplied;
+        }
+
+        /// <summary>
+        /// A record of the gone object that no brain holds (the brain found had another copy of it, or there was
+        /// none) stays in the save otherwise, and our next look would send it as new: it goes too
+        /// </summary>
+        private static void DropLeftover(int Id, StructureBrain Brain)
+        {
+            List<StructuresData> Here = StructureManager.StructuresDataAtLocation(FollowerLocation.Base);
+            List<StructuresData> Left = Here.FindAll(Data => Data != null && Data.ID == Id && Data != Brain?.Data);
+            foreach (StructuresData Data in Left)
+            {
+                Data.Destroyed = true;
+                Here.Remove(Data);
+                Plugin.Logger?.LogWarning($"[COOP] {(Plugin.GlobalsInternal.IsServerCreator ? "Host" : "Friend")}: the partner's {Data.Type} ({Id}) is gone there; our record of it that {(Brain == null ? "no brain holds" : "its brain doesn't hold")} went too");
+            }
         }
 
         /* INVENTORY **********************************************************/
