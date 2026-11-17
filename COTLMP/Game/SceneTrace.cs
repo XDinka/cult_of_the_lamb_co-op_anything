@@ -45,6 +45,9 @@ namespace COTLMP.Game
         private static readonly Queue<string> Ring = new();
         internal static int Entries, Exits, Stuck;
 
+        /* State writes the game refused (our lamb's state locked by a scene): not a way back in play */
+        internal static int Refused;
+
         /* GoTos of our lamb and the puppets: since when each walks, and the counts the QA report reads */
         private const float GoToStuck = 10f;
         private static readonly Dictionary<PlayerFarming, float> Walking = new();
@@ -262,12 +265,15 @@ namespace COTLMP.Game
             foreach (StackFrame Frame in new StackTrace(2, false).GetFrames() ?? Array.Empty<StackFrame>())
             {
                 var Method = Frame.GetMethod();
-                if (Method == null || Method.DeclaringType == typeof(SceneTrace) || (Method.DeclaringType?.FullName ?? "").StartsWith("HarmonyLib") ||
-                    Method.Name.StartsWith("DMD<"))
+                if (Method == null || Method.DeclaringType == typeof(SceneTrace) || (Method.DeclaringType?.FullName ?? "").StartsWith("HarmonyLib"))
                     continue;
                 if (Taken++ > 0)
                     Text.Append(" < ");
-                Text.Append($"{Method.DeclaringType?.Name}.{Method.Name}");
+                /* A patched method runs as Harmony's copy, DMD<Type::Method>: named as the method it is */
+                if (Method.Name.StartsWith("DMD<"))
+                    Text.Append(Method.Name.Substring(4).TrimEnd('>').Replace("::", "."));
+                else
+                    Text.Append($"{Method.DeclaringType?.Name}.{Method.Name}");
                 if (Taken >= 4)
                     break;
             }
@@ -519,6 +525,49 @@ namespace COTLMP.Game
             return false;
         }
 
+        /// <summary>
+        /// The pause menu: what our lamb and the partner's puppet are as it shows and as it hides (a player's "the
+        /// menu fixed it" then has its before and after in the log)
+        /// </summary>
+        [HarmonyPatch(typeof(Lamb.UI.PauseMenu.UIPauseMenuController), "OnShowStarted")]
+        [HarmonyPostfix]
+        private static void PauseShown() => PauseNote("shown");
+
+        [HarmonyPatch(typeof(Lamb.UI.PauseMenu.UIPauseMenuController), "OnHideCompleted")]
+        [HarmonyPostfix]
+        private static void PauseHidden() => PauseNote("hidden");
+
+        private static void PauseNote(string How)
+        {
+            try
+            {
+                if (!CoopSync.InSession)
+                    return;
+                string Of(PlayerFarming Player)
+                {
+                    if (Player == null)
+                        return "-";
+                    var Track = Player.Spine?.AnimationState?.GetCurrent(0);
+                    return $"{Player.state?.CURRENT_STATE} lock {Player.state?.LockStateChanges} walk {Player.GoToAndStopping} anim {Track?.Animation?.Name} " +
+                           $"spine ts {Player.Spine?.AnimationState?.TimeScale:0.##}/{Player.Spine?.timeScale:0.##} animator {Player.simpleSpineAnimator?.enabled}";
+                }
+                PlayerFarming Puppet = null;
+                foreach (PlayerFarming Player in PlayerFarming.players)
+                {
+                    if (Player != null && Player != PlayerFarming.Instance && PlayerManager.IsPuppet(Player.health))
+                        Puppet = Player;
+                }
+                PlayerFarming Input = MonoSingleton<src.UINavigator.UINavigatorNew>.Instance?.AllowInputOnlyFromPlayer;
+                Plugin.Logger?.LogInfo($"[SCENE] pause menu {How} in {CoopSync.CurrentPlace()}: our lamb {Of(PlayerFarming.Instance)}; the partner's puppet {Of(Puppet)}; " +
+                                       $"ts {Time.timeScale:0.##}, menus' input {(Input == null ? "anyone's" : Input == PlayerFarming.Instance ? "our lamb's" : Input.name)}, " +
+                                       $"refused {Refused}");
+            }
+            catch (Exception Error)
+            {
+                Plugin.Logger?.LogWarning($"[SCENE] pause menu note failed: {Error.Message}");
+            }
+        }
+
         private static bool OutOfPlay(StateMachine.State State) =>
             State == StateMachine.State.InActive || State == StateMachine.State.CustomAnimation;
 
@@ -529,6 +578,12 @@ namespace COTLMP.Game
             PlayerFarming Player = PlayerFarming.Instance;
             if (Player == null || __instance != Player.state || !CoopSync.InSession)
                 return;
+            /* The game's setter ignores it (DungeonLeaderMechanics holds the lamb for a leader's intro, say) */
+            if (__instance.LockStateChanges)
+            {
+                ++Refused;
+                return;
+            }
             StateMachine.State Before = __instance.CURRENT_STATE;
             if (OutOfPlay(Before) == OutOfPlay(value))
                 return;
