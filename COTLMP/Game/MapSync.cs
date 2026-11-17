@@ -69,9 +69,8 @@ namespace COTLMP.Game
         private static int HostRun;
         private static readonly Dictionary<int, List<NodeData>> HostLayouts = new();
 
-        /* The partner's picks of the run */
-        private static int PartnerPickRun;
-        private static readonly Dictionary<(int Map, int Step), NodeData> PartnerPicks = new();
+        /* The partner's picks, each of its own run: a run before has the same map and step numbers */
+        private static readonly Dictionary<(int Run, int Map, int Step), NodeData> PartnerPicks = new();
 
         /* Joining player: the map on screen comes from the host */
         private static bool Following;
@@ -137,8 +136,34 @@ namespace COTLMP.Game
                 MapCount = 0;
                 SentLayout = null;
                 SentPicks.Clear();
+                /* Picks of the new run that came before our map are kept */
+                int Old = DropPicks(Run => Run != MapRun);
+                if (Old > 0)
+                    Plugin.Logger?.LogInfo($"[COOP] Dropped {Old} picks of the partner's runs before: we are in run {MapRun}");
             }
             ++MapCount;
+        }
+
+        private static int DropPicks(Func<int, bool> OfRun)
+        {
+            List<(int Run, int Map, int Step)> Gone = PartnerPicks.Keys.Where(Key => OfRun(Key.Run)).ToList();
+            foreach ((int Run, int Map, int Step) Key in Gone)
+                PartnerPicks.Remove(Key);
+            return Gone.Count;
+        }
+
+        /* The partner's pick for this step of the map on screen, in our run only */
+        private static bool PartnerPick(int PathStep, out NodeData Item) =>
+            PartnerPicks.TryGetValue((CoopSync.CurrentRun, MapCount, PathStep), out Item);
+
+        /// <summary>
+        /// The session is over: the partner's picks go (a host we join again sends its run's picks again)
+        /// </summary>
+        internal static void ResetSession()
+        {
+            PartnerPicks.Clear();
+            Following = false;
+            OpenMap = null;
         }
 
         /* HOST ***************************************************************/
@@ -374,16 +399,13 @@ namespace COTLMP.Game
                     int PathStep = Reader.ReadInt16();
                     bool TheirsShared = Reader.ReadBoolean();
                     NodeData Item = ReadNode(Reader);
-                    if (Run != PartnerPickRun)
-                    {
-                        PartnerPickRun = Run;
-                        PartnerPicks.Clear();
-                    }
-                    Plugin.Logger?.LogInfo($"[COOP] The partner went to node {Item.X},{Item.Y} as step {PathStep} of map {Index}{(TheirsShared ? "" : " (on their own map)")}");
+                    Plugin.Logger?.LogInfo($"[COOP] The partner went to node {Item.X},{Item.Y} as step {PathStep} of map {Index} (run {Run}){(TheirsShared ? "" : " (on their own map)")}");
                     /* A pick on a map of their own means nothing on ours */
                     if (!TheirsShared)
                         return;
-                    PartnerPicks[(Index, PathStep)] = Item;
+                    /* Only theirs now and ours are kept (a run of theirs we haven't come to yet, a late one of ours) */
+                    DropPicks(Kept => Kept != Run && Kept != CoopSync.CurrentRun);
+                    PartnerPicks[(Run, Index, PathStep)] = Item;
 
                     /* We picked that step ourselves already */
                     Map.Map Current = MapManager.Instance?.CurrentMap;
@@ -503,7 +525,7 @@ namespace COTLMP.Game
         /// <summary>
         /// Takes the partner's pick on the map on screen, with the node as they had it
         /// </summary>
-        private static void Apply(UIAdventureMapOverlayController Overlay, NodeData Item)
+        private static bool Apply(UIAdventureMapOverlayController Overlay, NodeData Item)
         {
             Map.Map Current = Overlay.Map;
             Node Target = Current?.GetNode(new Point(Item.X, Item.Y));
@@ -511,8 +533,8 @@ namespace COTLMP.Game
             if (Shown == null)
             {
                 Plugin.Logger?.LogWarning($"[COOP] The partner's pick {Item.X},{Item.Y} isn't on our map, picking alone");
-                PartnerPicks.Remove((MapCount, Current?.path.Count ?? 0));
-                return;
+                PartnerPicks.Remove((CoopSync.CurrentRun, MapCount, Current?.path.Count ?? 0));
+                return false;
             }
 
             NodeBlueprint Blueprint = FindBlueprint(Item, Blueprints(MapManager.Instance.DungeonConfig), MapManager.Instance.DungeonConfig);
@@ -538,6 +560,7 @@ namespace COTLMP.Game
             ++PicksApplied;
             OpenMap = null;
             Plugin.Logger?.LogInfo($"[COOP] Went to the partner's node {Item.X},{Item.Y} ({(NodeType)Item.Type})");
+            return true;
         }
 
         /// <summary>
@@ -550,7 +573,7 @@ namespace COTLMP.Game
                 return;
             if (Time.unscaledTime - OpenedAt < 1f || Overlay.Map == null)
                 return;
-            if (PartnerPicks.TryGetValue((MapCount, Overlay.Map.path.Count), out NodeData Item))
+            if (PartnerPick(Overlay.Map.path.Count, out NodeData Item))
                 Apply(Overlay, Item);
         }
 
@@ -701,10 +724,10 @@ namespace COTLMP.Game
             {
                 if (ApplyingPartner || !OnHostMap || !CoopSync.InSession || __instance != OpenMap || !OpenInteractive || __instance.Map == null)
                     return true;
-                if (!PartnerPicks.TryGetValue((MapCount, __instance.Map.path.Count), out NodeData Item))
+                if (!PartnerPick(__instance.Map.path.Count, out NodeData Item))
                     return true;
-                Apply(__instance, Item);
-                return false;
+                /* Their pick not on our map: our click goes */
+                return !Apply(__instance, Item);
             }
         }
     }
