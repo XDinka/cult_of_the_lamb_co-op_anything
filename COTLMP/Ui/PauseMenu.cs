@@ -375,6 +375,7 @@ namespace COTLMP.Ui
             COTLMP.Game.RoomSync.ResetSession();
             COTLMP.Game.MapSync.ResetSession();
             COTLMP.Game.CultRecruits.ResetSession();
+            COTLMP.Game.RatauSync.ResetSession();
             COTLMP.Game.SceneEnds.ResetSession();
             COTLMP.Game.SharedScenes.ResetSession();
             COTLMP.Game.SceneTrace.ResetSession();

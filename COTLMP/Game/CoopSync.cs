@@ -132,7 +132,9 @@ namespace COTLMP.Game
             /* FinalBoss: our step in the final fight (refused / knelt / the boss fell) */
             FinalChoice = 55,
             /* RunClock: how long the host's run has gone, its death screen's time for both */
-            RunClock = 56
+            RunClock = 56,
+            /* RatauSync: the host's talk with Ratau in the cult starts / is over / its Ratau went later (57 went to a build never released) */
+            RatauTalk = 58
         }
 
         /// <summary>
@@ -438,6 +440,10 @@ namespace COTLMP.Game
 
                 case Kind.FoxTalk:
                     FoxSync.OnTalk(Reader);
+                    break;
+
+                case Kind.RatauTalk:
+                    RatauSync.OnRelay(Reader);
                     break;
 
                 case Kind.MapCursor:
