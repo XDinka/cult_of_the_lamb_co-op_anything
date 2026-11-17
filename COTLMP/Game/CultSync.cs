@@ -608,7 +608,7 @@ namespace COTLMP.Game
             List<string> Differed = new();
             int Count = Reader.ReadUInt16();
             Dictionary<string, MemberInfo> ByName = DataMembers().ToDictionary(Member => Member.Name);
-            bool Quests = false;
+            bool Quests = false, Bars = false;
             for (int Index = 0; Index < Count; Index++)
             {
                 string Member = Reader.ReadString();
@@ -617,7 +617,9 @@ namespace COTLMP.Game
                     continue;
                 if (Fix && !Same(HostSave.Pack(MemberType(Info), Get(Info, DataManager.Instance)), Packed))
                     Differed.Add(Member);
+                bool BarWasDown = BarMembers.Contains(Member) && !(Get(Info, DataManager.Instance) is true);
                 Set(Info, DataManager.Instance, HostSave.Unpack(MemberType(Info), Packed));
+                Bars |= BarWasDown && Get(Info, DataManager.Instance) is true;
                 AgreedData[Member] = Packed;
                 if (DataLast.ContainsKey(Member))
                     DataLast[Member] = Get(Info, DataManager.Instance);
@@ -628,6 +630,8 @@ namespace COTLMP.Game
             }
             if (Quests)
                 FreshenQuests();
+            if (Bars)
+                CoopHud.BarsUp();
             if (Fix)
                 Plugin.Logger?.LogInfo($"[COOP] Sync check: the cult's data differed from the partner's in {(Differed.Count > 0 ? string.Join(", ", Differed) : "nothing any more")}, took theirs");
         }
@@ -635,6 +639,9 @@ namespace COTLMP.Game
         /* The quest lists, as the save keeps them */
         private static readonly HashSet<string> QuestMembers = new()
             { "Objectives", "CompletedObjectives", "FailedObjectives", "TrackedObjectiveGroupIDs" };
+
+        /* The cult's bars on the HUD: each reads its flag only as it comes up or in its own reveal (CoopHud.BarsUp) */
+        private static readonly HashSet<string> BarMembers = new() { "ShowCultFaith", "ShowCultHunger", "ShowCultIllness", "ShowCultWarmth" };
 
         private static float QuestsFreshened = -10f;
         internal static int QuestRefreshes;

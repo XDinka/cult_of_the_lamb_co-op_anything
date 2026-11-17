@@ -222,6 +222,54 @@ namespace COTLMP.Game
             }
         }
 
+        /* How often a bar of the cult came up for the partner's reveal, for the test harness report */
+        internal static int BarsRaised;
+
+        /// <summary>
+        /// The partner's game revealed a bar of the cult (the faith circle in Ratau's temple lesson,
+        /// hunger, illness, warmth): its flag came with the cult's data, but a bar reads its flag only
+        /// as it comes up (the cult loading) or in its own reveal, which played in the partner's game.
+        /// Ours comes up now as the cult's loading would bring it up. The player's own bars of
+        /// Woolhaven's survival (hunger, sleep) are each player's and aren't touched.
+        /// </summary>
+        internal static void BarsUp()
+        {
+            DataManager Data = DataManager.Instance;
+            if (Data == null)
+                return;
+            CultFaithManager Faith = CultFaithManager.Instance;
+            if (Faith != null)
+                BarUp(Faith, Faith.Container, Data.ShowCultFaith, "faith circle");
+            HungerBar Hunger = HungerBar.Instance;
+            if (Hunger != null)
+                BarUp(Hunger, Hunger.Container, Data.ShowCultHunger, "hunger bar");
+            IllnessBar Illness = IllnessBar.Instance;
+            if (Illness != null)
+                BarUp(Illness, Illness.Container, Data.ShowCultIllness, "illness bar");
+            WarmthBar Warmth = WarmthBar.Instance;
+            if (Warmth != null)
+                BarUp(Warmth, Warmth.Container, Data.ShowCultWarmth, "warmth bar");
+        }
+
+        private static void BarUp(MonoBehaviour Bar, GameObject Container, bool Flag, string What)
+        {
+            try
+            {
+                /* Up already (a reveal shows it in the very step it sets the flag), or the HUD isn't up: its OnEnable reads the flag then */
+                if (!Flag || Container == null || Container.activeSelf || !Bar.isActiveAndEnabled)
+                    return;
+                /* Its own OnEnable again: the container from the flag (and the faith circle's fill with it) */
+                Bar.enabled = false;
+                Bar.enabled = true;
+                ++BarsRaised;
+                Plugin.Logger?.LogInfo($"[COOP] The partner's game revealed the cult's {What}: ours is up too");
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger?.LogWarning($"[COOP] Can't bring up the cult's {What}: {e.Message}");
+            }
+        }
+
         /// <summary>
         /// Builds the HUD again for every lamb in the game's list, the Lamb first
         /// </summary>
