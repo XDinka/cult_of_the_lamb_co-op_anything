@@ -120,7 +120,7 @@ namespace COTLMP.Debug
                    $"checks={CultSync.ChecksSent}/{CultSync.ChecksTaken}/{CultSync.GroupsDiffered}/{CultSync.FixesAsked}/{CultSync.FixesSent}/{CultSync.FixesTaken} load={CultSync.LoadMsPerSecond:F2}/{CultSync.WorstFrameMs:F2}/{CultSync.KBPerSecond:F2} " +
                    $"fox={COTLMP.Game.FoxSync.Talks}/{COTLMP.Game.FoxSync.Mirrored}/{COTLMP.Game.FoxSync.Refused} lobby={COTLMP.Game.Lobby.Opened}/{COTLMP.Game.Lobby.Started}/{COTLMP.Game.Lobby.Stood}/{COTLMP.Game.Lobby.Heard} intro={COTLMP.Game.IntroCoop.State} " +
                    $"versions={COTLMP.Game.VersionCheck.Partner}/{COTLMP.Network.Updater.Version}/{COTLMP.Game.VersionCheck.Warned}/{COTLMP.Game.VersionCheck.Suggested}/{COTLMP.Game.VersionCheck.SuggestionsTaken} " +
-                   $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount}/{CultHands.PicksLeftToHost} data={CultSync.DataApplied} " +
+                   $"hands={CultHands.Taken}/{CultHands.Given}/{CultHands.TakenBack}/{CultHands.Ticked}/{CultHands.Moved}/{CultHands.FriendCount}/{CultHands.PicksLeftToHost} recruits={CultRecruits.Started}/{CultRecruits.Refused}/{CultRecruits.TakenAway}/{CultRecruits.GiftsLeftToHost}/{CultRecruits.StoryNewcomersMade}/{CultRecruits.StoryNewcomersRefused}/{CultRecruits.StoryNewcomersOwn}/{CultRecruits.StoryNewcomersShown}/{CultRecruits.JoinedAsShown}/{CultRecruits.JoinedUnlisted}/{CultRecruits.JoinedAlreadyMember} data={CultSync.DataApplied} " +
                    $"tasks={string.Join(",", Followers.Select(Info => $"{Info?.ID}:{FollowerBrain.FindBrainByID(Info?.ID ?? 0)?.CurrentTaskType}:{Info?.Location}:{Info?.CurrentOverrideTaskType}"))}";
         }
     }

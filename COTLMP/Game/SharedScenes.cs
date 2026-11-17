@@ -70,6 +70,11 @@ namespace COTLMP.Game
          */
         private const int EndClosed = 0, EndReplaced = 1, EndGone = 2;
 
+        /// <summary>
+        /// The friend's game runs the callback of a talk the host led and closed: the host's game ran it too
+        /// </summary>
+        internal static bool HostsCallback { get; private set; }
+
         private sealed class HostScene
         {
             public int Position = -1;
@@ -254,14 +259,16 @@ namespace COTLMP.Game
             bool Scripted = CallsConversationEnd != null && !(bool)CallsConversationEnd.GetValue(null);
             if (!WithCallback)
                 Talk.CallBack = null;
-            bool Was = Applying;
+            bool Was = Applying, HadHostsCallback = HostsCallback;
             Applying = true;
+            HostsCallback = WithCallback;
             try
             {
                 Box.Close();
             }
             finally
             {
+                HostsCallback = HadHostsCallback;
                 Talk.CallBack = Callback;
                 Applying = Was;
                 Current = null;

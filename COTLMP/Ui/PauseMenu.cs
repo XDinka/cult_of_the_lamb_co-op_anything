@@ -374,6 +374,7 @@ namespace COTLMP.Ui
             /* What each session leaves in these (found by the harness's -cotlmp-sessions test) */
             COTLMP.Game.RoomSync.ResetSession();
             COTLMP.Game.MapSync.ResetSession();
+            COTLMP.Game.CultRecruits.ResetSession();
             COTLMP.Game.SceneEnds.ResetSession();
             COTLMP.Game.SharedScenes.ResetSession();
             COTLMP.Game.SceneTrace.ResetSession();
