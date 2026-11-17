@@ -90,6 +90,8 @@ namespace COTLMP.Game
         /// <summary>
         /// In a session two games share a room's fight, and a lost message could leave one of them
         /// shut in with nothing left to kill. Opens such a room, as the end of its fight would.
+        /// A scene on (a leader's intro shuts the doors before its enemies come, a talk, a scene's end
+        /// held for the partner) is no stuck room: the wait starts again after it.
         /// </summary>
         private static IEnumerator Unstick()
         {
@@ -102,8 +104,9 @@ namespace COTLMP.Game
                 {
                     BiomeRoom Room = BiomeGenerator.Instance?.CurrentRoom;
                     string Place = CoopSync.CurrentPlace();
+                    bool Scene = LetterBox.IsPlaying || (MMTools.MMConversation.isPlaying && !MMTools.MMConversation.isBark) || SceneEnds.Waiting || SharedScenes.HoldingRoom;
                     bool Stuck = CoopSync.InSession && Room != null && Place != null && !MMTools.MMTransition.IsPlaying && !IsBossRoom(Room) &&
-                                 DoorsShut() && !AnyEnemyLeft();
+                                 !Scene && DoorsShut() && !AnyEnemyLeft();
                     if (!Stuck || Place != ShutPlace)
                     {
                         ShutSince = Stuck ? Time.time : -1f;
